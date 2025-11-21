@@ -34,7 +34,7 @@ function App() {
   const [searchQuery, setSearchQuery] = useState("");
   const [searchFilter, setSearchFilter] = useState<SearchFilter>("all");
 
-  const { documents, knowledgeBase, employees, news, fetchPortalData } = usePortalStore();
+  const { documents, knowledgeBase, employees, news, departments, fetchPortalData } = usePortalStore();
 
   useEffect(() => {
     fetchPortalData();
@@ -55,6 +55,11 @@ function App() {
     const matches = (value: string) => value.toLowerCase().includes(query);
     const filterMatches = (section: SearchFilter) => searchFilter === "all" || searchFilter === section;
 
+    const getDepartmentName = (id: number) => {
+      const dept = departments.find(d => d.id === id);
+      return dept ? dept.name : "";
+    };
+
     return {
       documents: filterMatches("documents")
         ? documents.filter((doc) => matches(doc.title) || matches(doc.author)).slice(0, 5)
@@ -63,11 +68,11 @@ function App() {
         ? knowledgeBase.filter((article) => matches(article.title) || matches(article.tags.join(" "))).slice(0, 5)
         : [],
       employees: filterMatches("employees")
-        ? employees.filter((employee) => matches(employee.name) || matches(employee.department)).slice(0, 5)
+        ? employees.filter((employee) => matches(employee.full_name) || matches(getDepartmentName(employee.department_id))).slice(0, 5)
         : [],
       news: filterMatches("news") ? news.filter((item) => matches(item.title)).slice(0, 5) : [],
     };
-  }, [searchFilter, searchQuery, documents, knowledgeBase, employees, news]);
+  }, [searchFilter, searchQuery, documents, knowledgeBase, employees, news, departments]);
 
   const renderModule = () => {
     switch (activeModule) {
@@ -121,6 +126,7 @@ function App() {
         query={searchQuery}
         filter={searchFilter}
         results={searchResults}
+        departments={departments}
         onClose={() => setIsSearchOpen(false)}
         onQueryChange={setSearchQuery}
         onFilterChange={setSearchFilter}

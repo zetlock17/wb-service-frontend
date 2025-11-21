@@ -12,6 +12,74 @@ export type ModuleId =
   | "training"
   | "reports";
 
+export interface Employee {
+  id: number;
+  full_name: string;
+  position: string;
+  department_id: number;
+  birth_date: string;
+  hire_date: string;
+  work_phone: string;
+  work_email: string;
+  work_band: string;
+  manager_eid: number | null;
+  hrbp_eid: number | null;
+}
+
+export interface Department {
+  id: number;
+  name: string;
+  parent_id: number | null;
+}
+
+export interface Profile {
+  id: number;
+  employee_id: number;
+  avatar_id: number | null;
+  personal_phone: string;
+  telegram: string;
+  about_me: string;
+}
+
+export interface ProfileVacation {
+  id: number;
+  profile_id: number;
+  is_planned: boolean;
+  start_date: string;
+  end_date: string;
+  substitute_eid: number | null;
+  comment: string;
+  is_official: boolean;
+}
+
+export interface ProfileProject {
+  id: number;
+  profile_id: number;
+  name: string;
+  start_d: string;
+  end_d: string | null;
+  position: string;
+  link: string;
+}
+
+export interface AuthToken {
+  id: number;
+  employee_eid: number;
+  token: string;
+  expires_at: string;
+  created_at: string;
+}
+
+export interface File {
+  id: number;
+  name: string;
+  path: string;
+}
+
+export interface AlembicVersion {
+  version_num: string;
+}
+
 export interface VacationPlan {
   status: "planned" | "active";
   dateFrom: string;
@@ -29,23 +97,14 @@ export interface Project {
 }
 
 export interface UserProfile {
-  eid: string;
-  name: string;
-  position: string;
-  department: string;
-  parentDepartment: string;
-  email: string;
-  phone: string;
-  personalPhone: string;
-  telegram?: string;
-  birthday: string;
-  startDate: string;
-  band: string;
-  manager: string;
-  hrBP: string;
-  vacation?: VacationPlan;
-  projects: Project[];
-  about: string;
+  employee: Employee;
+  profile: Profile;
+  department?: Department;
+  manager?: Employee;
+  hrbp?: Employee;
+  vacations: ProfileVacation[];
+  projects: ProfileProject[];
+  avatar?: File;
 }
 
 export interface NotificationItem {
@@ -137,15 +196,6 @@ export interface Course {
   status: "completed" | "in_progress" | "not_started";
   mandatory: boolean;
   certificate?: string;
-}
-
-export interface Employee {
-  id: number;
-  name: string;
-  position: string;
-  department: string;
-  phone: string;
-  email: string;
 }
 
 export interface Birthday {

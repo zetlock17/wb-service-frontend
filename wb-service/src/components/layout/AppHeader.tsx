@@ -104,9 +104,9 @@ const AppHeader = ({
                 className="flex items-center gap-2 p-2 hover:bg-gray-100 rounded-lg"
               >
                 <div className="w-8 h-8 bg-linear-to-br from-purple-500 to-blue-500 rounded-full flex items-center justify-center text-white text-sm font-bold">
-                  {currentUser.name
+                  {currentUser.employee.full_name
                     .split(" ")
-                    .map((n) => n[0])
+                    .map((n: string) => n[0])
                     .join("")}
                 </div>
                 <ChevronDown className="w-4 h-4 text-gray-600" />

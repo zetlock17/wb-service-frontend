@@ -6,15 +6,20 @@ const StructureModule = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [departmentFilter, setDepartmentFilter] = useState("all");
   const [positionFilter, setPositionFilter] = useState("all");
-  const { employees, loading } = usePortalStore();
+  const { employees, departments, loading } = usePortalStore();
 
-  const departments = useMemo(() => ["all", ...new Set(employees.map((employee) => employee.department))], [employees]);
+  const getDepartmentName = (id: number) => {
+    const dept = departments.find(d => d.id === id);
+    return dept ? dept.name : "";
+  };
+
+  const departmentOptions = useMemo(() => ["all", ...new Set(employees.map((employee) => getDepartmentName(employee.department_id)))], [employees, departments]);
   const positions = useMemo(() => ["all", ...new Set(employees.map((employee) => employee.position))], [employees]);
 
   const filteredEmployees = useMemo(() => {
     let result = employees;
     if (departmentFilter !== "all") {
-      result = result.filter((employee) => employee.department === departmentFilter);
+      result = result.filter((employee) => getDepartmentName(employee.department_id) === departmentFilter);
     }
     if (positionFilter !== "all") {
       result = result.filter((employee) => employee.position === positionFilter);
@@ -23,17 +28,17 @@ const StructureModule = () => {
       const query = searchQuery.trim().toLowerCase();
       result = result.filter(
         (employee) =>
-          employee.name.toLowerCase().includes(query) ||
+          employee.full_name.toLowerCase().includes(query) ||
           employee.position.toLowerCase().includes(query) ||
-          employee.department.toLowerCase().includes(query),
+          getDepartmentName(employee.department_id).toLowerCase().includes(query),
       );
     }
     return result;
-  }, [employees, departmentFilter, positionFilter, searchQuery]);
+  }, [employees, departments, departmentFilter, positionFilter, searchQuery]);
 
   const exportToCSV = () => {
     const headers = ["ФИО", "Должность", "Департамент", "Телефон", "Email"];
-    const rows = filteredEmployees.map((employee) => [employee.name, employee.position, employee.department, employee.phone, employee.email]);
+    const rows = filteredEmployees.map((employee) => [employee.full_name, employee.position, getDepartmentName(employee.department_id), employee.work_phone, employee.work_email]);
     const csvContent = [headers, ...rows].map((row) => row.join(",")).join("\n");
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
     const link = document.createElement("a");
@@ -88,7 +93,7 @@ const StructureModule = () => {
               className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
             >
               <option value="all">Все департаменты</option>
-              {departments
+              {departmentOptions
                 .filter((department) => department !== "all")
                 .map((department) => (
                   <option key={department} value={department}>
@@ -124,21 +129,21 @@ const StructureModule = () => {
               <div key={employee.id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
                 <div className="flex items-start gap-3">
                   <div className="w-12 h-12 bg-linear-to-br from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white font-bold shrink-0">
-                    {employee.name
+                    {employee.full_name
                       .split(" ")
                       .map((name) => name[0])
                       .join("")}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <h3 className="font-semibold text-gray-900 truncate">{employee.name}</h3>
+                    <h3 className="font-semibold text-gray-900 truncate">{employee.full_name}</h3>
                     <p className="text-sm text-gray-600 truncate">{employee.position}</p>
-                    <p className="text-xs text-gray-500 truncate">{employee.department}</p>
+                    <p className="text-xs text-gray-500 truncate">{getDepartmentName(employee.department_id)}</p>
                     <div className="mt-3 space-y-1">
-                      <a href={`mailto:${employee.email}`} className="text-xs text-purple-600 hover:underline flex items-center gap-1">
+                      <a href={`mailto:${employee.work_email}`} className="text-xs text-purple-600 hover:underline flex items-center gap-1">
                         <Mail className="w-3 h-3" />
                         Email
                       </a>
-                      <a href={`tel:${employee.phone}`} className="text-xs text-purple-600 hover:underline flex items-center gap-1">
+                      <a href={`tel:${employee.work_phone}`} className="text-xs text-purple-600 hover:underline flex items-center gap-1">
                         <Phone className="w-3 h-3" />
                         Позвонить
                       </a>

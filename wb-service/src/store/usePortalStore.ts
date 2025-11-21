@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import {
+  departments as mockDepartments,
   ideas as mockIdeas,
   news as mockNews,
   documents as mockDocuments,
@@ -17,6 +18,7 @@ import type {
   Birthday,
   CalendarEvent,
   Course,
+  Department,
   DocumentItem,
   Employee,
   Idea,
@@ -29,6 +31,7 @@ import type {
 } from "../types/portal";
 
 interface PortalState {
+  departments: Department[];
   ideas: Idea[];
   news: NewsItem[];
   documents: DocumentItem[];
@@ -49,6 +52,7 @@ interface PortalState {
 }
 
 const usePortalStore = create<PortalState>((set) => ({
+  departments: [],
   ideas: [],
   news: [],
   documents: [],
@@ -71,6 +75,7 @@ const usePortalStore = create<PortalState>((set) => ({
       // Simulate API call
       await new Promise((resolve) => setTimeout(resolve, 500));
       set({
+        departments: mockDepartments,
         ideas: mockIdeas,
         news: mockNews,
         documents: mockDocuments,

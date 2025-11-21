@@ -1,5 +1,6 @@
 import { BookOpen, FileText, MessageSquare, Search, Users, X } from "lucide-react";
 import type {
+  Department,
   DocumentItem,
   GlobalSearchResults,
   KnowledgeArticle,
@@ -14,6 +15,7 @@ interface GlobalSearchModalProps {
   query: string;
   filter: SearchFilter;
   results: GlobalSearchResults;
+  departments: Department[];
   onClose: () => void;
   onQueryChange: (value: string) => void;
   onFilterChange: (value: SearchFilter) => void;
@@ -33,11 +35,16 @@ const GlobalSearchModal = ({
   query,
   filter,
   results,
+  departments,
   onClose,
   onQueryChange,
   onFilterChange,
   onNavigate,
 }: GlobalSearchModalProps) => {
+  const getDepartmentName = (id: number) => {
+    const dept = departments.find(d => d.id === id);
+    return dept ? dept.name : "";
+  };
   if (!isOpen) {
     return null;
   }
@@ -124,9 +131,9 @@ const GlobalSearchModal = ({
                 items={results.employees}
                 renderItem={(employee) => (
                   <>
-                    <h4 className="font-medium text-gray-900">{employee.name}</h4>
+                    <h4 className="font-medium text-gray-900">{employee.full_name}</h4>
                     <p className="text-sm text-gray-600">
-                      {employee.position} • {employee.department}
+                      {employee.position} • {getDepartmentName(employee.department_id)}
                     </p>
                   </>
                 )}

@@ -32,8 +32,8 @@ const ProfileMenu = ({ isOpen, onNavigateHome }: ProfileMenuProps) => {
   return (
     <div className="absolute right-0 mt-2 w-64 bg-white rounded-lg shadow-lg border border-gray-200">
       <div className="p-4 border-b border-gray-200">
-        <p className="font-medium text-gray-900">{currentUser.name}</p>
-        <p className="text-sm text-gray-500">{currentUser.eid}</p>
+        <p className="font-medium text-gray-900">{currentUser.employee.full_name}</p>
+        <p className="text-sm text-gray-500">EID: {currentUser.employee.id}</p>
       </div>
       <div className="p-2">
         <button

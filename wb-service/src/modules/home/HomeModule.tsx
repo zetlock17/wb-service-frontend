@@ -27,7 +27,7 @@ type BirthdayFilter = "today" | "week" | "month";
 const HomeModule = ({ onNavigate }: HomeModuleProps) => {
   const [birthdayFilter, setBirthdayFilter] = useState<BirthdayFilter>("week");
   const [selectedPerson, setSelectedPerson] = useState<Birthday | null>(null);
-  const { currentUser, upcomingBirthdays, calendarEvents, courses, loading } = usePortalStore();
+  const { currentUser, upcomingBirthdays, calendarEvents, courses, employees, loading } = usePortalStore();
 
   const filteredBirthdays = useMemo(() => {
     return upcomingBirthdays.filter((person) => {
@@ -40,6 +40,25 @@ const HomeModule = ({ onNavigate }: HomeModuleProps) => {
       return true;
     });
   }, [upcomingBirthdays, birthdayFilter]);
+
+  const getEmployeeNameById = (id: number | null) => {
+    if (!id) return null;
+    const emp = employees.find(e => e.id === id);
+    return emp ? emp.full_name : null;
+  };
+
+  const formatDate = (dateStr: string) => {
+    const date = new Date(dateStr);
+    return date.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  };
+
+  const getVacationStatus = (vacation: any) => {
+    const now = new Date();
+    const start = new Date(vacation.start_date);
+    const end = new Date(vacation.end_date);
+    if (now >= start && now <= end) return "active";
+    return "planned";
+  };
 
   if (loading || !currentUser) {
     return (
@@ -56,6 +75,7 @@ const HomeModule = ({ onNavigate }: HomeModuleProps) => {
   }
 
   const user = currentUser;
+  const currentVacation = user.vacations[0];
 
   return (
     <div className="space-y-6">
@@ -63,31 +83,31 @@ const HomeModule = ({ onNavigate }: HomeModuleProps) => {
         <div className="flex items-start justify-between mb-4">
           <div className="flex items-center gap-4">
             <div className="w-20 h-20 bg-linear-to-br from-purple-500 to-blue-500 rounded-full flex items-center justify-center text-white text-2xl font-bold">
-              {user.name
+              {user.employee.full_name
                 .split(" ")
                 .map((n) => n[0])
                 .join("")}
             </div>
             <div>
               <div className="flex items-center gap-2 mb-1">
-                <h2 className="text-2xl font-bold text-gray-900">{user.name}</h2>
-                {user.vacation && (
+                <h2 className="text-2xl font-bold text-gray-900">{user.employee.full_name}</h2>
+                {currentVacation && (
                   <span
                     className={`px-2 py-1 text-xs font-medium rounded-full ${
-                      user.vacation.status === "active"
+                      getVacationStatus(currentVacation) === "active"
                         ? "bg-orange-100 text-orange-700"
                         : "bg-blue-100 text-blue-700"
                     }`}
                   >
-                    {user.vacation.status === "active" ? "В отпуске" : "Отпуск запланирован"}
+                    {getVacationStatus(currentVacation) === "active" ? "В отпуске" : "Отпуск запланирован"}
                   </span>
                 )}
                 <button className="p-1 hover:bg-gray-100 rounded" aria-label="Поделиться профилем">
                   <Share2 className="w-4 h-4 text-gray-500" />
                 </button>
               </div>
-              <p className="text-gray-600">{user.position}</p>
-              <p className="text-sm text-gray-500">{user.eid}</p>
+              <p className="text-gray-600">{user.employee.position}</p>
+              <p className="text-sm text-gray-500">EID: {user.employee.id}</p>
             </div>
           </div>
           <button className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 flex items-center gap-2">
@@ -99,11 +119,11 @@ const HomeModule = ({ onNavigate }: HomeModuleProps) => {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <InfoCard title="Данные профиля" icon={<User className="w-5 h-5 text-purple-600" />}>
-          <ProfileRow label="EID" value={user.eid} secure />
-          <ProfileRow label="Должность" value={user.position} secure />
-          <ProfileRow label="Департамент" value={user.department} secure helper={user.parentDepartment} />
-          <ProfileRow label="Дата рождения" value={user.birthday} />
-          <ProfileRow label="Работает в компании" value={`с ${user.startDate}`} secure />
+          <ProfileRow label="EID" value={user.employee.id.toString()} secure />
+          <ProfileRow label="Должность" value={user.employee.position} secure />
+          <ProfileRow label="Департамент" value={user.department?.name || ""} secure />
+          <ProfileRow label="Дата рождения" value={formatDate(user.employee.birth_date)} />
+          <ProfileRow label="Работает в компании" value={`с ${formatDate(user.employee.hire_date)}`} secure />
         </InfoCard>
 
         <InfoCard title="Контакты" icon={<Mail className="w-5 h-5 text-purple-600" />}>
@@ -111,20 +131,20 @@ const HomeModule = ({ onNavigate }: HomeModuleProps) => {
             <div>
               <p className="text-sm text-gray-500">Личный телефон</p>
               <div className="flex items-center gap-2">
-                <p className="font-medium">{user.personalPhone}</p>
+                <p className="font-medium">{user.profile.personal_phone}</p>
                 <button className="p-1 hover:bg-gray-100 rounded transition-colors">
                   <Edit2 className="w-3 h-3 text-gray-500" />
                 </button>
               </div>
             </div>
-            <ProfileRow label="Рабочий телефон" value={user.phone} secure />
-            <ProfileRow label="Рабочая почта" value={user.email} secure isSmall />
-            <ProfileRow label="Band" value={user.band} secure />
+            <ProfileRow label="Рабочий телефон" value={user.employee.work_phone} secure />
+            <ProfileRow label="Рабочая почта" value={user.employee.work_email} secure isSmall />
+            <ProfileRow label="Band" value={user.employee.work_band} secure />
             <div>
               <p className="text-sm text-gray-500">Telegram</p>
-              {user.telegram ? (
+              {user.profile.telegram ? (
                 <div className="flex items-center gap-2">
-                  <p className="font-medium">{user.telegram}</p>
+                  <p className="font-medium">{user.profile.telegram}</p>
                   <button className="p-1 hover:bg-gray-100 rounded transition-colors">
                     <Edit2 className="w-3 h-3 text-gray-500" />
                   </button>
@@ -138,8 +158,8 @@ const HomeModule = ({ onNavigate }: HomeModuleProps) => {
 
         <InfoCard title="Структура" icon={<Users className="w-5 h-5 text-purple-600" />}>
           <div className="space-y-3">
-            <StructureLink label="Руководитель" value={user.manager} />
-            <StructureLink label="HR-бизнес-партнёр" value={user.hrBP} />
+            <StructureLink label="Руководитель" value={user.manager?.full_name || ""} />
+            <StructureLink label="HR-бизнес-партнёр" value={user.hrbp?.full_name || ""} />
             <button
               onClick={() => onNavigate("structure")}
               className="mt-4 text-sm text-purple-600 hover:underline flex items-center gap-1"
@@ -151,7 +171,7 @@ const HomeModule = ({ onNavigate }: HomeModuleProps) => {
       </div>
 
       <Card title="О себе" icon={<User className="w-5 h-5 text-purple-600" />}>
-        <p className="text-gray-700 leading-relaxed">{user.about}</p>
+        <p className="text-gray-700 leading-relaxed">{user.profile.about_me}</p>
       </Card>
 
       <Card
@@ -180,39 +200,41 @@ const HomeModule = ({ onNavigate }: HomeModuleProps) => {
                   </a>
                 )}
               </div>
-              <p className="text-sm text-gray-600 mb-1">{project.role}</p>
-              <p className="text-xs text-gray-500">{project.period}</p>
+              <p className="text-sm text-gray-600 mb-1">{project.position}</p>
+              <p className="text-xs text-gray-500">
+                {formatDate(project.start_d)} - {project.end_d ? formatDate(project.end_d) : "настоящее время"}
+              </p>
             </div>
           ))}
         </div>
       </Card>
 
-      {user.vacation && (
+      {currentVacation && (
         <Card title="Отпуск" icon={<Calendar className="w-5 h-5 text-purple-600" />}>
           <div className="space-y-4">
             <div className="flex items-center gap-2">
               <p className="text-sm text-gray-500">Статус:</p>
               <span
                 className={`px-3 py-1 rounded-full text-sm font-medium ${
-                  user.vacation.status === "active"
+                  getVacationStatus(currentVacation) === "active"
                     ? "bg-orange-100 text-orange-700"
                     : "bg-blue-100 text-blue-700"
                 }`}
               >
-                {user.vacation.status === "active" ? "В отпуске" : "Планируется"}
+                {getVacationStatus(currentVacation) === "active" ? "В отпуске" : "Планируется"}
               </span>
             </div>
             <div className="grid grid-cols-2 gap-4">
-              <VacationInfo label="Дата начала" value={user.vacation.dateFrom} />
-              <VacationInfo label="Дата окончания" value={user.vacation.dateTo} />
+              <VacationInfo label="Дата начала" value={formatDate(currentVacation.start_date)} />
+              <VacationInfo label="Дата окончания" value={formatDate(currentVacation.end_date)} />
             </div>
-            {user.vacation.substitute && (
-              <StructureLink label="Замещение" value={user.vacation.substitute} />
+            {currentVacation.substitute_eid && (
+              <StructureLink label="Замещение" value={getEmployeeNameById(currentVacation.substitute_eid) || ""} />
             )}
-            {user.vacation.comment && (
+            {currentVacation.comment && (
               <div>
                 <p className="text-sm text-gray-500 mb-1">Комментарий</p>
-                <p className="text-gray-700">{user.vacation.comment}</p>
+                <p className="text-gray-700">{currentVacation.comment}</p>
               </div>
             )}
           </div>
