@@ -1,5 +1,5 @@
 import { Bell } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import usePortalStore from "../../store/usePortalStore";
 import type { NotificationItem } from "../../types/portal";
 
@@ -16,11 +16,13 @@ const filters: Array<{ id: NotificationItem["type"] | "all"; label: string }> = 
 
 interface NotificationsPanelProps {
   isOpen: boolean;
+  onClose: () => void;
 }
 
-const NotificationsPanel = ({ isOpen }: NotificationsPanelProps) => {
+const NotificationsPanel = ({ isOpen, onClose }: NotificationsPanelProps) => {
   const [filter, setFilter] = useState<NotificationItem["type"] | "all">("all");
   const { notifications } = usePortalStore();
+  const panelRef = useRef<HTMLDivElement>(null);
 
   const filteredNotifications = useMemo(
     () =>
@@ -30,12 +32,28 @@ const NotificationsPanel = ({ isOpen }: NotificationsPanelProps) => {
     [notifications, filter],
   );
 
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (panelRef.current && !panelRef.current.contains(event.target as Node)) {
+        onClose();
+      }
+    };
+
+    if (isOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isOpen, onClose]);
+
   if (!isOpen) {
     return null;
   }
 
   return (
-    <div className="absolute right-0 mt-2 w-96 bg-white rounded-lg shadow-lg border border-gray-200 max-h-[500px] overflow-y-auto z-50">
+    <div ref={panelRef} className="absolute right-0 mt-2 w-96 bg-white rounded-lg shadow-lg border border-gray-200 max-h-[500px] overflow-y-auto z-50">
       <div className="p-4 border-b border-gray-200">
         <h3 className="font-semibold text-gray-900 mb-3">Уведомления</h3>
         <div className="flex gap-2 flex-wrap">

@@ -17,6 +17,7 @@ import { useMemo, useState } from "react";
 import Modal from "../../components/common/Modal";
 import usePortalStore from "../../store/usePortalStore";
 import type { Birthday, ModuleId } from "../../types/portal";
+import { editableFields } from "../../types/portal";
 
 interface HomeModuleProps {
   onNavigate: (moduleId: ModuleId) => void;
@@ -27,7 +28,45 @@ type BirthdayFilter = "today" | "week" | "month";
 const HomeModule = ({ onNavigate }: HomeModuleProps) => {
   const [birthdayFilter, setBirthdayFilter] = useState<BirthdayFilter>("week");
   const [selectedPerson, setSelectedPerson] = useState<Birthday | null>(null);
-  const { currentUser, upcomingBirthdays, calendarEvents, courses, employees, loading } = usePortalStore();
+  const [editingField, setEditingField] = useState<{ section: string; field?: string; index?: number } | null>(null);
+  const [editingValues, setEditingValues] = useState<any>({});
+
+  const startEditing = (section: string, field?: string, currentValue?: any, index?: number) => {
+    setEditingField({ section, field, index });
+    setEditingValues(currentValue || {});
+  };
+
+  const saveEditing = () => {
+    if (!currentUser) return;
+    if (editingField?.section === 'profile') {
+      updateCurrentUser({
+        profile: { ...currentUser.profile, ...editingValues }
+      });
+    } else if (editingField?.section === 'projects') {
+      if (editingField.field === 'add') {
+        const newProject = { ...editingValues, id: currentUser.projects.length + 1 };
+        updateCurrentUser({
+          projects: [...currentUser.projects, newProject]
+        });
+      } else if (editingField.index !== undefined) {
+        const updatedProjects = [...currentUser.projects];
+        updatedProjects[editingField.index] = { ...updatedProjects[editingField.index], ...editingValues };
+        updateCurrentUser({
+          projects: updatedProjects
+        });
+      }
+    } else if (editingField?.section === 'vacations') {
+      updateCurrentUser({
+        vacations: currentUser.vacations.map((v, i) => i === 0 ? { ...v, ...editingValues } : v)
+      });
+    }
+    setEditingField(null);
+  };
+
+  const cancelEditing = () => {
+    setEditingField(null);
+  };
+  const { currentUser, upcomingBirthdays, calendarEvents, courses, employees, loading, updateCurrentUser } = usePortalStore();
 
   const filteredBirthdays = useMemo(() => {
     return upcomingBirthdays.filter((person) => {
@@ -119,40 +158,22 @@ const HomeModule = ({ onNavigate }: HomeModuleProps) => {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <InfoCard title="Данные профиля" icon={<User className="w-5 h-5 text-purple-600" />}>
-          <ProfileRow label="EID" value={user.employee.id.toString()} secure />
-          <ProfileRow label="Должность" value={user.employee.position} secure />
-          <ProfileRow label="Департамент" value={user.department?.name || ""} secure />
-          <ProfileRow label="Дата рождения" value={formatDate(user.employee.birth_date)} />
-          <ProfileRow label="Работает в компании" value={`с ${formatDate(user.employee.hire_date)}`} secure />
+          <div className="space-y-3">
+            <ProfileRow label="EID" value={user.employee.id.toString()} editable={editableFields.employee.id} />
+            <ProfileRow label="Должность" value={user.employee.position} editable={editableFields.employee.position} />
+            <ProfileRow label="Департамент" value={user.department?.name || ""} editable={false} />
+            <ProfileRow label="Дата рождения" value={formatDate(user.employee.birth_date)} editable={editableFields.employee.birth_date} />
+            <ProfileRow label="Работает в компании" value={`с ${formatDate(user.employee.hire_date)}`} editable={editableFields.employee.hire_date} />
+          </div>
         </InfoCard>
 
         <InfoCard title="Контакты" icon={<Mail className="w-5 h-5 text-purple-600" />}>
           <div className="space-y-3">
-            <div>
-              <p className="text-sm text-gray-500">Личный телефон</p>
-              <div className="flex items-center gap-2">
-                <p className="font-medium">{user.profile.personal_phone}</p>
-                <button className="p-1 hover:bg-gray-100 rounded transition-colors">
-                  <Edit2 className="w-3 h-3 text-gray-500" />
-                </button>
-              </div>
-            </div>
-            <ProfileRow label="Рабочий телефон" value={user.employee.work_phone} secure />
-            <ProfileRow label="Рабочая почта" value={user.employee.work_email} secure isSmall />
-            <ProfileRow label="Band" value={user.employee.work_band} secure />
-            <div>
-              <p className="text-sm text-gray-500">Telegram</p>
-              {user.profile.telegram ? (
-                <div className="flex items-center gap-2">
-                  <p className="font-medium">{user.profile.telegram}</p>
-                  <button className="p-1 hover:bg-gray-100 rounded transition-colors">
-                    <Edit2 className="w-3 h-3 text-gray-500" />
-                  </button>
-                </div>
-              ) : (
-                <button className="text-purple-600 hover:underline text-sm">+ Добавить</button>
-              )}
-            </div>
+            <ProfileRow label="Личный телефон" value={user.profile.personal_phone} editable={editableFields.profile.personal_phone} onEdit={() => startEditing('profile', 'personal_phone', { personal_phone: user.profile.personal_phone })} />
+            <ProfileRow label="Рабочий телефон" value={user.employee.work_phone} editable={editableFields.employee.work_phone} />
+            <ProfileRow label="Рабочая почта" value={user.employee.work_email} editable={editableFields.employee.work_email} isSmall />
+            <ProfileRow label="Band" value={user.employee.work_band} editable={editableFields.employee.work_band} />
+            <ProfileRow label="Telegram" value={user.profile.telegram || "Не указан"} editable={editableFields.profile.telegram} onEdit={() => startEditing('profile', 'telegram', { telegram: user.profile.telegram || '' })} />
           </div>
         </InfoCard>
 
@@ -170,7 +191,7 @@ const HomeModule = ({ onNavigate }: HomeModuleProps) => {
         </InfoCard>
       </div>
 
-      <Card title="О себе" icon={<User className="w-5 h-5 text-purple-600" />}>
+      <Card title="О себе" icon={<User className="w-5 h-5 text-purple-600" />} action={<button onClick={() => startEditing('profile', 'about_me', { about_me: user.profile.about_me })} className="px-3 py-1.5 text-sm text-purple-600 hover:bg-purple-50 rounded-lg flex items-center gap-1"><Edit2 className="w-4 h-4" /> Редактировать</button>}>
         <p className="text-gray-700 leading-relaxed">{user.profile.about_me}</p>
       </Card>
 
@@ -178,27 +199,32 @@ const HomeModule = ({ onNavigate }: HomeModuleProps) => {
         title="Проекты"
         icon={<Award className="w-5 h-5 text-purple-600" />}
         action={
-          <button className="px-3 py-1.5 text-sm text-purple-600 hover:bg-purple-50 rounded-lg flex items-center gap-1">
+          <button onClick={() => startEditing('projects', 'add', {})} className="px-3 py-1.5 text-sm text-purple-600 hover:bg-purple-50 rounded-lg flex items-center gap-1">
             <Plus className="w-4 h-4" />
             Добавить проект
           </button>
         }
       >
         <div className="space-y-3">
-          {user.projects.map((project) => (
+          {user.projects.map((project, index) => (
             <div key={project.id} className="p-4 border border-gray-200 rounded-lg hover:shadow-sm transition-shadow">
               <div className="flex items-start justify-between mb-2">
                 <h4 className="font-semibold text-gray-900">{project.name}</h4>
-                {project.link && (
-                  <a
-                    href={project.link}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="text-purple-600 hover:text-purple-700"
-                  >
-                    <ExternalLink className="w-4 h-4" />
-                  </a>
-                )}
+                <div className="flex gap-2">
+                  {project.link && (
+                    <a
+                      href={project.link}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-purple-600 hover:text-purple-700"
+                    >
+                      <ExternalLink className="w-4 h-4" />
+                    </a>
+                  )}
+                  <button onClick={() => startEditing('projects', undefined, project, index)} className="p-1 hover:bg-gray-100 rounded">
+                    <Edit2 className="w-4 h-4 text-gray-500" />
+                  </button>
+                </div>
               </div>
               <p className="text-sm text-gray-600 mb-1">{project.position}</p>
               <p className="text-xs text-gray-500">
@@ -210,7 +236,7 @@ const HomeModule = ({ onNavigate }: HomeModuleProps) => {
       </Card>
 
       {currentVacation && (
-        <Card title="Отпуск" icon={<Calendar className="w-5 h-5 text-purple-600" />}>
+        <Card title="Отпуск" icon={<Calendar className="w-5 h-5 text-purple-600" />} action={<button onClick={() => startEditing('vacations', undefined, currentVacation)} className="px-3 py-1.5 text-sm text-purple-600 hover:bg-purple-50 rounded-lg flex items-center gap-1"><Edit2 className="w-4 h-4" /> Редактировать</button>}>
           <div className="space-y-4">
             <div className="flex items-center gap-2">
               <p className="text-sm text-gray-500">Статус:</p>
@@ -368,6 +394,148 @@ const HomeModule = ({ onNavigate }: HomeModuleProps) => {
           </div>
         )}
       </Modal>
+
+      <Modal
+        isOpen={Boolean(editingField)}
+        title={`Редактировать ${editingField?.field || editingField?.section}`}
+        onClose={cancelEditing}
+        widthClass="max-w-md"
+      >
+        {editingField && (
+          <div className="space-y-4">
+            {editingField.section === 'profile' && editingField.field === 'personal_phone' && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Личный телефон</label>
+                <input
+                  type="text"
+                  value={editingValues.personal_phone || ''}
+                  onChange={(e) => setEditingValues({ ...editingValues, personal_phone: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                />
+              </div>
+            )}
+            {editingField.section === 'profile' && editingField.field === 'telegram' && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Telegram</label>
+                <input
+                  type="text"
+                  value={editingValues.telegram || ''}
+                  onChange={(e) => setEditingValues({ ...editingValues, telegram: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                />
+              </div>
+            )}
+            {editingField.section === 'profile' && editingField.field === 'about_me' && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">О себе</label>
+                <textarea
+                  value={editingValues.about_me || ''}
+                  onChange={(e) => setEditingValues({ ...editingValues, about_me: e.target.value })}
+                  rows={4}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                />
+              </div>
+            )}
+            {(editingField.section === 'projects' && editingField.field === 'add') || (editingField.section === 'projects' && editingField.index !== undefined) && (
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Название проекта</label>
+                  <input
+                    type="text"
+                    value={editingValues.name || ''}
+                    onChange={(e) => setEditingValues({ ...editingValues, name: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Должность</label>
+                  <input
+                    type="text"
+                    value={editingValues.position || ''}
+                    onChange={(e) => setEditingValues({ ...editingValues, position: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Дата начала</label>
+                  <input
+                    type="date"
+                    value={editingValues.start_d || ''}
+                    onChange={(e) => setEditingValues({ ...editingValues, start_d: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Дата окончания</label>
+                  <input
+                    type="date"
+                    value={editingValues.end_d || ''}
+                    onChange={(e) => setEditingValues({ ...editingValues, end_d: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Ссылка</label>
+                  <input
+                    type="text"
+                    value={editingValues.link || ''}
+                    onChange={(e) => setEditingValues({ ...editingValues, link: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  />
+                </div>
+              </div>
+            )}
+            {editingField.section === 'vacations' && (
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Дата начала</label>
+                  <input
+                    type="date"
+                    value={editingValues.start_date || ''}
+                    onChange={(e) => setEditingValues({ ...editingValues, start_date: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Дата окончания</label>
+                  <input
+                    type="date"
+                    value={editingValues.end_date || ''}
+                    onChange={(e) => setEditingValues({ ...editingValues, end_date: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Замещение (EID)</label>
+                  <input
+                    type="text"
+                    value={editingValues.substitute_eid || ''}
+                    onChange={(e) => setEditingValues({ ...editingValues, substitute_eid: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Комментарий</label>
+                  <textarea
+                    value={editingValues.comment || ''}
+                    onChange={(e) => setEditingValues({ ...editingValues, comment: e.target.value })}
+                    rows={3}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  />
+                </div>
+              </div>
+            )}
+            <div className="flex gap-3">
+              <button onClick={saveEditing} className="flex-1 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700">
+                Сохранить
+              </button>
+              <button onClick={cancelEditing} className="flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50">
+                Отмена
+              </button>
+            </div>
+          </div>
+        )}
+      </Modal>
     </div>
   );
 };
@@ -411,18 +579,28 @@ const ProfileRow = ({
   secure,
   helper,
   isSmall,
+  editable,
+  onEdit,
 }: {
   label: string;
   value: string;
   secure?: boolean;
   helper?: string;
   isSmall?: boolean;
+  editable?: boolean;
+  onEdit?: () => void;
 }) => (
   <div className="space-y-0.5">
     <p className="text-sm text-gray-500">{label}</p>
     <p className={`font-medium flex items-center gap-2 ${isSmall ? "text-sm" : ""}`}>
       {value}
-      {secure && <Lock className="w-3 h-3 text-gray-400" />}
+      {editable ? (
+        <button onClick={onEdit} className="p-1 hover:bg-gray-100 rounded">
+          <Edit2 className="w-3 h-3 text-gray-500" />
+        </button>
+      ) : (
+        secure && <Lock className="w-3 h-3 text-gray-400" />
+      )}
     </p>
     {helper && <p className="text-xs text-gray-500">{helper}</p>}
   </div>

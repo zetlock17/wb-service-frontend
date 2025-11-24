@@ -49,6 +49,7 @@ interface PortalState {
   error: string | null;
 
   fetchPortalData: () => Promise<void>;
+  updateCurrentUser: (updatedUser: Partial<UserProfile>) => void;
 }
 
 const usePortalStore = create<PortalState>((set) => ({
@@ -94,6 +95,11 @@ const usePortalStore = create<PortalState>((set) => ({
       console.error("Failed to fetch data:", error);
       set({ error: "Failed to fetch data", loading: false });
     }
+  },
+  updateCurrentUser: (updatedUser: Partial<UserProfile>) => {
+    set((state) => ({
+      currentUser: state.currentUser ? { ...state.currentUser, ...updatedUser } : null,
+    }));
   },
 }));
 

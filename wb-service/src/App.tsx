@@ -135,7 +135,7 @@ function App() {
 
       <div className="fixed top-16 right-6 z-40 space-y-4">
         <div className="relative">
-          <NotificationsPanel isOpen={isNotificationsOpen} />
+          <NotificationsPanel isOpen={isNotificationsOpen} onClose={() => setIsNotificationsOpen(false)} />
         </div>
         <div className="relative">
           <ProfileMenu isOpen={isProfileMenuOpen} onNavigateHome={() => handleModuleChange("home")} />

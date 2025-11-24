@@ -218,9 +218,42 @@ export interface ModuleConfig {
   icon: LucideIcon;
 }
 
+export interface EditableFields {
+  employee: Record<keyof Employee, boolean>;
+  profile: Record<keyof Profile, boolean>;
+  vacations: boolean;
+  projects: boolean;
+}
+
 export interface GlobalSearchResults {
   documents: DocumentItem[];
   knowledge: KnowledgeArticle[];
   employees: Employee[];
   news: NewsItem[];
 }
+
+export const editableFields: EditableFields = {
+  employee: {
+    id: false,
+    full_name: false,
+    position: false,
+    department_id: false,
+    birth_date: false,
+    hire_date: false,
+    work_phone: false,
+    work_email: false,
+    work_band: false,
+    manager_eid: false,
+    hrbp_eid: false,
+  },
+  profile: {
+    id: false,
+    employee_id: false,
+    avatar_id: true,
+    personal_phone: true,
+    telegram: true,
+    about_me: true,
+  },
+  vacations: true,
+  projects: true,
+};

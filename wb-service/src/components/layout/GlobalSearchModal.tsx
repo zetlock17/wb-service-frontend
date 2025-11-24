@@ -1,4 +1,5 @@
 import { BookOpen, FileText, MessageSquare, Search, Users, X } from "lucide-react";
+import { useEffect } from "react";
 import type {
   Department,
   DocumentItem,
@@ -45,6 +46,23 @@ const GlobalSearchModal = ({
     const dept = departments.find(d => d.id === id);
     return dept ? dept.name : "";
   };
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        onClose();
+      }
+    };
+
+    if (isOpen) {
+      document.addEventListener('keydown', handleKeyDown);
+    }
+
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isOpen, onClose]);
+
   if (!isOpen) {
     return null;
   }
@@ -55,8 +73,8 @@ const GlobalSearchModal = ({
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-start justify-center z-50 p-4 pt-20">
-      <div className="bg-white rounded-lg max-w-3xl w-full max-h-[80vh] overflow-hidden shadow-2xl">
+    <div className="fixed inset-0 bg-black/50 flex items-start justify-center z-50 p-4 pt-20" onClick={onClose}>
+      <div className="bg-white rounded-lg max-w-3xl w-full max-h-[80vh] overflow-hidden shadow-2xl" onClick={(e) => e.stopPropagation()}>
         <div className="p-4 border-b border-gray-200">
           <div className="flex items-center gap-3 mb-4">
             <Search className="w-5 h-5 text-gray-400" />
