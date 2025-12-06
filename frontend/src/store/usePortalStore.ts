@@ -98,7 +98,7 @@ const usePortalStore = create<PortalState>((set) => ({
         surveys: mockSurveys,
         knowledgeBase: mockKnowledgeBase,
         reports: mockReports,
-        upcomingBirthdays: birthdaysResponse.data || [],
+        upcomingBirthdays: birthdaysResponse || [],
         loading: false,
       });
     } catch (error) {
