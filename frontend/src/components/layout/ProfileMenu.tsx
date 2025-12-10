@@ -37,13 +37,12 @@ const ProfileMenu = ({ isOpen, onNavigateHome }: ProfileMenuProps) => {
   const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
-      // Проверка типа файла
+
       if (!file.type.startsWith('image/')) {
         alert('Пожалуйста, выберите изображение');
         return;
       }
       
-      // Проверка размера (макс 5MB)
       if (file.size > 5 * 1024 * 1024) {
         alert('Размер файла не должен превышать 5MB');
         return;
@@ -51,8 +50,7 @@ const ProfileMenu = ({ isOpen, onNavigateHome }: ProfileMenuProps) => {
 
       await updateAvatar(file);
     }
-    
-    // Сброс input для возможности повторного выбора того же файла
+
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
@@ -69,10 +67,8 @@ const ProfileMenu = ({ isOpen, onNavigateHome }: ProfileMenuProps) => {
   };
 
   const getInitials = () => {
-    return currentUser.full_name
-      .split(" ")
-      .map((n: string) => n[0])
-      .join("");
+    const arrayOfWords = currentUser.full_name.split(" ")
+    return arrayOfWords[0][0] + arrayOfWords[2][0]
   };
 
   return (
@@ -96,13 +92,11 @@ const ProfileMenu = ({ isOpen, onNavigateHome }: ProfileMenuProps) => {
                 {getInitials()}
               </div>
             )}
-            
-            {/* Overlay при наведении */}
+
             <div className={`absolute inset-0 bg-black bg-opacity-50 rounded-full flex items-center justify-center transition-opacity ${isHovering ? 'opacity-100' : 'opacity-0'}`}>
               <Camera className="w-6 h-6 text-white" />
             </div>
 
-            {/* Индикатор загрузки */}
             {isLoading && (
               <div className="absolute inset-0 bg-black bg-opacity-70 rounded-full flex items-center justify-center">
                 <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
@@ -115,7 +109,6 @@ const ProfileMenu = ({ isOpen, onNavigateHome }: ProfileMenuProps) => {
             <p className="text-xs text-gray-500">EID: {currentUser.eid}</p>
           </div>
 
-          {/* Кнопка удаления аватарки */}
           {avatarUrl && !isLoading && (
             <button
               onClick={handleDeleteAvatar}
@@ -127,7 +120,6 @@ const ProfileMenu = ({ isOpen, onNavigateHome }: ProfileMenuProps) => {
           )}
         </div>
 
-        {/* Скрытый input для выбора файла */}
         <input
           ref={fileInputRef}
           type="file"
