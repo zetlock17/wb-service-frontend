@@ -1,5 +1,6 @@
 import { Bell, ChevronDown, Menu, Search } from "lucide-react";
 import usePortalStore from "../../store/usePortalStore";
+import { useAvatar } from "../../hooks/useAvatar";
 import type { ModuleConfig, ModuleId } from "../../types/portal";
 
 interface AppHeaderProps {
@@ -22,6 +23,7 @@ const AppHeader = ({
   onToggleSidebar,
 }: AppHeaderProps) => {
   const { currentUser, notifications } = usePortalStore();
+  const { avatarUrl } = useAvatar();
   const unreadCount = notifications.filter((notification) => notification.unread).length;
 
   if (!currentUser) {
@@ -103,12 +105,20 @@ const AppHeader = ({
                 onClick={onToggleProfileMenu}
                 className="flex items-center gap-2 p-2 hover:bg-gray-100 rounded-lg"
               >
-                <div className="w-8 h-8 bg-linear-to-br from-purple-500 to-blue-500 rounded-full flex items-center justify-center text-white text-sm font-bold">
-                  {currentUser.full_name
-                    .split(" ")
-                    .map((n: string) => n[0])
-                    .join("")}
-                </div>
+                {avatarUrl ? (
+                  <img
+                    src={avatarUrl}
+                    alt={currentUser.full_name}
+                    className="w-8 h-8 rounded-full object-cover"
+                  />
+                ) : (
+                  <div className="w-8 h-8 bg-linear-to-br from-purple-500 to-blue-500 rounded-full flex items-center justify-center text-white text-sm font-bold">
+                    {currentUser.full_name
+                      .split(" ")
+                      .map((n: string) => n[0])
+                      .join("")}
+                  </div>
+                )}
                 <ChevronDown className="w-4 h-4 text-gray-600" />
               </button>
             </div>

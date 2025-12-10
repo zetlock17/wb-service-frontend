@@ -42,9 +42,8 @@ export const getRequest = async <T>(url: string, params?: object): Promise<ApiRe
 
     console.error(`API error for ${url}:`, error);
 
-    const isArrayResponse = url.includes('/api/programs/');
     return {
-      data: (isArrayResponse ? [] : {}) as T,
+      data: {} as T,
       status: error.response?.status || 500,
       message: error.response?.data?.message || error.message,
     };
@@ -66,11 +65,56 @@ export const patchRequest = async <T>(url: string, data?: object): Promise<ApiRe
 
     console.error(`API error for ${url}:`, error);
 
-    const isArrayResponse = url.includes('/api/programs/');
     return {
-      data: (isArrayResponse ? [] : {}) as T,
+      data: {} as T,
       status: error.response?.status || 500,
       message: error.response?.data?.message || error.message,
     };
   }
 };
+
+export const postRequest = async <T>(url: string, data?: object): Promise<ApiResponse<T>> => {
+  try {
+    const response: AxiosResponse<T> = await api.post(url, data);
+    return {
+      data: response.data,
+      status: response.status,
+    };
+  } catch (error: any) {
+
+    if (error.response?.status >= 400) {
+      window.location.href = '/error';
+    }
+
+    console.error(`API error for ${url}:`, error);
+
+    return {
+      data: {} as T,
+      status: error.response?.status || 500,
+      message: error.response?.data?.message || error.message,
+    };
+  }
+};
+
+export const deleteRequest = async <T>(url: string): Promise<ApiResponse<T>> => {
+  try {
+    const response: AxiosResponse<T> = await api.delete(url);
+    return {
+      data: response.data,
+      status: response.status,
+    };
+  } catch (error: any) {
+
+    if (error.response?.status >= 400) {
+      window.location.href = '/error';
+    }
+
+    console.error(`API error for ${url}:`, error);
+
+    return {
+      data: {} as T,
+      status: error.response?.status || 500,
+      message: error.response?.data?.message || error.message,
+    };
+  }
+}

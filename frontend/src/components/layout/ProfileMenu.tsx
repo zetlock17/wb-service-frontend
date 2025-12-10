@@ -1,5 +1,7 @@
-import { LogOut, Settings, User } from "lucide-react";
+import { LogOut, Settings, User, Camera, Trash2 } from "lucide-react";
+import { useRef, useState } from "react";
 import usePortalStore from "../../store/usePortalStore";
+import { useAvatar } from "../../hooks/useAvatar";
 
 interface ProfileMenuProps {
   isOpen: boolean;
@@ -8,6 +10,9 @@ interface ProfileMenuProps {
 
 const ProfileMenu = ({ isOpen, onNavigateHome }: ProfileMenuProps) => {
   const { currentUser } = usePortalStore();
+  const { avatarUrl, isLoading, updateAvatar, deleteAvatar } = useAvatar();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isHovering, setIsHovering] = useState(false);
 
   if (!isOpen) {
     return null;
@@ -29,12 +34,109 @@ const ProfileMenu = ({ isOpen, onNavigateHome }: ProfileMenuProps) => {
     );
   }
 
+  const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      // Проверка типа файла
+      if (!file.type.startsWith('image/')) {
+        alert('Пожалуйста, выберите изображение');
+        return;
+      }
+      
+      // Проверка размера (макс 5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        alert('Размер файла не должен превышать 5MB');
+        return;
+      }
+
+      await updateAvatar(file);
+    }
+    
+    // Сброс input для возможности повторного выбора того же файла
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  const handleDeleteAvatar = async () => {
+    if (window.confirm('Удалить аватар?')) {
+      await deleteAvatar();
+    }
+  };
+
+  const handleAvatarClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const getInitials = () => {
+    return currentUser.full_name
+      .split(" ")
+      .map((n: string) => n[0])
+      .join("");
+  };
+
   return (
     <div className="absolute right-0 mt-2 w-64 bg-white rounded-lg shadow-lg border border-gray-200">
       <div className="p-4 border-b border-gray-200">
-        <p className="font-medium text-gray-900">{currentUser.full_name}</p>
-        <p className="text-sm text-gray-500">EID: {currentUser.eid}</p>
+        <div className="flex items-center gap-3 mb-3">
+          <div
+            className="relative group cursor-pointer"
+            onMouseEnter={() => setIsHovering(true)}
+            onMouseLeave={() => setIsHovering(false)}
+            onClick={handleAvatarClick}
+          >
+            {avatarUrl ? (
+              <img
+                src={avatarUrl}
+                alt={currentUser.full_name}
+                className="w-16 h-16 rounded-full object-cover"
+              />
+            ) : (
+              <div className="w-16 h-16 bg-linear-to-br from-purple-500 to-blue-500 rounded-full flex items-center justify-center text-white text-lg font-bold">
+                {getInitials()}
+              </div>
+            )}
+            
+            {/* Overlay при наведении */}
+            <div className={`absolute inset-0 bg-black bg-opacity-50 rounded-full flex items-center justify-center transition-opacity ${isHovering ? 'opacity-100' : 'opacity-0'}`}>
+              <Camera className="w-6 h-6 text-white" />
+            </div>
+
+            {/* Индикатор загрузки */}
+            {isLoading && (
+              <div className="absolute inset-0 bg-black bg-opacity-70 rounded-full flex items-center justify-center">
+                <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+              </div>
+            )}
+          </div>
+
+          <div className="flex-1">
+            <p className="font-medium text-gray-900 text-sm">{currentUser.full_name}</p>
+            <p className="text-xs text-gray-500">EID: {currentUser.eid}</p>
+          </div>
+
+          {/* Кнопка удаления аватарки */}
+          {avatarUrl && !isLoading && (
+            <button
+              onClick={handleDeleteAvatar}
+              className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+              title="Удалить аватар"
+            >
+              <Trash2 className="w-4 h-4" />
+            </button>
+          )}
+        </div>
+
+        {/* Скрытый input для выбора файла */}
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          onChange={handleFileSelect}
+          className="hidden"
+        />
       </div>
+      
       <div className="p-2">
         <button
           onClick={onNavigateHome}

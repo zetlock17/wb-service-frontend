@@ -34,6 +34,7 @@ export interface ProfileProject {
 export interface UserProfile {
   eid: number;
   full_name: string;
+  avatar_id: number | null;
   position: string;
   department: string;
   birth_date: string;
@@ -250,6 +251,7 @@ export const editableFields: EditableFields = {
   userProfile: {
     eid: false,
     full_name: false,
+    avatar_id: false,
     position: false,
     department: false,
     birth_date: false,

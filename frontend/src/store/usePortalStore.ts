@@ -134,6 +134,7 @@ const usePortalStore = create<PortalState>((set) => ({
       if (updatedUser.about_me !== undefined) editableData.about_me = updatedUser.about_me;
       if (updatedUser.projects !== undefined) editableData.projects = updatedUser.projects;
       if (updatedUser.vacations !== undefined) editableData.vacations = updatedUser.vacations;
+      if (updatedUser.avatar_id !== undefined) editableData.avatar_id = updatedUser.avatar_id;
       
       // Отправляем обновление на бэкенд
       const response = await updateProfile(eid, editableData);
