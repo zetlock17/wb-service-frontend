@@ -2,6 +2,7 @@ import { Bell, ChevronDown, Menu, Search } from "lucide-react";
 import usePortalStore from "../../store/usePortalStore";
 import { useAvatar } from "../../hooks/useAvatar";
 import type { ModuleConfig, ModuleId } from "../../types/portal";
+import MainLogo from '../../assets/main-logo.svg'
 
 interface AppHeaderProps {
   activeModule: ModuleId;
@@ -46,19 +47,22 @@ const AppHeader = ({
     );
   }
 
+  const getInitials = () => {
+    const arrayOfWords = currentUser.full_name.split(" ")
+    return arrayOfWords[0][0] + arrayOfWords[2][0]
+  };
+  
   return (
     <header className="bg-white border-b border-gray-200 sticky top-0 z-40">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16">
+        <div className="flex items-center justify-between h-24">
           <div className="flex items-center gap-8">
             <button
               onClick={() => onModuleChange("home")}
-              className="flex items-center gap-2 text-xl font-bold text-purple-600"
+              className="flex items-center gap-2 text-3xl font-bold text-black"
             >
-              <div className="w-8 h-8 bg-linear-to-br from-purple-600 to-blue-600 rounded-lg flex items-center justify-center text-white text-sm font-bold">
-                WB
-              </div>
-              WB Bank
+              <img src={MainLogo} className="" />
+              Bank
             </button>
             <nav className="hidden lg:flex items-center gap-1">
               {modules
@@ -70,7 +74,7 @@ const AppHeader = ({
                     className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                       activeModule === module.id
                         ? "bg-purple-100 text-purple-700"
-                        : "text-gray-700 hover:bg-gray-100"
+                        : "text-black hover:bg-gray-100"
                     }`}
                   >
                     {module.name}
@@ -103,7 +107,7 @@ const AppHeader = ({
             <div className="relative hidden sm:block">
               <button
                 onClick={onToggleProfileMenu}
-                className="flex items-center gap-2 p-2 hover:bg-gray-100 rounded-lg"
+                className="flex items-center p-2 hover:bg-gray-100 rounded-lg"
               >
                 {avatarUrl ? (
                   <img
@@ -112,14 +116,11 @@ const AppHeader = ({
                     className="w-8 h-8 rounded-full object-cover"
                   />
                 ) : (
-                  <div className="w-8 h-8 bg-linear-to-br from-purple-500 to-blue-500 rounded-full flex items-center justify-center text-white text-sm font-bold">
-                    {currentUser.full_name
-                      .split(" ")
-                      .map((n: string) => n[0])
-                      .join("")}
+                  <div className="w-10 h-10 bg-linear-to-br from-fuchsia-500 to-purple-500 rounded-full flex items-center justify-center text-white text-sm font-bold">
+                    {getInitials()}
                   </div>
                 )}
-                <ChevronDown className="w-4 h-4 text-gray-600" />
+                <ChevronDown strokeWidth={1} className="w-8 h-8 text-gray-600" />
               </button>
             </div>
             <button
