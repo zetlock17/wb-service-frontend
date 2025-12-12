@@ -12,6 +12,8 @@ import {
   Share2,
   User,
   Users,
+  ChevronRight,
+  ArrowRight,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import Modal from "../../components/common/Modal";
@@ -96,11 +98,18 @@ const HomeModule = ({ onNavigate }: HomeModuleProps) => {
     });
   }, [upcomingBirthdays, birthdayFilter]);
 
-  const formatDate = (dateStr: string) => {
+
+  const formatDate = (dateStr: string, mode?: string): string => {
     const date = new Date(dateStr);
+    switch (mode) {      
+      case 'my':;
+        return date.toLocaleDateString('ru-RU', { month: 'short', year: 'numeric' }).replace(/[.,г]/g, '').trim().replace(/^./, char => char.toUpperCase());
+      case 'dm':
+        return date.toLocaleDateString('ru-RU', { day: '2-digit', month: 'long' }).replace(/[.,]/g, '').trim();
+    };
     return date.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric' });
-  };
-  
+  }
+
   const formatBirthdayDate = (dateStr: string) => {
     const date = new Date(dateStr);
     const now = new Date();
@@ -111,6 +120,12 @@ const HomeModule = ({ onNavigate }: HomeModuleProps) => {
     if (daysDiff === 0) return 'Сегодня';
     if (daysDiff === 1) return 'Завтра';
     return thisYearBirthday.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' });
+  };
+
+  const isBirthdayToday = (dateStr: string) => {
+    const date = new Date(dateStr);
+    const now = new Date();
+    return date.getDate() === now.getDate() && date.getMonth() === now.getMonth();
   };
 
   const getVacationStatus = (vacation: any) => {
@@ -137,17 +152,19 @@ const HomeModule = ({ onNavigate }: HomeModuleProps) => {
 
   const user = currentUser;
   const currentVacation = user.vacations[0];
+  
+  const getInitials = () => {
+    const arrayOfWords = currentUser.full_name.split(" ")
+    return arrayOfWords[0][0] + arrayOfWords[2][0]
+  };
 
   return (
     <div className="space-y-6">
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
         <div className="flex items-start justify-between mb-4">
           <div className="flex items-center gap-4">
-            <div className="w-20 h-20 bg-linear-to-br from-purple-500 to-blue-500 rounded-full flex items-center justify-center text-white text-2xl font-bold">
-              {user.full_name
-                .split(" ")
-                .map((n) => n[0])
-                .join("")}
+            <div className="w-20 h-20 bg-linear-to-br from-purple-500 to-fuchsia-500 rounded-full flex items-center justify-center text-white text-2xl font-bold">
+              {getInitials()}
             </div>
             <div>
               <div className="flex items-center gap-2 mb-1">
@@ -157,7 +174,7 @@ const HomeModule = ({ onNavigate }: HomeModuleProps) => {
                     className={`px-2 py-1 text-xs font-medium rounded-full ${
                       getVacationStatus(currentVacation) === "active"
                         ? "bg-orange-100 text-orange-700"
-                        : "bg-blue-100 text-blue-700"
+                        : "bg-purple-600 text-white"
                     }`}
                   >
                     {getVacationStatus(currentVacation) === "active" ? "В отпуске" : "Отпуск запланирован"}
@@ -168,12 +185,12 @@ const HomeModule = ({ onNavigate }: HomeModuleProps) => {
                 </button>
               </div>
               <p className="text-gray-600">{user.position}</p>
-              <p className="text-sm text-gray-500">EID: {user.eid}</p>
+              <p className="text-sm text-gray-500">{user.eid}</p>
             </div>
           </div>
-          <button className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 flex items-center gap-2">
+          <button className="px-4 py-2 text-sm font-normal text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 flex items-center gap-2">
             <Edit2 className="w-4 h-4" />
-            Редактировать
+            Редактировать профиль
           </button>
         </div>
       </div>
@@ -184,7 +201,7 @@ const HomeModule = ({ onNavigate }: HomeModuleProps) => {
             <ProfileRow label="EID" value={user.eid.toString()} editable={editableFields.userProfile.eid} />
             <ProfileRow label="Должность" value={user.position} editable={editableFields.userProfile.position} />
             <ProfileRow label="Департамент" value={user.department} editable={false} />
-            <ProfileRow label="Дата рождения" value={formatDate(user.birth_date)} editable={editableFields.userProfile.birth_date} />
+            <ProfileRow label="Дата рождения" value={formatDate(user.birth_date, 'dm')} editable={editableFields.userProfile.birth_date} />
             <ProfileRow label="Работает в компании" value={`с ${formatDate(user.hire_date)}`} editable={editableFields.userProfile.hire_date} />
           </div>
         </InfoCard>
@@ -207,13 +224,13 @@ const HomeModule = ({ onNavigate }: HomeModuleProps) => {
               onClick={() => onNavigate("structure")}
               className="mt-4 text-sm text-purple-600 hover:underline flex items-center gap-1"
             >
-              Вся структура / Коллеги по отделу
+              Вся структура / Коллеги по отделу <ChevronRight strokeWidth={2} className="w-4 h-4" />
             </button>
           </div>
         </InfoCard>
       </div>
 
-      <Card title="О себе" icon={<User className="w-5 h-5 text-purple-600" />} action={<button onClick={() => startEditing('profile', 'about_me', { about_me: user.about_me })} className="px-3 py-1.5 text-sm text-purple-600 hover:bg-purple-50 rounded-lg flex items-center gap-1"><Edit2 className="w-4 h-4" /> Редактировать</button>}>
+      <Card title="О себе" icon={<User className="w-5 h-5 text-purple-600" />} action={<button onClick={() => startEditing('profile', 'about_me', { about_me: user.about_me })} className="px-4 py-2 text-sm font-normal text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 flex items-center gap-2"><Edit2 className="w-4 h-4" /> Редактировать</button>}>
         <p className="text-gray-700 leading-relaxed">{user.about_me}</p>
       </Card>
 
@@ -243,132 +260,121 @@ const HomeModule = ({ onNavigate }: HomeModuleProps) => {
                       <ExternalLink className="w-4 h-4" />
                     </a>
                   )}
-                  <button onClick={() => startEditing('projects', undefined, project, index)} className="p-1 hover:bg-gray-100 rounded">
+                  {/* <button onClick={() => startEditing('projects', undefined, project, index)} className="p-1 hover:bg-gray-100 rounded">
                     <Edit2 className="w-4 h-4 text-gray-500" />
-                  </button>
+                  </button> */}
                 </div>
               </div>
               <p className="text-sm text-gray-600 mb-1">{project.position}</p>
               <p className="text-xs text-gray-500">
-                {formatDate(project.start_d)} - {project.end_d ? formatDate(project.end_d) : "настоящее время"}
+                {formatDate(project.start_d, 'my')} - {project.end_d ? formatDate(project.end_d, 'my') : "настоящее время"}
               </p>
             </div>
           ))}
         </div>
       </Card>
 
-      {currentVacation && (
-        <Card title="Отпуск" icon={<Calendar className="w-5 h-5 text-purple-600" />} action={<button onClick={() => startEditing('vacations', undefined, currentVacation)} className="px-3 py-1.5 text-sm text-purple-600 hover:bg-purple-50 rounded-lg flex items-center gap-1"><Edit2 className="w-4 h-4" /> Редактировать</button>}>
-          <div className="space-y-4">
-            <div className="flex items-center gap-2">
-              <p className="text-sm text-gray-500">Статус:</p>
-              <span
-                className={`px-3 py-1 rounded-full text-sm font-medium ${
-                  getVacationStatus(currentVacation) === "active"
-                    ? "bg-orange-100 text-orange-700"
-                    : "bg-blue-100 text-blue-700"
-                }`}
-              >
-                {getVacationStatus(currentVacation) === "active" ? "В отпуске" : "Планируется"}
-              </span>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <VacationInfo label="Дата начала" value={formatDate(currentVacation.start_date)} />
-              <VacationInfo label="Дата окончания" value={formatDate(currentVacation.end_date)} />
-            </div>
-            {currentVacation.substitute && (
-              <StructureLink label="Замещение" value={currentVacation.substitute} />
-            )}
-            {currentVacation.comment && (
-              <div>
-                <p className="text-sm text-gray-500 mb-1">Комментарий</p>
-                <p className="text-gray-700">{currentVacation.comment}</p>
-              </div>
-            )}
-          </div>
-        </Card>
-      )}
-
-      <Card title="Ближайшие дни рождения" icon={<Cake className="w-5 h-5 text-purple-600" />}>
-        <div className="flex items-center justify-between mb-4">
-          <p className="text-sm text-gray-600">Поздравьте коллег вовремя</p>
-          <select
-            value={birthdayFilter}
-            onChange={(event) => setBirthdayFilter(event.target.value as BirthdayFilter)}
-            className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-          >
-            <option value="today">Сегодня</option>
-            <option value="week">Текущая неделя</option>
-            <option value="month">Текущий месяц</option>
-          </select>
-        </div>
-        <div className="space-y-3">
-          {filteredBirthdays.length ? (
-            filteredBirthdays.map((person) => (
-              <div key={person.eid} className="flex items-center justify-between p-3 bg-purple-50 rounded-lg">
-                <div>
-                  <p className="font-medium text-gray-900">{person.full_name}</p>
-                  <p className="text-sm text-gray-600">{person.department}</p>
-                </div>
-                <div className="text-right">
-                  <p className="text-sm font-medium text-purple-600">{formatBirthdayDate(person.birth_date)}</p>
-                  <button
-                    onClick={() => setSelectedPerson(person)}
-                    className="text-xs text-purple-600 hover:underline mt-1"
-                  >
-                    Поздравить
-                  </button>
-                </div>
-              </div>
-            ))
-          ) : (
-            <p className="text-sm text-gray-500 text-center py-4">Нет дней рождения в выбранном периоде</p>
-          )}
-        </div>
-      </Card>
-
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <Card title="Ближайшие события" icon={<Calendar className="w-5 h-5 text-purple-600" />}>
-          <div className="space-y-3">
-            {calendarEvents.slice(0, 3).map((event) => (
-              <div key={event.id} className="p-3 border border-gray-200 rounded-lg hover:shadow-sm transition-shadow">
-                <p className="font-medium text-gray-900 mb-1">{event.title}</p>
-                <div className="flex items-center gap-3 text-sm text-gray-600">
-                  <span>{event.date}</span>
-                  <span>{event.time}</span>
-                </div>
-              </div>
-            ))}
-          </div>
-          <button onClick={() => onNavigate("calendar")} className="mt-4 text-sm text-purple-600 hover:underline">
-            Смотреть все события →
-          </button>
-        </Card>
+        <div className="flex flex-col gap-6">
+          {currentVacation && (
+            <Card 
+              title="Отпуск" 
+              icon={<Calendar className="w-5 h-5 text-purple-600" />} 
+              status={<span className={`px-3 py-1 text-sm font-medium rounded-full ${getVacationStatus(currentVacation) === "active" ? "bg-orange-100 text-orange-700" : "bg-purple-600 text-white" }`}>{getVacationStatus(currentVacation) === "active" ? "В отпуске" : "Планируется"} </span>}
+              action={<button onClick={() => startEditing('vacations', undefined, currentVacation)} className="px-3 py-1.5 text-sm text-purple-600 hover:bg-purple-50 rounded-lg flex items-center gap-1"><ArrowRight strokeWidth={1.5} className="w-4 h-4" /> Отправить заявку</button>}>
+              <div className="space-y-4">
+                  <div className="flex items-center justify-between px-5 py-4 bg-purple-50 rounded-lg">
+                    <VacationInfo label="Дата начала" value={formatDate(currentVacation.start_date)} />
+                    {currentVacation.substitute && (
+                      <StructureLink label="Замещение" value={currentVacation.substitute} />
+                    )}
+                  </div>
 
-        <Card title="Моё обучение" icon={<GraduationCap className="w-5 h-5 text-purple-600" />}>
-          <div className="space-y-3">
-            {courses
-              .filter((course) => course.status !== "completed")
-              .slice(0, 2)
-              .map((course) => (
-                <div key={course.id} className="p-3 border border-gray-200 rounded-lg">
-                  <p className="font-medium text-gray-900 mb-2">{course.title}</p>
-                  <div className="flex items-center gap-2 mb-1">
-                    <div className="flex-1 bg-gray-200 rounded-full h-2">
-                      <div
-                        className="bg-purple-600 h-2 rounded-full transition-all"
-                        style={{ width: `${course.progress}%` }}
-                      />
-                    </div>
-                    <span className="text-sm text-gray-600">{course.progress}%</span>
+                  <div className="flex items-center justify-between px-5 py-4 bg-purple-50 rounded-lg">
+                    <VacationInfo label="Дата окончания" value={formatDate(currentVacation.end_date)} />
+                    {currentVacation.comment && (
+                      <div>
+                        <p className="text-sm text-gray-500 mb-1">Комментарий</p>
+                        <p className="text-gray-700">{currentVacation.comment}</p>
+                      </div>
+                    )}
+                  </div>
+              </div>
+            </Card>
+          )}
+          <Card title="Ближайшие события" icon={<Calendar className="w-5 h-5 text-purple-600" />}>
+            <div className="space-y-3">
+              {calendarEvents.slice(0, 3).map((event) => (
+                <div key={event.id} className="p-3 border border-gray-200 rounded-lg hover:shadow-sm transition-shadow">
+                  <p className="font-medium text-gray-900 mb-1">{event.title}</p>
+                  <div className="flex items-center gap-3 text-sm text-gray-600">
+                    <span>{event.date}</span>
+                    <span>{event.time}</span>
                   </div>
                 </div>
               ))}
-          </div>
-          <button onClick={() => onNavigate("training")} className="mt-4 text-sm text-purple-600 hover:underline">
-            Все курсы →
-          </button>
-        </Card>
+            </div>
+            <button onClick={() => onNavigate("calendar")} className="mt-4 text-sm text-purple-600 hover:underline">
+              Смотреть все события →
+            </button>
+          </Card>
+        </div>
+
+        <div className="flex flex-col gap-6">
+          <Card title="Ближайшие дни рождения" icon={<Cake className="w-5 h-5 text-purple-600" />} action={<select value={birthdayFilter} onChange={(event) => setBirthdayFilter(event.target.value as BirthdayFilter)} className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"><option value="today">Сегодня</option><option value="week">Текущая неделя</option><option value="month">Текущий месяц</option></select>}>
+            <div className="space-y-3">
+              {filteredBirthdays.length ? (
+                filteredBirthdays.map((person) => (
+                  <div
+                    key={person.eid}
+                    className={`flex items-center justify-between p-3 rounded-lg ${isBirthdayToday(person.birth_date) ? "bg-purple-500" : "bg-purple-50"}`}
+                  >
+                    <div>
+                      <p className={`font-medium ${isBirthdayToday(person.birth_date) ? "text-white" : "text-gray-900"}`}>{person.full_name}</p>
+                      <p className={`text-sm ${isBirthdayToday(person.birth_date) ? "text-white" : "text-gray-600"}`}>{person.department}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className={`text-sm font-medium ${isBirthdayToday(person.birth_date) ? "text-white" : "text-purple-600"}`}>{formatBirthdayDate(person.birth_date)}</p>
+                      <button
+                        onClick={() => setSelectedPerson(person)}
+                        className={`text-xs ${isBirthdayToday(person.birth_date) ? "text-white" : "text-purple-600"} hover:underline mt-1`}
+                      >
+                        Поздравить
+                      </button>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <p className="text-sm text-gray-500 text-center py-4">Нет дней рождения в выбранном периоде</p>
+              )}
+            </div>
+          </Card>
+
+          <Card title="Моё обучение" icon={<GraduationCap className="w-5 h-5 text-purple-600" />}>
+            <div className="space-y-3">
+              {courses
+                .filter((course) => course.status !== "completed")
+                .slice(0, 2)
+                .map((course) => (
+                  <div key={course.id} className="p-3 border border-gray-200 rounded-lg">
+                    <p className="font-medium text-gray-900 mb-2">{course.title}</p>
+                    <div className="flex items-center gap-2 mb-1">
+                      <div className="flex-1 bg-gray-200 rounded-full h-2">
+                        <div
+                          className="bg-purple-600 h-2 rounded-full transition-all"
+                          style={{ width: `${course.progress}%` }}
+                        />
+                      </div>
+                      <span className="text-sm text-gray-600">{course.progress}%</span>
+                    </div>
+                  </div>
+                ))}
+            </div>
+            <button onClick={() => onNavigate("training")} className="mt-4 text-sm text-purple-600 hover:underline">
+              Все курсы →
+            </button>
+          </Card>
+        </div>
       </div>
 
       <Modal
@@ -574,20 +580,23 @@ const InfoCard = ({ title, icon, children }: { title: string; icon: React.ReactN
 
 const Card = ({
   title,
+  status,
   icon,
   children,
   action,
 }: {
   title: string;
+  status?: React.ReactNode;
   icon: React.ReactNode;
   children: React.ReactNode;
   action?: React.ReactNode;
 }) => (
-  <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+  <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 pb-12">
     <div className="flex items-center justify-between mb-4">
       <h3 className="text-lg font-semibold flex items-center gap-2">
         {icon}
         {title}
+        {status}
       </h3>
       {action}
     </div>

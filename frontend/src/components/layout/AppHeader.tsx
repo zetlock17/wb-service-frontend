@@ -116,7 +116,7 @@ const AppHeader = ({
                     className="w-8 h-8 rounded-full object-cover"
                   />
                 ) : (
-                  <div className="w-10 h-10 bg-linear-to-br from-fuchsia-500 to-purple-500 rounded-full flex items-center justify-center text-white text-sm font-bold">
+                  <div className="w-10 h-10 bg-linear-to-br from-purple-500 to-fuchsia-500 rounded-full flex items-center justify-center text-white text-sm font-bold">
                     {getInitials()}
                   </div>
                 )}
