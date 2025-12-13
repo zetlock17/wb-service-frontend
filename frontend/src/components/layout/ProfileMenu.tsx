@@ -88,7 +88,7 @@ const ProfileMenu = ({ isOpen, onNavigateHome }: ProfileMenuProps) => {
                 className="w-16 h-16 rounded-full object-cover"
               />
             ) : (
-              <div className="w-16 h-16 bg-linear-to-br from-purple-500 to-blue-500 rounded-full flex items-center justify-center text-white text-lg font-bold">
+              <div className="w-16 h-16 bg-linear-to-br from-purple-500 to-fuchsia-500 rounded-full flex items-center justify-center text-white text-lg font-bold">
                 {getInitials()}
               </div>
             )}
