@@ -14,6 +14,7 @@ import {
   Users,
   ChevronRight,
   ArrowRight,
+  ChevronLeft,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import Modal from "../../components/common/Modal";
@@ -21,12 +22,19 @@ import usePortalStore from "../../store/usePortalStore";
 import type { Birthday, BirthDayType, ModuleId } from "../../types/portal";
 import { editableFields } from "../../types/portal";
 import type { UserProfile } from "../../types/portal";
+import { getCasualName, getInitials } from "../../utils/nameUtils";
 
 interface HomeModuleProps {
   onNavigate: (moduleId: ModuleId) => void;
 }
 
 type BirthdayFilter = "today" | "week" | "month";
+const birthdayOptions: BirthdayFilter[] = ["today", "week", "month"];
+const birthdayLabels: Record<BirthdayFilter, string> = {
+  today: "Сегодня",
+  week: "Текущая неделя",
+  month: "Текущий месяц",
+};
 
 const HomeModule = ({ onNavigate }: HomeModuleProps) => {
   const [birthdayFilter, setBirthdayFilter] = useState<BirthdayFilter>("week");
@@ -153,22 +161,17 @@ const HomeModule = ({ onNavigate }: HomeModuleProps) => {
   const user = currentUser;
   const currentVacation = user.vacations[0];
   
-  const getInitials = () => {
-    const arrayOfWords = currentUser.full_name.split(" ")
-    return arrayOfWords[0][0] + arrayOfWords[2][0]
-  };
-
   return (
     <div className="space-y-6">
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
         <div className="flex items-start justify-between mb-4">
           <div className="flex items-center gap-4">
             <div className="w-20 h-20 bg-linear-to-br from-purple-500 to-fuchsia-500 rounded-full flex items-center justify-center text-white text-2xl font-bold">
-              {getInitials()}
+              {getInitials(currentUser.full_name)}
             </div>
             <div>
               <div className="flex items-center gap-2 mb-1">
-                <h2 className="text-2xl font-bold text-gray-900">{user.full_name}</h2>
+                <h2 className="text-2xl font-bold text-gray-900">{getCasualName(user.full_name)}</h2>
                 {currentVacation && (
                   <span
                     className={`px-2 py-1 text-xs font-medium rounded-full ${
@@ -210,7 +213,7 @@ const HomeModule = ({ onNavigate }: HomeModuleProps) => {
           <div className="space-y-3">
             <ProfileRow label="Личный телефон" value={user.personal_phone} editable={editableFields.userProfile.personal_phone} onEdit={() => startEditing('profile', 'personal_phone', { personal_phone: user.personal_phone })} />
             <ProfileRow label="Рабочий телефон" value={user.work_phone} editable={editableFields.userProfile.work_phone} />
-            <ProfileRow label="Рабочая почта" value={user.work_email} editable={editableFields.userProfile.work_email} isSmall />
+            <ProfileRow label="Рабочая почта" value={user.work_email} link={`mailto:${user.work_email}`} editable={editableFields.userProfile.work_email} isSmall />
             <ProfileRow label="Band" value={user.work_band} editable={editableFields.userProfile.work_band} />
             <ProfileRow label="Telegram" value={user.telegram || "Не указан"} editable={editableFields.userProfile.telegram} onEdit={() => startEditing('profile', 'telegram', { telegram: user.telegram || '' })} />
           </div>
@@ -218,8 +221,23 @@ const HomeModule = ({ onNavigate }: HomeModuleProps) => {
 
         <InfoCard title="Структура" icon={<Users className="w-5 h-5 text-purple-600" />}>
           <div className="space-y-3">
-            <StructureLink label="Руководитель" value={user.manager_name || ""} />
-            <StructureLink label="HR-бизнес-партнёр" value={user.hr_name || ""} />
+            {[{id: 1, full_name: 'Сидорова Анна Алексеевна', position: 'Руководитель', department: 'Департамент информационных технологий'}, 
+              {id: 2, full_name: 'Козлова Мария Александровна', position: 'HR-бизнес-партнёр', department: 'HR департмент'}].map((employee) => (
+              <div key={employee.id} className="p-2">
+                <div className="flex justify-between items-center gap-3">
+                  <div className="w-16 h-16 bg-linear-to-br from-purple-500 to-fuchsia-500 rounded-full flex items-center justify-center text-2xl text-white font-bold shrink-0">
+                    {getInitials(employee.full_name)}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm text-gray-500">{employee.position}</p>
+                    <h3 className="font-semibold text-purple-600">{getCasualName(employee.full_name)}</h3>
+                    <p className="text-sm text-gray-500">Департамент</p>
+                    <p className="text-sm text-black">{employee.department}</p>
+                  </div>
+                </div>
+              </div>
+            ))}
+
             <button
               onClick={() => onNavigate("structure")}
               className="mt-4 text-sm text-purple-600 hover:underline flex items-center gap-1"
@@ -321,7 +339,7 @@ const HomeModule = ({ onNavigate }: HomeModuleProps) => {
         </div>
 
         <div className="flex flex-col gap-6">
-          <Card title="Ближайшие дни рождения" icon={<Cake className="w-5 h-5 text-purple-600" />} action={<select value={birthdayFilter} onChange={(event) => setBirthdayFilter(event.target.value as BirthdayFilter)} className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"><option value="today">Сегодня</option><option value="week">Текущая неделя</option><option value="month">Текущий месяц</option></select>}>
+          <Card title="Ближайшие дни рождения" icon={<Cake className="w-5 h-5 text-purple-600" />} action={filterSwitch({options: birthdayOptions, labels: birthdayLabels, filter: birthdayFilter, setFilter: setBirthdayFilter})}>
             <div className="space-y-3">
               {filteredBirthdays.length ? (
                 filteredBirthdays.map((person) => (
@@ -610,6 +628,7 @@ const ProfileRow = ({
   secure,
   helper,
   isSmall,
+  link,
   editable,
   onEdit,
 }: {
@@ -618,37 +637,91 @@ const ProfileRow = ({
   secure?: boolean;
   helper?: string;
   isSmall?: boolean;
+  link?: string;
   editable?: boolean;
   onEdit?: () => void;
-}) => (
-  <div className="space-y-0.5">
-    <p className="text-sm text-gray-500">{label}</p>
-    <p className={`font-medium flex items-center gap-2 ${isSmall ? "text-sm" : ""}`}>
-      {value}
-      {editable ? (
-        <button onClick={onEdit} className="p-1 hover:bg-gray-100 rounded">
-          <Edit2 className="w-3 h-3 text-gray-500" />
+}) => {
+  const Tag: React.ElementType = link ? "a" : "p";
+  return (
+    <div className="space-y-0.5">
+      <p className="text-sm text-gray-500">{label}</p>
+      <Tag className={`font-medium flex items-center gap-2 ${isSmall ? "text-sm" : ""} ${link ? "text-purple-600 hover:underline" : ""}`} href={link}>
+        {value}
+        {editable ? (
+          <button onClick={onEdit} className="p-1 hover:bg-gray-100 rounded">
+            <Edit2 className="w-3 h-3 text-gray-500" />
+          </button>
+        ) : (
+          secure && <Lock className="w-3 h-3 text-gray-400" />
+        )}
+      </Tag>
+      {helper && <p className="text-xs text-gray-500">{helper}</p>}
+    </div>
+  );}
+
+  const StructureLink = ({ label, value }: { label: string; value: string }) => (
+    <div>
+      <p className="text-sm text-gray-500">{label}</p>
+      <button className="font-medium text-purple-600 hover:underline">{value}</button>
+    </div>
+  );
+
+  const VacationInfo = ({ label, value }: { label: string; value: string }) => (
+    <div>
+      <p className="text-sm text-gray-500 mb-1">{label}</p>
+      <p className="font-medium">{value}</p>
+    </div>
+  );
+
+  type FilterSwitchProps<T extends string> = {
+    options: readonly T[];
+    labels: Record<T, string>;
+    filter: T;
+    setFilter: (value: T) => void;
+  };
+
+  const filterSwitch = <T extends string>({
+    options,
+    labels,
+    filter,
+    setFilter,
+  }: FilterSwitchProps<T>) => {
+    const index = options.indexOf(filter);
+
+    const prev = () => {
+      if (index > 0) {
+        setFilter(options[index - 1]);
+      }
+    };
+
+    const next = () => {
+      if (index < options.length - 1) {
+        setFilter(options[index + 1]);
+      }
+    };
+
+    return (
+      <div className="flex items-center gap-2">
+        <button
+          onClick={prev}
+          disabled={index === 0}
+          className="flex h-8 w-8 items-center justify-center rounded-lg hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed">
+          <ChevronLeft className="h-4 w-4" />
         </button>
-      ) : (
-        secure && <Lock className="w-3 h-3 text-gray-400" />
-      )}
-    </p>
-    {helper && <p className="text-xs text-gray-500">{helper}</p>}
-  </div>
-);
 
-const StructureLink = ({ label, value }: { label: string; value: string }) => (
-  <div>
-    <p className="text-sm text-gray-500">{label}</p>
-    <button className="font-medium text-purple-600 hover:underline">{value}</button>
-  </div>
-);
+        <div className="px-4 py-1.5 text-sm border border-gray-300 rounded-lg bg-white whitespace-nowrap">
+          {labels[filter]}
+        </div>
 
-const VacationInfo = ({ label, value }: { label: string; value: string }) => (
-  <div>
-    <p className="text-sm text-gray-500 mb-1">{label}</p>
-    <p className="font-medium">{value}</p>
-  </div>
-);
+        <button
+          onClick={next}
+          disabled={index === options.length - 1}
+          className="flex h-8 w-8 items-center justify-center rounded-lg hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed">
+          <ChevronRight className="h-4 w-4" />
+        </button>
+      </div>
+    );
+  };
+
 
 export default HomeModule;
