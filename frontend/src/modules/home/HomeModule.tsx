@@ -47,10 +47,10 @@ const HomeModule = ({ onNavigate }: HomeModuleProps) => {
     setEditingValues(currentValue || {});
   };
 
-  const saveEditing = async () => {
+  const saveEditing = async () => { // тут обработку ошибок бы сделать
     if (!currentUser) return;
     const updates: Partial<UserProfile> = {};
-    
+
     if (editingField?.section === 'profile') {
       Object.assign(updates, editingValues);
     } else if (editingField?.section === 'projects') {
@@ -67,7 +67,7 @@ const HomeModule = ({ onNavigate }: HomeModuleProps) => {
       updatedVacations[0] = { ...updatedVacations[0], ...editingValues };
       updates.vacations = updatedVacations;
     }
-    
+
     await updateCurrentUser(currentUser.eid, updates);
     setEditingField(null);
   };
@@ -87,15 +87,15 @@ const HomeModule = ({ onNavigate }: HomeModuleProps) => {
     if (!upcomingBirthdays || !Array.isArray(upcomingBirthdays)) {
       return [];
     }
-    
+
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    
+
     return upcomingBirthdays.filter((person) => {
       const birthDate = new Date(person.birth_date);
       const thisYearBirthday = new Date(now.getFullYear(), birthDate.getMonth(), birthDate.getDate());
       const daysDiff = Math.ceil((thisYearBirthday.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-      
+
       if (birthdayFilter === "today") {
         return daysDiff === 0;
       }
@@ -109,8 +109,8 @@ const HomeModule = ({ onNavigate }: HomeModuleProps) => {
 
   const formatDate = (dateStr: string, mode?: string): string => {
     const date = new Date(dateStr);
-    switch (mode) {      
-      case 'my':;
+    switch (mode) {
+      case 'my': ;
         return date.toLocaleDateString('ru-RU', { month: 'short', year: 'numeric' }).replace(/[.,г]/g, '').trim().replace(/^./, char => char.toUpperCase());
       case 'dm':
         return date.toLocaleDateString('ru-RU', { day: '2-digit', month: 'long' }).replace(/[.,]/g, '').trim();
@@ -124,7 +124,7 @@ const HomeModule = ({ onNavigate }: HomeModuleProps) => {
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const thisYearBirthday = new Date(now.getFullYear(), date.getMonth(), date.getDate());
     const daysDiff = Math.ceil((thisYearBirthday.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-    
+
     if (daysDiff === 0) return 'Сегодня';
     if (daysDiff === 1) return 'Завтра';
     return thisYearBirthday.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' });
@@ -160,7 +160,7 @@ const HomeModule = ({ onNavigate }: HomeModuleProps) => {
 
   const user = currentUser;
   const currentVacation = user.vacations[0];
-  
+
   return (
     <div className="space-y-6">
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
@@ -174,11 +174,10 @@ const HomeModule = ({ onNavigate }: HomeModuleProps) => {
                 <h2 className="text-2xl font-bold text-gray-900">{getCasualName(user.full_name)}</h2>
                 {currentVacation && (
                   <span
-                    className={`px-2 py-1 text-xs font-medium rounded-full ${
-                      getVacationStatus(currentVacation) === "active"
+                    className={`px-2 py-1 text-xs font-medium rounded-full ${getVacationStatus(currentVacation) === "active"
                         ? "bg-orange-100 text-orange-700"
                         : "bg-purple-600 text-white"
-                    }`}
+                      }`}
                   >
                     {getVacationStatus(currentVacation) === "active" ? "В отпуске" : "Отпуск запланирован"}
                   </span>
@@ -221,8 +220,8 @@ const HomeModule = ({ onNavigate }: HomeModuleProps) => {
 
         <InfoCard title="Структура" icon={<Users className="w-5 h-5 text-purple-600" />}>
           <div className="space-y-3">
-            {[{id: 1, full_name: 'Сидорова Анна Алексеевна', position: 'Руководитель', department: 'Департамент информационных технологий'}, 
-              {id: 2, full_name: 'Козлова Мария Александровна', position: 'HR-бизнес-партнёр', department: 'HR департмент'}].map((employee) => (
+            {[{ id: 1, full_name: 'Сидорова Анна Алексеевна', position: 'Руководитель', department: 'Департамент информационных технологий' },
+            { id: 2, full_name: 'Козлова Мария Александровна', position: 'HR-бизнес-партнёр', department: 'HR департмент' }].map((employee) => (
               <div key={employee.id} className="p-2">
                 <div className="flex justify-between items-center gap-3">
                   <div className="w-16 h-16 bg-linear-to-br from-purple-500 to-fuchsia-500 rounded-full flex items-center justify-center text-2xl text-white font-bold shrink-0">
@@ -263,7 +262,7 @@ const HomeModule = ({ onNavigate }: HomeModuleProps) => {
         }
       >
         <div className="space-y-3">
-          {user.projects.map((project, index) => (
+          {user.projects.map((project) => (
             <div key={project.id} className="p-4 border border-gray-200 rounded-lg hover:shadow-sm transition-shadow">
               <div className="flex items-start justify-between mb-2">
                 <h4 className="font-semibold text-gray-900">{project.name}</h4>
@@ -295,28 +294,28 @@ const HomeModule = ({ onNavigate }: HomeModuleProps) => {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div className="flex flex-col gap-6">
           {currentVacation && (
-            <Card 
-              title="Отпуск" 
-              icon={<Calendar className="w-5 h-5 text-purple-600" />} 
-              status={<span className={`px-3 py-1 text-sm font-medium rounded-full ${getVacationStatus(currentVacation) === "active" ? "bg-orange-100 text-orange-700" : "bg-purple-600 text-white" }`}>{getVacationStatus(currentVacation) === "active" ? "В отпуске" : "Планируется"} </span>}
+            <Card
+              title="Отпуск"
+              icon={<Calendar className="w-5 h-5 text-purple-600" />}
+              status={<span className={`px-3 py-1 text-sm font-medium rounded-full ${getVacationStatus(currentVacation) === "active" ? "bg-orange-100 text-orange-700" : "bg-purple-600 text-white"}`}>{getVacationStatus(currentVacation) === "active" ? "В отпуске" : "Планируется"} </span>}
               action={<button onClick={() => startEditing('vacations', undefined, currentVacation)} className="px-3 py-1.5 text-sm text-purple-600 hover:bg-purple-50 rounded-lg flex items-center gap-1"><ArrowRight strokeWidth={1.5} className="w-4 h-4" /> Отправить заявку</button>}>
               <div className="space-y-4">
-                  <div className="flex items-center justify-between px-5 py-4 bg-purple-50 rounded-lg">
-                    <VacationInfo label="Дата начала" value={formatDate(currentVacation.start_date)} />
-                    {currentVacation.substitute && (
-                      <StructureLink label="Замещение" value={currentVacation.substitute} />
-                    )}
-                  </div>
+                <div className="flex items-center justify-between px-5 py-4 bg-purple-50 rounded-lg">
+                  <VacationInfo label="Дата начала" value={formatDate(currentVacation.start_date)} />
+                  {currentVacation.substitute && (
+                    <StructureLink label="Замещение" value={currentVacation.substitute} />
+                  )}
+                </div>
 
-                  <div className="flex items-center justify-between px-5 py-4 bg-purple-50 rounded-lg">
-                    <VacationInfo label="Дата окончания" value={formatDate(currentVacation.end_date)} />
-                    {currentVacation.comment && (
-                      <div>
-                        <p className="text-sm text-gray-500 mb-1">Комментарий</p>
-                        <p className="text-gray-700">{currentVacation.comment}</p>
-                      </div>
-                    )}
-                  </div>
+                <div className="flex items-center justify-between px-5 py-4 bg-purple-50 rounded-lg">
+                  <VacationInfo label="Дата окончания" value={formatDate(currentVacation.end_date)} />
+                  {currentVacation.comment && (
+                    <div>
+                      <p className="text-sm text-gray-500 mb-1">Комментарий</p>
+                      <p className="text-gray-700">{currentVacation.comment}</p>
+                    </div>
+                  )}
+                </div>
               </div>
             </Card>
           )}
@@ -339,7 +338,7 @@ const HomeModule = ({ onNavigate }: HomeModuleProps) => {
         </div>
 
         <div className="flex flex-col gap-6">
-          <Card title="Ближайшие дни рождения" icon={<Cake className="w-5 h-5 text-purple-600" />} action={filterSwitch({options: birthdayOptions, labels: birthdayLabels, filter: birthdayFilter, setFilter: setBirthdayFilter})}>
+          <Card title="Ближайшие дни рождения" icon={<Cake className="w-5 h-5 text-purple-600" />} action={filterSwitch({ options: birthdayOptions, labels: birthdayLabels, filter: birthdayFilter, setFilter: setBirthdayFilter })}>
             <div className="space-y-3">
               {filteredBirthdays.length ? (
                 filteredBirthdays.map((person) => (
@@ -657,71 +656,72 @@ const ProfileRow = ({
       </Tag>
       {helper && <p className="text-xs text-gray-500">{helper}</p>}
     </div>
-  );}
-
-  const StructureLink = ({ label, value }: { label: string; value: string }) => (
-    <div>
-      <p className="text-sm text-gray-500">{label}</p>
-      <button className="font-medium text-purple-600 hover:underline">{value}</button>
-    </div>
   );
+}
 
-  const VacationInfo = ({ label, value }: { label: string; value: string }) => (
-    <div>
-      <p className="text-sm text-gray-500 mb-1">{label}</p>
-      <p className="font-medium">{value}</p>
-    </div>
-  );
+const StructureLink = ({ label, value }: { label: string; value: string }) => (
+  <div>
+    <p className="text-sm text-gray-500">{label}</p>
+    <button className="font-medium text-purple-600 hover:underline">{value}</button>
+  </div>
+);
 
-  type FilterSwitchProps<T extends string> = {
-    options: readonly T[];
-    labels: Record<T, string>;
-    filter: T;
-    setFilter: (value: T) => void;
+const VacationInfo = ({ label, value }: { label: string; value: string }) => (
+  <div>
+    <p className="text-sm text-gray-500 mb-1">{label}</p>
+    <p className="font-medium">{value}</p>
+  </div>
+);
+
+type FilterSwitchProps<T extends string> = {
+  options: readonly T[];
+  labels: Record<T, string>;
+  filter: T;
+  setFilter: (value: T) => void;
+};
+
+const filterSwitch = <T extends string>({
+  options,
+  labels,
+  filter,
+  setFilter,
+}: FilterSwitchProps<T>) => {
+  const index = options.indexOf(filter);
+
+  const prev = () => {
+    if (index > 0) {
+      setFilter(options[index - 1]);
+    }
   };
 
-  const filterSwitch = <T extends string>({
-    options,
-    labels,
-    filter,
-    setFilter,
-  }: FilterSwitchProps<T>) => {
-    const index = options.indexOf(filter);
+  const next = () => {
+    if (index < options.length - 1) {
+      setFilter(options[index + 1]);
+    }
+  };
 
-    const prev = () => {
-      if (index > 0) {
-        setFilter(options[index - 1]);
-      }
-    };
+  return (
+    <div className="flex items-center gap-2">
+      <button
+        onClick={prev}
+        disabled={index === 0}
+        className="flex h-8 w-8 items-center justify-center rounded-lg hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed">
+        <ChevronLeft className="h-4 w-4" />
+      </button>
 
-    const next = () => {
-      if (index < options.length - 1) {
-        setFilter(options[index + 1]);
-      }
-    };
-
-    return (
-      <div className="flex items-center gap-2">
-        <button
-          onClick={prev}
-          disabled={index === 0}
-          className="flex h-8 w-8 items-center justify-center rounded-lg hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed">
-          <ChevronLeft className="h-4 w-4" />
-        </button>
-
-        <div className="px-4 py-1.5 text-sm border border-gray-300 rounded-lg bg-white whitespace-nowrap">
-          {labels[filter]}
-        </div>
-
-        <button
-          onClick={next}
-          disabled={index === options.length - 1}
-          className="flex h-8 w-8 items-center justify-center rounded-lg hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed">
-          <ChevronRight className="h-4 w-4" />
-        </button>
+      <div className="px-4 py-1.5 text-sm border border-gray-300 rounded-lg bg-white whitespace-nowrap">
+        {labels[filter]}
       </div>
-    );
-  };
+
+      <button
+        onClick={next}
+        disabled={index === options.length - 1}
+        className="flex h-8 w-8 items-center justify-center rounded-lg hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed">
+        <ChevronRight className="h-4 w-4" />
+      </button>
+    </div>
+  );
+};
 
 
 export default HomeModule;
