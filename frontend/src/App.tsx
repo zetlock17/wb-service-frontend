@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { registerApiErrorHandler } from "./api/api";
 import AppHeader from "./components/layout/AppHeader";
 import GlobalSearchModal, { type SearchFilter } from "./components/layout/GlobalSearchModal";
 import MobileNav from "./components/layout/MobileNav";
@@ -15,6 +16,7 @@ import ReportsModule from "./modules/reports/ReportsModule";
 import StructureModule from "./modules/structure/StructureModule";
 import SurveysModule from "./modules/surveys/SurveysModule";
 import TrainingModule from "./modules/training/TrainingModule";
+import ErrorPage from "./pages/ErrorPage";
 import usePortalStore from "./store/usePortalStore";
 import type { GlobalSearchResults, ModuleId } from "./types/portal";
 
@@ -34,7 +36,11 @@ function App() {
   const [searchQuery, setSearchQuery] = useState("");
   const [searchFilter, setSearchFilter] = useState<SearchFilter>("all");
 
-  const { documents, knowledgeBase, employees, news, departments, fetchPortalData } = usePortalStore();
+  const { documents, knowledgeBase, employees, news, departments, fetchPortalData, hasApiError, error, setApiError, clearApiError } = usePortalStore();
+
+  useEffect(() => {
+    registerApiErrorHandler(setApiError);
+  }, [setApiError]);
 
   useEffect(() => {
     fetchPortalData();
@@ -73,6 +79,20 @@ function App() {
       news: filterMatches("news") ? news.filter((item) => matches(item.title)).slice(0, 5) : [],
     };
   }, [searchFilter, searchQuery, documents, knowledgeBase, employees, news, departments]);
+
+  const handleRetry = () => {
+    clearApiError();
+    fetchPortalData();
+  };
+
+  const handleGoHome = () => {
+    clearApiError();
+    setActiveModule("home");
+  };
+
+  if (hasApiError) {
+    return <ErrorPage error={error} onRetry={handleRetry} onGoHome={handleGoHome} />;
+  }
 
   const renderModule = () => {
     switch (activeModule) {
