@@ -8,7 +8,7 @@ interface ErrorPageProps {
 
 const ErrorPage = ({ error, onRetry, onGoHome }: ErrorPageProps) => {
   return (
-    <div className="min-h-[calc(100vh-10rem)] bg-gray-100 flex items-center justify-center px-4">
+    <div className="min-h-screen bg-gray-100 flex items-center justify-center px-4">
       <div className="max-w-md w-full bg-white rounded-xl shadow-lg p-8 text-center">
         <div className="w-16 h-16 bg-fuchsia-100 rounded-full flex items-center justify-center mx-auto mb-6">
           <AlertTriangle className="w-8 h-8 text-purple-500" />

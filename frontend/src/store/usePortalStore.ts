@@ -175,7 +175,7 @@ const usePortalStore = create<PortalState>((set) => ({
   },
 
   setApiError: (error: string | null) => {
-    set({ hasApiError: true, error });
+    set({ hasApiError: !!error, error });
   },
 
   clearApiError: () => {
