@@ -17,6 +17,7 @@ import SurveysModule from "./modules/surveys/SurveysModule";
 import TrainingModule from "./modules/training/TrainingModule";
 import usePortalStore from "./store/usePortalStore";
 import type { GlobalSearchResults, ModuleId } from "./types/portal";
+import useWindowDimensions from "./hooks/useWindowDimensions";
 
 const emptySearchResults: GlobalSearchResults = {
   documents: [],
@@ -33,6 +34,7 @@ function App() {
   const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchFilter, setSearchFilter] = useState<SearchFilter>("all");
+  const { width, height } = useWindowDimensions();
 
   const { documents, knowledgeBase, employees, news, departments, fetchPortalData } = usePortalStore();
 
@@ -133,11 +135,9 @@ function App() {
         onNavigate={handleModuleChange}
       />
 
-      <div className="fixed top-16 right-6 z-40 space-y-4">
+      <div className={`fixed top-22 right-6 z-40`} style={width > 1280 ? { right: `${(width / 2 - 1280 / 2) / 16 + 2}rem` } : {}}>
         <div className="relative">
           <NotificationsPanel isOpen={isNotificationsOpen} onClose={() => setIsNotificationsOpen(false)} />
-        </div>
-        <div className="relative">
           <ProfileMenu isOpen={isProfileMenuOpen} onNavigateHome={() => handleModuleChange("home")} />
         </div>
       </div>
