@@ -7,6 +7,23 @@ export interface ApiResponse<T> {
   message?: string;
 }
 
+let apiErrorCallback: ((error: string | null) => void) | null = null;
+
+export const registerApiErrorHandler = (callback: (error: string | null) => void) => {
+  apiErrorCallback = callback;
+};
+
+const handleApiError = (error: any, url: string) => {
+  console.error(`API error for ${url}:`, error);
+  
+  if (error.response?.status >= 400 || !error.response) {
+    const errorMessage = error.response?.data?.message || error.message || 'Ошибка сервера ';
+    if (apiErrorCallback) {
+      apiErrorCallback(errorMessage);
+    }
+  }
+};
+
 const api: AxiosInstance = axios.create({
   baseURL: import.meta.env.VITE_API_URL,
   // baseURL: 'http://localhost:8000',
@@ -35,12 +52,7 @@ export const getRequest = async <T>(url: string, params?: object): Promise<ApiRe
       status: response.status,
     };
   } catch (error: any) {
-
-    if (error.response?.status >= 400) {
-      window.location.href = '/error';
-    }
-
-    console.error(`API error for ${url}:`, error);
+    handleApiError(error, url);
 
     return {
       data: {} as T,
@@ -58,12 +70,7 @@ export const patchRequest = async <T>(url: string, data?: object): Promise<ApiRe
       status: response.status,
     };
   } catch (error: any) {
-
-    if (error.response?.status >= 400) {
-      window.location.href = '/error';
-    }
-
-    console.error(`API error for ${url}:`, error);
+    handleApiError(error, url);
 
     return {
       data: {} as T,
@@ -81,12 +88,7 @@ export const postRequest = async <T>(url: string, data?: object): Promise<ApiRes
       status: response.status,
     };
   } catch (error: any) {
-
-    if (error.response?.status >= 400) {
-      window.location.href = '/error';
-    }
-
-    console.error(`API error for ${url}:`, error);
+    handleApiError(error, url);
 
     return {
       data: {} as T,
@@ -104,12 +106,7 @@ export const deleteRequest = async <T>(url: string): Promise<ApiResponse<T>> => 
       status: response.status,
     };
   } catch (error: any) {
-
-    if (error.response?.status >= 400) {
-      window.location.href = '/error';
-    }
-
-    console.error(`API error for ${url}:`, error);
+    handleApiError(error, url);
 
     return {
       data: {} as T,

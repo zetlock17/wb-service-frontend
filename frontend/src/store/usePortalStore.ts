@@ -48,11 +48,14 @@ interface PortalState {
 
   loading: boolean;
   error: string | null;
+  hasApiError: boolean;
 
   fetchPortalData: () => Promise<void>;
   fetchProfile: (eid: number) => Promise<void>;
   updateCurrentUser: (eid: number, updatedUser: Partial<UserProfile>) => Promise<void>;
   fetchBirthdays: (timeUnit: BirthDayType) => Promise<void>;
+  setApiError: (error: string | null) => void;
+  clearApiError: () => void;
 }
 
 const usePortalStore = create<PortalState>((set) => ({
@@ -72,6 +75,7 @@ const usePortalStore = create<PortalState>((set) => ({
 
   loading: false,
   error: null,
+  hasApiError: false,
 
   fetchPortalData: async () => {
     set({ loading: true, error: null });
@@ -168,6 +172,14 @@ const usePortalStore = create<PortalState>((set) => ({
       console.error("Failed to fetch birthdays:", error);
       set({ upcomingBirthdays: [] });
     }
+  },
+
+  setApiError: (error: string | null) => {
+    set({ hasApiError: !!error, error });
+  },
+
+  clearApiError: () => {
+    set({ hasApiError: false, error: null });
   },
 }));
 
