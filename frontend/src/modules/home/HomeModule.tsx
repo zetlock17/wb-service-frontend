@@ -24,7 +24,6 @@ import Modal from "../../components/common/Modal";
 import usePortalStore from "../../store/usePortalStore";
 import type { Birthday, BirthDayType, ModuleId } from "../../types/portal";
 import { editableFields } from "../../types/portal";
-import type { UserProfile } from "../../types/portal";
 import { getCasualName, getInitials } from "../../utils/nameUtils";
 import { useAvatarWithEdit } from "../../hooks/useAvatar";
 
@@ -56,23 +55,36 @@ const HomeModule = ({ onNavigate }: HomeModuleProps) => {
 
   const saveEditing = async () => { // тут обработку ошибок бы сделать
     if (!currentUser) return;
-    const updates: Partial<UserProfile> = {};
+    const updates: any = {}; // Используем any, так как projects отправляются без id (ProfileProjectUpdate[])
 
     if (editingField?.section === 'profile') {
       Object.assign(updates, editingValues);
     } else if (editingField?.section === 'projects') {
+      const currentProjects = currentUser.projects || [];
       if (editingField.field === 'add') {
-        const newProject = { ...editingValues, id: currentUser.projects.length + 1 };
-        updates.projects = [...currentUser.projects, newProject];
+        // Новые проекты отправляем без id, так как API сам создаст id
+        const { id, ...projectData } = editingValues;
+        const projectsToSend = [...currentProjects.map(p => {
+          const { id, ...rest } = p;
+          return rest;
+        }), projectData];
+        updates.projects = projectsToSend;
       } else if (editingField.index !== undefined) {
-        const updatedProjects = [...currentUser.projects];
+        // При обновлении отправляем все проекты без id
+        const updatedProjects = [...currentProjects];
         updatedProjects[editingField.index] = { ...updatedProjects[editingField.index], ...editingValues };
-        updates.projects = updatedProjects;
+        updates.projects = updatedProjects.map(p => {
+          const { id, ...rest } = p;
+          return rest;
+        });
       }
     } else if (editingField?.section === 'vacations') {
-      const updatedVacations = [...currentUser.vacations];
-      updatedVacations[0] = { ...updatedVacations[0], ...editingValues };
-      updates.vacations = updatedVacations;
+      const currentVacations = currentUser.vacations || [];
+      if (currentVacations.length > 0) {
+        const updatedVacations = [...currentVacations];
+        updatedVacations[0] = { ...updatedVacations[0], ...editingValues };
+        updates.vacations = updatedVacations;
+      }
     }
 
     await updateCurrentUser(currentUser.eid, updates);
@@ -132,28 +144,13 @@ const HomeModule = ({ onNavigate }: HomeModuleProps) => {
     fetchBirthdays(timeUnit);
   }, [birthdayFilter, fetchBirthdays]);
 
+  // Используем данные напрямую с сервера, так как они уже отфильтрованы
   const filteredBirthdays = useMemo(() => {
     if (!upcomingBirthdays || !Array.isArray(upcomingBirthdays)) {
       return [];
     }
-
-    const now = new Date();
-    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-
-    return upcomingBirthdays.filter((person) => {
-      const birthDate = new Date(person.birth_date);
-      const thisYearBirthday = new Date(now.getFullYear(), birthDate.getMonth(), birthDate.getDate());
-      const daysDiff = Math.ceil((thisYearBirthday.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-
-      if (birthdayFilter === "today") {
-        return daysDiff === 0;
-      }
-      if (birthdayFilter === "week") {
-        return daysDiff >= 0 && daysDiff <= 7;
-      }
-      return daysDiff >= 0 && daysDiff <= 30;
-    });
-  }, [upcomingBirthdays, birthdayFilter]);
+    return upcomingBirthdays;
+  }, [upcomingBirthdays]);
 
 
   const formatDate = (dateStr: string, mode?: string): string => {
@@ -208,7 +205,7 @@ const HomeModule = ({ onNavigate }: HomeModuleProps) => {
   }
 
   const user = currentUser;
-  const currentVacation = user.vacations[0];
+  const currentVacation = user.vacations && user.vacations.length > 0 ? user.vacations[0] : null;
 
   return (
     <div className="space-y-6">
@@ -267,7 +264,7 @@ const HomeModule = ({ onNavigate }: HomeModuleProps) => {
           <div className="space-y-3">
             <ProfileRow label="EID" value={user.eid.toString()} editable={editableFields.userProfile.eid} />
             <ProfileRow label="Должность" value={user.position} editable={editableFields.userProfile.position} />
-            <ProfileRow label="Департамент" value={user.department} editable={false} />
+            <ProfileRow label="Департамент" value={user.org_unit} editable={false} />
             <ProfileRow label="Дата рождения" value={formatDate(user.birth_date, 'dm')} editable={editableFields.userProfile.birth_date} />
             <ProfileRow label="Работает в компании" value={`с ${formatDate(user.hire_date)}`} editable={editableFields.userProfile.hire_date} />
           </div>
@@ -312,8 +309,8 @@ const HomeModule = ({ onNavigate }: HomeModuleProps) => {
         </InfoCard>
       </div>
 
-      <Card title="О себе" icon={<User className="w-5 h-5 text-purple-600" />} action={<button onClick={() => startEditing('profile', 'about_me', { about_me: user.about_me })} className="px-4 py-2 text-sm font-normal text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 flex items-center gap-2"><Edit2 className="w-4 h-4" /> Редактировать</button>}>
-        <p className="text-gray-700 leading-relaxed">{user.about_me}</p>
+      <Card title="О себе" icon={<User className="w-5 h-5 text-purple-600" />} action={<button onClick={() => startEditing('profile', 'about_me', { about_me: user.about_me || '' })} className="px-4 py-2 text-sm font-normal text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 flex items-center gap-2"><Edit2 className="w-4 h-4" /> Редактировать</button>}>
+        <p className="text-gray-700 leading-relaxed">{user.about_me || 'Не указано'}</p>
       </Card>
 
       <Card
@@ -327,10 +324,10 @@ const HomeModule = ({ onNavigate }: HomeModuleProps) => {
         }
       >
         <div className="space-y-3">
-          {user.projects.map((project) => (
+          {(user.projects || []).map((project) => (
             <div key={project.id} className="p-4 border border-gray-200 rounded-lg hover:shadow-sm transition-shadow">
               <div className="flex items-start justify-between mb-2">
-                <h4 className="font-semibold text-gray-900">{project.name}</h4>
+                <h4 className="font-semibold text-gray-900">{project.name || 'Без названия'}</h4>
                 <div className="flex gap-2">
                   {project.link && (
                     <a
@@ -347,9 +344,9 @@ const HomeModule = ({ onNavigate }: HomeModuleProps) => {
                   </button> */}
                 </div>
               </div>
-              <p className="text-sm text-gray-600 mb-1">{project.position}</p>
+              <p className="text-sm text-gray-600 mb-1">{project.position || 'Не указана'}</p>
               <p className="text-xs text-gray-500">
-                {formatDate(project.start_d, 'my')} - {project.end_d ? formatDate(project.end_d, 'my') : "настоящее время"}
+                {project.start_d ? formatDate(project.start_d, 'my') : 'Не указано'} - {project.end_d ? formatDate(project.end_d, 'my') : "настоящее время"}
               </p>
             </div>
           ))}
@@ -413,7 +410,7 @@ const HomeModule = ({ onNavigate }: HomeModuleProps) => {
                   >
                     <div>
                       <p className={`font-medium ${isBirthdayToday(person.birth_date) ? "text-white" : "text-gray-900"}`}>{person.full_name}</p>
-                      <p className={`text-sm ${isBirthdayToday(person.birth_date) ? "text-white" : "text-gray-600"}`}>{person.department}</p>
+                      <p className={`text-sm ${isBirthdayToday(person.birth_date) ? "text-white" : "text-gray-600"}`}>{person.org_unit}</p>
                     </div>
                     <div className="text-right">
                       <p className={`text-sm font-medium ${isBirthdayToday(person.birth_date) ? "text-white" : "text-purple-600"}`}>{formatBirthdayDate(person.birth_date)}</p>
@@ -476,7 +473,7 @@ const HomeModule = ({ onNavigate }: HomeModuleProps) => {
               </div>
               <div>
                 <p className="font-semibold text-gray-900">{selectedPerson.full_name}</p>
-                <p className="text-sm text-gray-600">{selectedPerson.department}</p>
+                <p className="text-sm text-gray-600">{selectedPerson.org_unit}</p>
                 <p className="text-sm text-purple-600 font-medium">{formatBirthdayDate(selectedPerson.birth_date)}</p>
               </div>
             </div>

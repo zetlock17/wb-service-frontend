@@ -81,10 +81,10 @@ const usePortalStore = create<PortalState>((set) => ({
     set({ loading: true, error: null });
     try {
       // Загружаем профиль с бэкенда
-      const profileResponse = await getProfile(5); // Временно используем eid = 5
+      const profileResponse = await getProfile(1); // Временно используем eid = 1
       
-      // Загружаем дни рождения с бэкенда
-      const birthdaysResponse = await getBirthdays('month');
+      // Загружаем дни рождения с бэкенда (по умолчанию week, как в фильтре)
+      const birthdaysResponse = await getBirthdays('week');
       
       // Загружаем остальные данные из моков
       await new Promise((resolve) => setTimeout(resolve, 300));
@@ -102,7 +102,7 @@ const usePortalStore = create<PortalState>((set) => ({
         surveys: mockSurveys,
         knowledgeBase: mockKnowledgeBase,
         reports: mockReports,
-        upcomingBirthdays: birthdaysResponse || [],
+        upcomingBirthdays: birthdaysResponse.birthdays || [],
         loading: false,
       });
     } catch (error) {
@@ -131,14 +131,14 @@ const usePortalStore = create<PortalState>((set) => ({
         currentUser: state.currentUser ? { ...state.currentUser, ...updatedUser } : null,
       }));
       
-      // Формируем данные для отправки (только редактируемые поля)
+      // Формируем данные для отправки (только редактируемые поля согласно ProfileUpdateSchema)
       const editableData: any = {};
       if (updatedUser.personal_phone !== undefined) editableData.personal_phone = updatedUser.personal_phone;
       if (updatedUser.telegram !== undefined) editableData.telegram = updatedUser.telegram;
       if (updatedUser.about_me !== undefined) editableData.about_me = updatedUser.about_me;
       if (updatedUser.projects !== undefined) editableData.projects = updatedUser.projects;
-      if (updatedUser.vacations !== undefined) editableData.vacations = updatedUser.vacations;
       if (updatedUser.avatar_id !== undefined) editableData.avatar_id = updatedUser.avatar_id;
+      // Примечание: vacations не входят в ProfileUpdateSchema и не могут быть отредактированы
       
       // Отправляем обновление на бэкенд
       const response = await updateProfile(eid, editableData);
@@ -167,7 +167,7 @@ const usePortalStore = create<PortalState>((set) => ({
   fetchBirthdays: async (timeUnit: BirthDayType) => {
     try {
       const response = await getBirthdays(timeUnit);
-      set({ upcomingBirthdays: response.data || [] });
+      set({ upcomingBirthdays: response.birthdays || [] });
     } catch (error) {
       console.error("Failed to fetch birthdays:", error);
       set({ upcomingBirthdays: [] });

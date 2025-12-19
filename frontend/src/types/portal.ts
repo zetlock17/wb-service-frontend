@@ -17,18 +17,26 @@ export interface ProfileVacation {
   is_planned: boolean;
   start_date: string;
   end_date: string;
-  substitute: string;
-  comment: string;
+  substitute: string | null;
+  comment: string | null;
   is_official: boolean;
 }
 
 export interface ProfileProject {
   id: number;
-  name: string;
-  start_d: string;
-  end_d: string;
-  position: string;
-  link: string;
+  name: string | null;
+  start_d: string | null;
+  end_d: string | null;
+  position: string | null;
+  link: string | null;
+}
+
+export interface ProfileProjectUpdate {
+  name?: string | null;
+  start_d?: string | null;
+  end_d?: string | null;
+  position?: string | null;
+  link?: string | null;
 }
 
 export interface UserProfile {
@@ -36,7 +44,7 @@ export interface UserProfile {
   full_name: string;
   avatar_id: number | null;
   position: string;
-  department: string;
+  org_unit: string;  // Изменено с department согласно API spec
   birth_date: string;
   hire_date: string;
   personal_phone: string;
@@ -44,19 +52,19 @@ export interface UserProfile {
   work_email: string;
   work_band: string;
   telegram: string;
-  manager_name: string;
-  hr_name: string;
-  about_me: string;
-  projects: ProfileProject[];
-  vacations: ProfileVacation[];
+  manager_name: string | null;
+  hr_name: string | null;
+  about_me: string | null;
+  projects: ProfileProject[] | null;
+  vacations: ProfileVacation[] | null;
 }
 
 export interface CanEdit {
-  personal_phone?: string;
-  telegram?: string;
-  about_me?: string;
-  projects?: ProfileProject[];
-  vacations?: ProfileVacation[];
+  avatar_id?: number | null;
+  personal_phone?: string | null;
+  telegram?: string | null;
+  about_me?: string | null;
+  projects?: ProfileProjectUpdate[] | null;
 }
 
 // Legacy interfaces for backward compatibility
@@ -218,9 +226,11 @@ export type BirthDayType = 'day' | 'week' | 'month';
 
 export interface Birthday {
   eid: number;
-  full_name: string,
-  department: string,
+  full_name: string;
+  org_unit: string; 
   birth_date: string;
+  telegram: string | null;
+  telegram_birthday_link: string | null;
 }
 
 export interface ReportCard {
@@ -251,9 +261,9 @@ export const editableFields: EditableFields = {
   userProfile: {
     eid: false,
     full_name: false,
-    avatar_id: false,
+    avatar_id: true,  // Может редактироваться через загрузку фото
     position: false,
-    department: false,
+    org_unit: false,  // Изменено с department
     birth_date: false,
     hire_date: false,
     personal_phone: true,
@@ -264,7 +274,7 @@ export const editableFields: EditableFields = {
     manager_name: false,
     hr_name: false,
     about_me: true,
-    projects: false,
+    projects: true,  // Проекты можно редактировать
     vacations: false,
   },
 };
