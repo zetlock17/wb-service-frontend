@@ -1,5 +1,5 @@
-import { getRequest, deleteRequest } from "./api";
 import axios from 'axios';
+import { deleteRequest } from './api';
 
 interface UploadResponse {
     data: number;
@@ -8,37 +8,46 @@ interface UploadResponse {
 }
 
 export const fetchStatic = async (id: number) => {
-    return await getRequest<string>(`/api/v1/static/get`, { id });
+    const baseURL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+    const url = `${baseURL}/api/v1/static/get?id=${id}`;
+
+    try {
+        const response = await axios.get(url, { responseType: 'blob' });
+        const blob = response.data as Blob;
+
+        const dataUrl = await new Promise<string>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                resolve(reader.result as string);
+            };
+            reader.onerror = reject;
+            reader.readAsDataURL(blob);
+        });
+
+        return {
+            data: dataUrl,
+            status: response.status,
+        };
+    } catch (error: any) {
+        console.error('Failed fetchStatic:', error);
+        return {
+            data: '',
+            status: error.response?.status || 500,
+            message: error.response?.data?.message || error.message,
+        };
+    }
 }
 
 export const uploadPhoto = async (
-    eid: number,
     file: File,
+    eid: number,
     type: 'image' | 'video' | 'audio' | 'document' = 'image',
-    lang: 'ru' | 'en' = 'ru',
-    name?: string,
-    created_for?: number
 ): Promise<UploadResponse> => {
     const formData = new FormData();
     formData.append('file', file);
 
-    const params: Record<string, string> = {
-        eid: eid.toString(),
-        type,
-        lang,
-    };
-
-    if (name) {
-        params.name = name;
-    }
-
-    if (created_for !== undefined) {
-        params.created_for = created_for.toString();
-    }
-
-    const queryParams = new URLSearchParams(params);
-    const baseURL = import.meta.env.VITE_API_URL;
-    const url = `${baseURL}/api/v1/static/add?${queryParams.toString()}`;
+    const baseURL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+    const url = `${baseURL}/api/v1/static/add?type=${type}&eid=${eid}`;
 
     try {
         const response = await axios.post<number>(url, formData, {
@@ -46,7 +55,7 @@ export const uploadPhoto = async (
                 'Content-Type': 'multipart/form-data',
             },
         });
-        
+
         return {
             data: response.data,
             status: response.status,
@@ -62,5 +71,7 @@ export const uploadPhoto = async (
 }
 
 export const deleteStatic = async (id: number, eid: number) => {
-    return await deleteRequest<void>(`/api/v1/static/delete?id=${id}&eid=${eid}`);
+    const params: Record<string, number> = { id };
+    if (eid) params.eid = eid;
+    return await deleteRequest<void>('/api/v1/static/delete', params);
 }

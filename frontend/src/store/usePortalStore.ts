@@ -81,7 +81,7 @@ const usePortalStore = create<PortalState>((set) => ({
     set({ loading: true, error: null });
     try {
       // Загружаем профиль с бэкенда
-      const profileResponse = await getProfile(4); // Временно используем eid = 1
+      const profileResponse = await getProfile(5); // Временно используем eid = 5
       
       // Загружаем дни рождения с бэкенда
       const birthdaysResponse = await getBirthdays('month');

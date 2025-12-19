@@ -15,14 +15,18 @@ import {
   ChevronRight,
   ArrowRight,
   ChevronLeft,
+  Camera,
+  Upload,
+  Trash2,
 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useRef } from "react";
 import Modal from "../../components/common/Modal";
 import usePortalStore from "../../store/usePortalStore";
 import type { Birthday, BirthDayType, ModuleId } from "../../types/portal";
 import { editableFields } from "../../types/portal";
 import type { UserProfile } from "../../types/portal";
 import { getCasualName, getInitials } from "../../utils/nameUtils";
+import { useAvatarWithEdit } from "../../hooks/useAvatar";
 
 interface HomeModuleProps {
   onNavigate: (moduleId: ModuleId) => void;
@@ -41,6 +45,9 @@ const HomeModule = ({ onNavigate }: HomeModuleProps) => {
   const [selectedPerson, setSelectedPerson] = useState<Birthday | null>(null);
   const [editingField, setEditingField] = useState<{ section: string; field?: string; index?: number } | null>(null);
   const [editingValues, setEditingValues] = useState<any>({});
+  const [showAvatarModal, setShowAvatarModal] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const { avatarUrl, isLoading: avatarLoading, error: avatarError, deleteAvatar, updateAvatar } = useAvatarWithEdit();
 
   const startEditing = (section: string, field?: string, currentValue?: any, index?: number) => {
     setEditingField({ section, field, index });
@@ -75,6 +82,48 @@ const HomeModule = ({ onNavigate }: HomeModuleProps) => {
   const cancelEditing = () => {
     setEditingField(null);
   };
+
+  const handleAvatarClick = () => {
+    setShowAvatarModal(true);
+  };
+
+  const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    // Проверка типа файла
+    if (!file.type.startsWith('image/')) {
+      alert('Пожалуйста, выберите файл изображения');
+      return;
+    }
+
+    // Проверка размера файла (максимум 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      alert('Размер файла не должен превышать 5MB');
+      return;
+    }
+
+    const success = await updateAvatar(file);
+    if (success) {
+      setShowAvatarModal(false);
+    }
+
+    // Очищаем input для возможности повторной загрузки того же файла
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  const handleDeleteAvatar = async () => {
+    const confirmed = window.confirm('Вы уверены, что хотите удалить аватар?');
+    if (!confirmed) return;
+
+    const success = await deleteAvatar();
+    if (success) {
+      setShowAvatarModal(false);
+    }
+  };
+
   const { currentUser, upcomingBirthdays, calendarEvents, courses, loading, updateCurrentUser, fetchBirthdays } = usePortalStore();
 
   // Загружаем дни рождения при изменении фильтра
@@ -166,8 +215,24 @@ const HomeModule = ({ onNavigate }: HomeModuleProps) => {
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
         <div className="flex items-start justify-between mb-4">
           <div className="flex items-center gap-4">
-            <div className="w-20 h-20 bg-linear-to-br from-purple-500 to-fuchsia-500 rounded-full flex items-center justify-center text-white text-2xl font-bold">
-              {getInitials(currentUser.full_name)}
+            <div 
+              className="relative w-20 h-20 rounded-full cursor-pointer group"
+              onClick={handleAvatarClick}
+            >
+              {avatarUrl ? (
+                <img
+                  src={avatarUrl}
+                  alt={currentUser.full_name}
+                  className="w-20 h-20 rounded-full object-cover"
+                />
+              ) : (
+                <div className="w-20 h-20 bg-linear-to-br from-purple-500 to-fuchsia-500 rounded-full flex items-center justify-center text-white text-2xl font-bold">
+                  {getInitials(currentUser.full_name)}
+                </div>
+              )}
+              <div className="absolute inset-0 bg-black bg-opacity-40 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                <Camera className="w-8 h-8 text-white" />
+              </div>
             </div>
             <div>
               <div className="flex items-center gap-2 mb-1">
@@ -580,6 +645,72 @@ const HomeModule = ({ onNavigate }: HomeModuleProps) => {
             </div>
           </div>
         )}
+      </Modal>
+
+      <Modal
+        isOpen={showAvatarModal}
+        title="Управление фотографией профиля"
+        onClose={() => setShowAvatarModal(false)}
+        widthClass="max-w-md"
+      >
+        <div className="space-y-4">
+          {avatarUrl && (
+            <div className="flex justify-center">
+              <img
+                src={avatarUrl}
+                alt="Текущая фотография"
+                className="w-32 h-32 rounded-full object-cover"
+              />
+            </div>
+          )}
+          
+          {avatarError && (
+            <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-600">
+              {avatarError}
+            </div>
+          )}
+
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            onChange={handleFileSelect}
+            className="hidden"
+          />
+
+          <div className="space-y-2">
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              disabled={avatarLoading}
+              className="w-full px-4 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            >
+              <Upload className="w-5 h-5" />
+              {avatarUrl ? 'Изменить фотографию' : 'Загрузить фотографию'}
+            </button>
+
+            {avatarUrl && (
+              <button
+                onClick={handleDeleteAvatar}
+                disabled={avatarLoading}
+                className="w-full px-4 py-3 border border-red-300 text-red-600 rounded-lg hover:bg-red-50 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              >
+                <Trash2 className="w-5 h-5" />
+                Удалить фотографию
+              </button>
+            )}
+          </div>
+
+          <p className="text-xs text-gray-500 text-center">
+            Рекомендуемый размер: 200x200 пикселей. Максимальный размер файла: 5MB
+          </p>
+
+          <button
+            onClick={() => setShowAvatarModal(false)}
+            className="w-full px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
+          >
+            Закрыть
+          </button>
+        </div>
       </Modal>
     </div>
   );

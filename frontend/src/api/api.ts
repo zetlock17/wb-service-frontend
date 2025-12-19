@@ -47,6 +47,7 @@ api.interceptors.request.use(
 export const getRequest = async <T>(url: string, params?: object): Promise<ApiResponse<T>> => {
   try {
     const response: AxiosResponse<T> = await api.get(url, { params });
+    console.log('GET response:', response);
     return {
       data: response.data,
       status: response.status,
@@ -98,9 +99,9 @@ export const postRequest = async <T>(url: string, data?: object): Promise<ApiRes
   }
 };
 
-export const deleteRequest = async <T>(url: string): Promise<ApiResponse<T>> => {
+export const deleteRequest = async <T>(url: string, params?: object): Promise<ApiResponse<T>> => {
   try {
-    const response: AxiosResponse<T> = await api.delete(url);
+    const response: AxiosResponse<T> = await api.delete(url, { params });
     return {
       data: response.data,
       status: response.status,
