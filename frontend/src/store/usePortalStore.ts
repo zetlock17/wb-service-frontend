@@ -14,6 +14,7 @@ import {
 } from "../data/mockData";
 import { getProfile, updateProfile } from "../api/profileApi";
 import { getBirthdays } from "../api/birthdaysApi";
+import { getOrgHierarchy, type OrgUnitHierarchy } from "../api/orgStructureApi";
 import type {
   Birthday,
   BirthDayType,
@@ -45,6 +46,7 @@ interface PortalState {
   knowledgeBase: KnowledgeArticle[];
   reports: ReportCard[];
   upcomingBirthdays: Birthday[];
+  organizationHierarchy: OrgUnitHierarchy[];
 
   loading: boolean;
   error: string | null;
@@ -54,6 +56,7 @@ interface PortalState {
   fetchProfile: (eid: number) => Promise<void>;
   updateCurrentUser: (eid: number, updatedUser: Partial<UserProfile>) => Promise<void>;
   fetchBirthdays: (timeUnit: BirthDayType) => Promise<void>;
+  fetchOrgStructure: () => Promise<void>;
   setApiError: (error: string | null) => void;
   clearApiError: () => void;
 }
@@ -72,6 +75,7 @@ const usePortalStore = create<PortalState>((set) => ({
   knowledgeBase: [],
   reports: [],
   upcomingBirthdays: [],
+  organizationHierarchy: [],
 
   loading: false,
   error: null,
@@ -85,6 +89,9 @@ const usePortalStore = create<PortalState>((set) => ({
       
       // Загружаем дни рождения с бэкенда (по умолчанию week, как в фильтре)
       const birthdaysResponse = await getBirthdays('week');
+      
+      // Загружаем организационную структуру с бэкенда
+      const orgStructureResponse = await getOrgHierarchy();
       
       // Загружаем остальные данные из моков
       await new Promise((resolve) => setTimeout(resolve, 300));
@@ -103,6 +110,7 @@ const usePortalStore = create<PortalState>((set) => ({
         knowledgeBase: mockKnowledgeBase,
         reports: mockReports,
         upcomingBirthdays: birthdaysResponse.birthdays || [],
+        organizationHierarchy: orgStructureResponse.data || [],
         loading: false,
       });
     } catch (error) {
@@ -171,6 +179,17 @@ const usePortalStore = create<PortalState>((set) => ({
     } catch (error) {
       console.error("Failed to fetch birthdays:", error);
       set({ upcomingBirthdays: [] });
+    }
+  },
+  
+  fetchOrgStructure: async () => {
+    set({ loading: true, error: null });
+    try {
+      const response = await getOrgHierarchy();
+      set({ organizationHierarchy: response.data || [], loading: false });
+    } catch (error) {
+      console.error("Failed to fetch organization structure:", error);
+      set({ error: "Failed to fetch organization structure", organizationHierarchy: [], loading: false });
     }
   },
 

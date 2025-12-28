@@ -1,6 +1,7 @@
 import { Download, Search, SlidersVertical } from "lucide-react";
-import { useState, useCallback } from "react";
-import { organizationHierarchy, type DepartmentHierarchy, type EmployeeNode } from "../../data/organizationStructure";
+import { useState, useCallback, useEffect } from "react";
+import { type OrgUnitHierarchy, type OrgUnitManager } from "../../api/orgStructureApi";
+import usePortalStore from "../../store/usePortalStore";
 
 const Triangle = ({ isExpanded, className = "" }: { isExpanded: boolean; className?: string }) => (
   <svg
@@ -73,11 +74,9 @@ interface ExpandedNodes {
 }
 
 interface SearchableEmployee {
-  id: number;
+  eid: number;
   full_name: string;
   position: string;
-  work_phone: string;
-  work_email: string;
 }
 
 const getAvatarInitials = (fullName: string): string => {
@@ -104,21 +103,20 @@ const getRandomColor = (id: number): string => {
 };
 
 const collectAllEmployees = (
-  nodes: (DepartmentHierarchy | EmployeeNode)[]
+  nodes: OrgUnitHierarchy[]
 ): SearchableEmployee[] => {
   const employees: SearchableEmployee[] = [];
 
-  const collect = (node: DepartmentHierarchy | EmployeeNode) => {
-    if ("manager" in node) {
-      employees.push(node.manager);
-      if (node.children) {
-        node.children.forEach(collect);
-      }
-    } else if ("full_name" in node) {
-      employees.push(node);
-      if (node.children) {
-        node.children.forEach(collect);
-      }
+  const collect = (node: OrgUnitHierarchy) => {
+    if (node.manager) {
+      employees.push({
+        eid: node.manager.eid,
+        full_name: node.manager.full_name,
+        position: node.manager.position,
+      });
+    }
+    if (node.children && node.children.length > 0) {
+      node.children.forEach(collect);
     }
   };
 
@@ -127,95 +125,54 @@ const collectAllEmployees = (
 };
 
 const filterHierarchy = (
-  nodes: DepartmentHierarchy[],
+  nodes: OrgUnitHierarchy[],
   searchQuery: string
-): DepartmentHierarchy[] => {
+): OrgUnitHierarchy[] => {
   if (!searchQuery.trim()) {
     return nodes;
   }
 
   const query = searchQuery.toLowerCase();
 
-  const matchesSearch = (node: EmployeeNode | DepartmentHierarchy): boolean => {
-    if ("manager" in node) {
-      const managerMatches =
-        node.manager.full_name.toLowerCase().includes(query) ||
-        node.manager.position.toLowerCase().includes(query);
+  const matchesSearch = (node: OrgUnitHierarchy): boolean => {
+    const nameMatches = node.name.toLowerCase().includes(query);
+    const managerMatches = node.manager
+      ? node.manager.full_name.toLowerCase().includes(query) ||
+        node.manager.position.toLowerCase().includes(query)
+      : false;
+    const childrenMatches = node.children?.some(matchesSearch) ?? false;
 
-      const childrenMatches = node.children?.some(matchesSearch) ?? false;
-
-      return managerMatches || childrenMatches;
-    } else {
-      return (
-        node.full_name.toLowerCase().includes(query) ||
-        node.position.toLowerCase().includes(query)
-      );
-    }
+    return nameMatches || managerMatches || childrenMatches;
   };
 
   return nodes
-    .map((dept) => {
-      if (!matchesSearch(dept)) return null;
+    .map((unit) => {
+      if (!matchesSearch(unit)) return null;
 
-      const filterChildren = (node: EmployeeNode): EmployeeNode | null => {
-        const nodeMatches =
-          node.full_name.toLowerCase().includes(query) ||
-          node.position.toLowerCase().includes(query);
-
-        const filteredChildren = node.children
-          ?.map(filterChildren)
-          .filter((child) => child !== null) as EmployeeNode[] | undefined;
-
-        if (nodeMatches || (filteredChildren && filteredChildren.length > 0)) {
-          return { ...node, children: filteredChildren };
-        }
-
-        return null;
-      };
-
-      const filteredDeptChildren = dept.children
+      const filteredChildren = unit.children
         ?.map((child) => {
-          const managerMatches =
-            child.manager.full_name.toLowerCase().includes(query) ||
-            child.manager.position.toLowerCase().includes(query);
+          if (!matchesSearch(child)) return null;
+          
+          const nestedChildren = child.children
+            ?.map(c => matchesSearch(c) ? c : null)
+            .filter((c) => c !== null) as OrgUnitHierarchy[] | undefined;
 
-          const filteredManager = {
-            ...child.manager,
-            children: child.manager.children
-              ?.map(filterChildren)
-              .filter((c) => c !== null) as EmployeeNode[] | undefined,
-          };
-
-          const childrenMatches = child.children?.some(matchesSearch) ?? false;
-
-          if (
-            managerMatches ||
-            filteredManager.children?.length ||
-            childrenMatches
-          ) {
-            return { ...child, manager: filteredManager, children: child.children };
-          }
-
-          return null;
+          return { ...child, children: nestedChildren || [] };
         })
-        .filter((child) => child !== null) as DepartmentHierarchy[] | undefined;
+        .filter((child) => child !== null) as OrgUnitHierarchy[] | undefined;
 
-      return { ...dept, children: filteredDeptChildren };
+      return { ...unit, children: filteredChildren || [] };
     })
-    .filter((dept) => dept !== null) as DepartmentHierarchy[];
+    .filter((unit) => unit !== null) as OrgUnitHierarchy[];
 };
 
 interface EmployeeCardProps {
-  employee: EmployeeNode;
+  manager: OrgUnitManager;
   level: number;
-  isExpanded: boolean;
-  expandedNodes: ExpandedNodes;
-  setExpandedNodes: (nodes: ExpandedNodes) => void;
 }
 
-const EmployeeCard = ({ employee, level, isExpanded, expandedNodes, setExpandedNodes }: EmployeeCardProps) => {
-  const hasChildren = employee.children && employee.children.length > 0;
-  const initials = getAvatarInitials(employee.full_name);
+const EmployeeCard = ({ manager, level }: EmployeeCardProps) => {
+  const initials = getAvatarInitials(manager.full_name);
 
   return (
     <div className="flex gap-0">
@@ -237,78 +194,38 @@ const EmployeeCard = ({ employee, level, isExpanded, expandedNodes, setExpandedN
               {initials}
             </div>
             <h4 className="text-lg text-purple-500 truncate">
-              {employee.full_name}
+              {manager.full_name}
             </h4>
           </div>
-          <p className="text-base text-gray-600 truncate">{employee.position}</p>
-          <p className="text-lg font-light text-purple-500 truncate">{employee.work_email}</p>
+          <p className="text-base text-gray-600 truncate">{manager.position}</p>
         </div>
-
-        {hasChildren && isExpanded && (
-          <div className="space-y-0">
-            {employee.children!.map((child) => (
-              <HierarchyNode
-                key={child.id}
-                node={child}
-                level={level + 1}
-                expandedNodes={expandedNodes}
-                setExpandedNodes={setExpandedNodes}
-              />
-            ))}
-          </div>
-        )}
       </div>
     </div>
   );
 };
 
-interface HierarchyNodeProps {
-  node: EmployeeNode;
-  level: number;
-  expandedNodes: ExpandedNodes;
-  setExpandedNodes: (nodes: ExpandedNodes) => void;
-}
 
-const HierarchyNode = ({
-  node,
-  level,
-  expandedNodes,
-  setExpandedNodes,
-}: HierarchyNodeProps) => {
-  const nodeKey = `${level}-${node.id}`;
-  const isExpanded = expandedNodes[nodeKey] ?? false;
-
-  return (
-    <EmployeeCard
-      employee={node}
-      level={level}
-      isExpanded={isExpanded}
-      expandedNodes={expandedNodes}
-      setExpandedNodes={setExpandedNodes}
-    />
-  );
-};
 
 interface DepartmentNodeProps {
-  dept: DepartmentHierarchy;
+  unit: OrgUnitHierarchy;
   level?: number;
   expandedNodes: ExpandedNodes;
   setExpandedNodes: (nodes: ExpandedNodes) => void;
 }
 
 const DepartmentNode = ({
-  dept,
+  unit,
   level = 0,
   expandedNodes,
   setExpandedNodes,
 }: DepartmentNodeProps) => {
-  const deptKey = `dept-${dept.id}`;
-  const isExpanded = expandedNodes[deptKey] ?? true;
+  const unitKey = `unit-${unit.id}`;
+  const isExpanded = expandedNodes[unitKey] ?? true;
 
   const handleToggle = () => {
     setExpandedNodes({
       ...expandedNodes,
-      [deptKey]: !isExpanded,
+      [unitKey]: !isExpanded,
     });
   };
 
@@ -333,26 +250,24 @@ const DepartmentNode = ({
         </div>
 
         <div className="flex-1 py-2 pr-4">
-          <h3 className={`font-medium text-black text-${level > 0 ? level > 1 ? 'lg' : 'xl' : '2xl'}`}>{dept.name}</h3>
-          <EmployeeCard
-              employee={dept.manager}
+          <h3 className={`font-medium text-black text-${level > 0 ? level > 1 ? 'lg' : 'xl' : '2xl'}`}>{unit.name}</h3>
+          {unit.manager && (
+            <EmployeeCard
+              manager={unit.manager}
               level={0}
-              isExpanded={isExpanded}
-              expandedNodes={expandedNodes}
-              setExpandedNodes={setExpandedNodes}
             />
-          {isExpanded && (
+          )}
+          {isExpanded && unit.children && unit.children.length > 0 && (
             <div className="space-y-1">
-              {dept.children &&
-                dept.children.map((child) => (
-                  <DepartmentNode
-                    key={child.id}
-                    dept={child}
-                    level={level+1}
-                    expandedNodes={expandedNodes}
-                    setExpandedNodes={setExpandedNodes}
-                  />
-                ))}
+              {unit.children.map((child) => (
+                <DepartmentNode
+                  key={child.id}
+                  unit={child}
+                  level={level+1}
+                  expandedNodes={expandedNodes}
+                  setExpandedNodes={setExpandedNodes}
+                />
+              ))}
             </div>
           )}
         </div>
@@ -364,6 +279,14 @@ const DepartmentNode = ({
 const StructureModule = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [expandedNodes, setExpandedNodes] = useState<ExpandedNodes>({});
+  
+  const { organizationHierarchy, loading, fetchOrgStructure } = usePortalStore();
+
+  useEffect(() => {
+    if (organizationHierarchy.length === 0) {
+      fetchOrgStructure();
+    }
+  }, [organizationHierarchy.length, fetchOrgStructure]);
 
   const allEmployees = collectAllEmployees(organizationHierarchy);
   const filteredHierarchy = filterHierarchy(organizationHierarchy, searchQuery);
@@ -379,6 +302,14 @@ const StructureModule = () => {
     setSearchQuery("");
     setExpandedNodes({});
   }, []);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <div className="text-gray-500">Загрузка организационной структуры...</div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -417,11 +348,10 @@ const StructureModule = () => {
 
         <div className="space-y-4">
           {filteredHierarchy.length > 0 ? (
-            filteredHierarchy.map((dept) => (
-              <div className="bg-white rounded-lg p-6">
+            filteredHierarchy.map((unit) => (
+              <div key={unit.id} className="bg-white rounded-lg p-6">
                 <DepartmentNode
-                  key={dept.id}
-                  dept={dept}
+                  unit={unit}
                   expandedNodes={expandedNodes}
                   setExpandedNodes={setExpandedNodes}
                 />
