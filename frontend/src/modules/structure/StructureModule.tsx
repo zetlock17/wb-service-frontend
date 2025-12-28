@@ -1,6 +1,72 @@
-import { ChevronDown } from "lucide-react";
+import { Download, Search, SlidersVertical } from "lucide-react";
 import { useState, useCallback } from "react";
 import { organizationHierarchy, type DepartmentHierarchy, type EmployeeNode } from "../../data/organizationStructure";
+
+const Triangle = ({ isExpanded, className = "" }: { isExpanded: boolean; className?: string }) => (
+  <svg
+    className={className}
+    width="12"
+    height="12"
+    viewBox="0 0 12 12"
+    fill="currentColor"
+  >
+    <path
+      d={isExpanded ? "M2 2 L6 8 L10 2 Z" : "M4 2 L10 6 L4 10 Z"}
+    />
+  </svg>
+);
+
+const VerticalDashed = ({
+  width = 12,
+  lineWidth = 4,
+  dashLen = 12,
+  gap = 4,
+  className = "",
+}: {
+  width?: number;
+  lineWidth?: number;
+  dashLen?: number;
+  gap?: number;
+  className?: string;
+}) => {
+  const total = dashLen + gap;
+  const rectX = (width - lineWidth) / 2;
+  
+  const colorMatch = className.match(/text-(\w+-?\d+)/);
+  const colorClass = colorMatch ? colorMatch[1] : "purple-300";
+  
+  const tailwindColors: { [key: string]: string } = {
+    "purple-300": "#d8b4fe",
+    "purple-400": "#c084fc",
+    "purple-500": "#a855f7",
+    "purple-600": "#9333ea",
+  };
+  
+  const color = tailwindColors[colorClass];
+  
+  const svg = `
+    <svg xmlns='http://www.w3.org/2000/svg' width='${width}' height='${total}' viewBox='0 0 ${width} ${total}'>
+      <rect x='${rectX}' y='0' width='${lineWidth}' height='${dashLen}' rx='${lineWidth / 2}' fill='${color}' />
+    </svg>
+  `;
+  const uri = `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
+
+  return (
+    <div
+      className={className}
+      style={{
+        width: `${width}px`,
+        minHeight: "100%",
+        backgroundImage: `url("${uri}")`,
+        backgroundRepeat: "repeat-y",
+        backgroundPosition: "center top",
+        backgroundSize: `${width}px ${total}px`,
+        marginLeft: "auto",
+        marginRight: "auto",
+      }}
+    />
+  );
+};
 
 interface ExpandedNodes {
   [key: string]: boolean;
@@ -143,64 +209,55 @@ interface EmployeeCardProps {
   employee: EmployeeNode;
   level: number;
   isExpanded: boolean;
-  onToggle: () => void;
+  expandedNodes: ExpandedNodes;
+  setExpandedNodes: (nodes: ExpandedNodes) => void;
 }
 
-const EmployeeCard = ({ employee, level, isExpanded, onToggle }: EmployeeCardProps) => {
+const EmployeeCard = ({ employee, level, isExpanded, expandedNodes, setExpandedNodes }: EmployeeCardProps) => {
   const hasChildren = employee.children && employee.children.length > 0;
   const initials = getAvatarInitials(employee.full_name);
 
   return (
-    <div className="space-y-0">
-      <div
-        className="p-3 rounded-lg border border-gray-200 hover:border-purple-400 hover:shadow-sm transition-all"
-        style={{
-          marginLeft: `${level * 20}px`,
-          backgroundColor: level === 0 ? "#fafafa" : "#ffffff",
-        }}
-      >
-        <div className="flex items-center gap-3">
-          {hasChildren && (
-            <button
-              onClick={onToggle}
-              className="flex-shrink-0 p-1 hover:bg-gray-100 rounded transition-colors"
-            >
-              <ChevronDown
-                className={`w-4 h-4 text-gray-600 transition-transform ${
-                  isExpanded ? "rotate-0" : "-rotate-90"
-                }`}
-              />
-            </button>
-          )}
-          {!hasChildren && <div className="w-6 flex-shrink-0" />}
-
-          <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-sm flex-shrink-0 bg-gradient-to-br ${getRandomColor(employee.id)}`}>
-            {initials}
-          </div>
-
-          <div className="flex-1 min-w-0">
-            <h4 className="font-semibold text-gray-900 truncate">
-              {employee.full_name}
-            </h4>
-            <p className="text-xs text-gray-600 truncate">{employee.position}</p>
-            <p className="text-xs text-gray-500 truncate">{employee.work_email}</p>
-          </div>
-        </div>
+    <div className="flex gap-0">
+      <div className="flex flex-col items-center">
+        {level > 0 && (
+          <>
+            <div
+              className="flex-shrink-0 font-black p-1 text-purple-300">
+                —
+            </div>
+          </>
+        ) }
       </div>
 
-      {isExpanded && hasChildren && (
-        <div className="space-y-0 border-l-2 border-gray-200 ml-8">
-          {employee.children!.map((child) => (
-            <HierarchyNode
-              key={child.id}
-              node={child}
-              level={level + 1}
-              expandedNodes={expandedNodes}
-              setExpandedNodes={setExpandedNodes}
-            />
-          ))}
+      <div className="flex-1 min-w-0">
+        <div className="p-1">
+          <div className="flex flex-row items-center gap-1">
+            <div className="w-6 h-6 rounded-full flex items-center justify-center text-white font-bold text-[0.6rem] leading-none bg-gradient-to-br from-purple-500 to-fuchsia-500">
+              {initials}
+            </div>
+            <h4 className="text-lg text-purple-500 truncate">
+              {employee.full_name}
+            </h4>
+          </div>
+          <p className="text-base text-gray-600 truncate">{employee.position}</p>
+          <p className="text-lg font-light text-purple-500 truncate">{employee.work_email}</p>
         </div>
-      )}
+
+        {hasChildren && isExpanded && (
+          <div className="space-y-0">
+            {employee.children!.map((child) => (
+              <HierarchyNode
+                key={child.id}
+                node={child}
+                level={level + 1}
+                expandedNodes={expandedNodes}
+                setExpandedNodes={setExpandedNodes}
+              />
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 };
@@ -221,31 +278,27 @@ const HierarchyNode = ({
   const nodeKey = `${level}-${node.id}`;
   const isExpanded = expandedNodes[nodeKey] ?? false;
 
-  const handleToggle = () => {
-    setExpandedNodes({
-      ...expandedNodes,
-      [nodeKey]: !isExpanded,
-    });
-  };
-
   return (
     <EmployeeCard
       employee={node}
       level={level}
       isExpanded={isExpanded}
-      onToggle={handleToggle}
+      expandedNodes={expandedNodes}
+      setExpandedNodes={setExpandedNodes}
     />
   );
 };
 
 interface DepartmentNodeProps {
   dept: DepartmentHierarchy;
+  level?: number;
   expandedNodes: ExpandedNodes;
   setExpandedNodes: (nodes: ExpandedNodes) => void;
 }
 
 const DepartmentNode = ({
   dept,
+  level = 0,
   expandedNodes,
   setExpandedNodes,
 }: DepartmentNodeProps) => {
@@ -260,63 +313,50 @@ const DepartmentNode = ({
   };
 
   return (
-    <div className="space-y-2">
-      <div className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-50 to-blue-50 rounded-lg border border-purple-200 group">
-        <button
-          onClick={handleToggle}
-          className="flex-shrink-0 p-1 hover:bg-white rounded transition-colors"
-        >
-          <ChevronDown
-            className={`w-5 h-5 text-purple-600 transition-transform ${
-              isExpanded ? "rotate-0" : "-rotate-90"
-            }`}
-          />
-        </button>
-        <h3 className="font-bold text-purple-900 text-lg">{dept.name}</h3>
-      </div>
+    <div className="bg-purple-50 rounded-lg">
+      <div className="flex gap-0">
+        <div className={`flex flex-col items-center py-${level > 0 ? 2 : 3}`} style={{ width: 'auto' }}>
+          <button
+            onClick={handleToggle}
+            className="flex-shrink-0 p-1 rounded transition-colors"
+          >
+            <Triangle
+              isExpanded={isExpanded}
+              className="w-5 h-5 text-purple-600 cursor-pointer hover:text-purple-500 transition-all"
+            />
+          </button>
+          {isExpanded && (
+            <div className="h-full flex items-start" style={{ width: 24 }}>
+              <VerticalDashed className={`h-full text-purple-${level > 0 ? 300 : 500}`}/>
+            </div>
+          )}
+        </div>
 
-      {isExpanded && (
-        <div className="space-y-1 pl-4">
+        <div className="flex-1 py-2 pr-4">
+          <h3 className={`font-medium text-black text-${level > 0 ? level > 1 ? 'lg' : 'xl' : '2xl'}`}>{dept.name}</h3>
           <EmployeeCard
-            employee={dept.manager}
-            level={0}
-            isExpanded={expandedNodes[`${0}-${dept.manager.id}`] ?? false}
-            onToggle={() => {
-              const key = `${0}-${dept.manager.id}`;
-              setExpandedNodes({
-                ...expandedNodes,
-                [key]: !expandedNodes[key],
-              });
-            }}
-          />
-
-          {dept.manager.children && dept.manager.children.length > 0 && (
-            expandedNodes[`${0}-${dept.manager.id}`] && (
-              <div className="space-y-0 border-l-2 border-gray-200 ml-8">
-                {dept.manager.children.map((child) => (
-                  <HierarchyNode
+              employee={dept.manager}
+              level={0}
+              isExpanded={isExpanded}
+              expandedNodes={expandedNodes}
+              setExpandedNodes={setExpandedNodes}
+            />
+          {isExpanded && (
+            <div className="space-y-1">
+              {dept.children &&
+                dept.children.map((child) => (
+                  <DepartmentNode
                     key={child.id}
-                    node={child}
-                    level={1}
+                    dept={child}
+                    level={level+1}
                     expandedNodes={expandedNodes}
                     setExpandedNodes={setExpandedNodes}
                   />
                 ))}
-              </div>
-            )
+            </div>
           )}
-
-          {dept.children &&
-            dept.children.map((child) => (
-              <DepartmentNode
-                key={child.id}
-                dept={child}
-                expandedNodes={expandedNodes}
-                setExpandedNodes={setExpandedNodes}
-              />
-            ))}
         </div>
-      )}
+      </div>
     </div>
   );
 };
@@ -342,55 +382,60 @@ const StructureModule = () => {
 
   return (
     <div className="space-y-6">
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-        <div className="mb-6">
-          <h2 className="text-2xl font-bold text-gray-900">
-            Организационная структура
-          </h2>
-        </div>
+      <div className="flex flex-row items-center gap-3 mb-1">
+        <Search strokeWidth={3} className="w-5 h-5 text-gray-600" />
+        <input
+          type="text"
+          placeholder="Найти сотрудника"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="w-2xs px-3 py-1 bg-white border-none rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+        />
+        <button className="flex flex-row items-center gap-2 p-2 hover:bg-gray-100 rounded-lg transition-colors">
+          <Download strokeWidth={2} className="w-6 h-6 text-gray-600" />
+          Экспорт
+        </button>
+        <button className="flex flex-row items-center gap-2 p-2 hover:bg-gray-100 rounded-lg transition-colors">
+        <SlidersVertical strokeWidth={2} className="w-6 h-6 text-gray-600" />
+          Фильтры
+        </button>
+      </div>
 
-        <div className="space-y-4 mb-6">
-          <input
-            type="text"
-            placeholder="Поиск по ФИО или должности..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-          />
-
-          {searchQuery.trim() && (
-            <div className="flex items-center justify-between">
-              <div className="text-sm text-gray-600">
-                Найдено сотрудников: {filteredEmployees.length}
-              </div>
-              <button
-                onClick={handleReset}
-                className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
-              >
-                Сбросить
-              </button>
-            </div>
-          )}
+      {searchQuery.trim() && (
+        <div className="flex items-center justify-between">
+          <div className="text-sm text-gray-600">
+            Найдено сотрудников: {filteredEmployees.length}
+          </div>
+          <button
+            onClick={handleReset}
+            className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+          >
+            Сбросить
+          </button>
         </div>
+      )}
 
         <div className="space-y-4">
           {filteredHierarchy.length > 0 ? (
             filteredHierarchy.map((dept) => (
-              <DepartmentNode
-                key={dept.id}
-                dept={dept}
-                expandedNodes={expandedNodes}
-                setExpandedNodes={setExpandedNodes}
-              />
+              <div className="bg-white rounded-lg p-6">
+                <DepartmentNode
+                  key={dept.id}
+                  dept={dept}
+                  expandedNodes={expandedNodes}
+                  setExpandedNodes={setExpandedNodes}
+                />
+              </div>
             ))
           ) : (
-            <div className="text-center py-12 text-gray-500">
-              <p>Сотрудники не найдены</p>
-              <p className="text-sm mt-1">Попробуйте изменить параметры поиска</p>
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+              <div className="text-center py-12 text-gray-500">
+                <p>Сотрудники не найдены</p>
+                <p className="text-sm mt-1">Попробуйте изменить параметры поиска</p>
+              </div>
             </div>
           )}
         </div>
-      </div>
     </div>
   );
 };
