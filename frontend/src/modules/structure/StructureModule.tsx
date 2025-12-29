@@ -232,22 +232,24 @@ const DepartmentNode = ({
   return (
     <div className="bg-purple-50 rounded-lg">
       <div className="flex gap-0">
-        <div className={`flex flex-col items-center py-${level > 0 ? 2 : 3}`} style={{ width: 'auto' }}>
-          <button
-            onClick={handleToggle}
-            className="flex-shrink-0 p-1 rounded transition-colors"
-          >
-            <Triangle
-              isExpanded={isExpanded}
-              className="w-5 h-5 text-purple-600 cursor-pointer hover:text-purple-500 transition-all"
-            />
-          </button>
-          {isExpanded && (
-            <div className="h-full flex items-start" style={{ width: 24 }}>
-              <VerticalDashed className={`h-full text-purple-${level > 0 ? 300 : 500}`}/>
-            </div>
-          )}
-        </div>
+        {unit.children && unit.children.length > 0 && (
+          <div className={`flex flex-col items-center py-${level > 0 ? 2 : 3}`} style={{ width: 'auto' }}>
+            <button
+              onClick={handleToggle}
+              className="flex-shrink-0 p-1 rounded transition-colors"
+            >
+              <Triangle
+                isExpanded={isExpanded}
+                className="w-5 h-5 text-purple-600 cursor-pointer hover:text-purple-500 transition-all"
+              />
+            </button>
+            {isExpanded && (
+              <div className="h-full flex items-start" style={{ width: 24 }}>
+                <VerticalDashed className={`h-full text-purple-${level > 0 ? 300 : 500}`}/>
+              </div>
+            )}
+          </div>
+        )}
 
         <div className="flex-1 py-2 pr-4">
           <h3 className={`font-medium text-black text-${level > 0 ? level > 1 ? 'lg' : 'xl' : '2xl'}`}>{unit.name}</h3>
