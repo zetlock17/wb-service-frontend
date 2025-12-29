@@ -232,7 +232,7 @@ const DepartmentNode = ({
   return (
     <div className="bg-purple-50 rounded-lg">
       <div className="flex gap-0">
-        {unit.children && unit.children.length > 0 && (
+        {unit.children && unit.children.length > 0 ? (
           <div className={`flex flex-col items-center py-${level > 0 ? 2 : 3}`} style={{ width: 'auto' }}>
             <button
               onClick={handleToggle}
@@ -248,6 +248,11 @@ const DepartmentNode = ({
                 <VerticalDashed className={`h-full text-purple-${level > 0 ? 300 : 500}`}/>
               </div>
             )}
+          </div>
+        ) : (
+          <div
+            className="flex-shrink-0 pr-2 pt-2 font-black text-purple-300">
+              —
           </div>
         )}
 
