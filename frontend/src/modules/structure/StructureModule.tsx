@@ -74,11 +74,11 @@ interface ExpandedNodes {
   [key: string]: boolean;
 }
 
-interface SearchableEmployee {
-  eid: number;
-  full_name: string;
-  position: string;
-}
+// interface SearchableEmployee {
+//   eid: number;
+//   full_name: string;
+//   position: string;
+// }
 
 const getAvatarInitials = (fullName: string): string => {
   return fullName
@@ -89,27 +89,27 @@ const getAvatarInitials = (fullName: string): string => {
     .slice(0, 2);
 };
 
-const collectAllEmployees = (
-  nodes: OrgUnitHierarchy[]
-): SearchableEmployee[] => {
-  const employees: SearchableEmployee[] = [];
+// const collectAllEmployees = (
+//   nodes: OrgUnitHierarchy[]
+// ): SearchableEmployee[] => {
+//   const employees: SearchableEmployee[] = [];
 
-  const collect = (node: OrgUnitHierarchy) => {
-    if (node.manager) {
-      employees.push({
-        eid: node.manager.eid,
-        full_name: node.manager.full_name,
-        position: node.manager.position,
-      });
-    }
-    if (node.children && node.children.length > 0) {
-      node.children.forEach(collect);
-    }
-  };
+//   const collect = (node: OrgUnitHierarchy) => {
+//     if (node.manager) {
+//       employees.push({
+//         eid: node.manager.eid,
+//         full_name: node.manager.full_name,
+//         position: node.manager.position,
+//       });
+//     }
+//     if (node.children && node.children.length > 0) {
+//       node.children.forEach(collect);
+//     }
+//   };
 
-  nodes.forEach(collect);
-  return employees;
-};
+//   nodes.forEach(collect);
+//   return employees;
+// };
 
 interface EmployeeCardProps {
   manager: OrgUnitManager;
@@ -125,7 +125,7 @@ const EmployeeCard = ({ manager, level }: EmployeeCardProps) => {
         {level > 0 && (
           <>
             <div
-              className="flex-shrink-0 font-black p-1 text-purple-300">
+              className="font-black p-1 text-purple-300">
                 —
             </div>
           </>
@@ -135,7 +135,7 @@ const EmployeeCard = ({ manager, level }: EmployeeCardProps) => {
       <div className="flex-1 min-w-0">
         <div className="p-1">
           <div className="flex flex-row items-center gap-1">
-            <div className="w-6 h-6 rounded-full flex items-center justify-center text-white font-bold text-[0.6rem] leading-none bg-gradient-to-br from-purple-500 to-fuchsia-500">
+            <div className="w-6 h-6 rounded-full flex items-center justify-center text-white font-bold text-[0.6rem] leading-none bg-linear-to-br from-purple-500 to-fuchsia-500">
               {initials}
             </div>
             <h4 className="text-lg text-purple-500 truncate">
@@ -181,7 +181,7 @@ const DepartmentNode = ({
           <div className={`flex flex-col items-center py-${level > 0 ? 2 : 3}`} style={{ width: 'auto' }}>
             <button
               onClick={handleToggle}
-              className="flex-shrink-0 p-1 rounded transition-colors"
+              className="p-1 rounded transition-colors"
             >
               <Triangle
                 isExpanded={isExpanded}
@@ -196,7 +196,7 @@ const DepartmentNode = ({
           </div>
         ) : (
           <div
-            className="flex-shrink-0 pr-2 pt-2 font-black text-purple-300">
+            className="pr-2 pt-2 font-black text-purple-300">
               —
           </div>
         )}
@@ -236,7 +236,7 @@ const StructureModule = () => {
   const inputRef = useRef<HTMLInputElement | null>(null);
   const suggestionsRef = useRef<HTMLDivElement | null>(null);
   const [isSuggestionsOpen, setIsSuggestionsOpen] = useState<boolean>(false);
-  const [searchFocus, setSearchFocus] = useState<boolean>(false);
+  // const [searchFocus, setSearchFocus] = useState<boolean>(false);
 
   const { organizationHierarchy, loading, fetchOrgStructure } = usePortalStore();
 
@@ -293,14 +293,6 @@ const StructureModule = () => {
       clearTimeout(timeoutId);
     };
   }, [searchQuery]);
-
-  useEffect(() => {
-    if (searchSuggestions.length === 0) {
-      setIsSuggestionsOpen(false);
-    } else if (searchFocus) {
-      setIsSuggestionsOpen(true);
-    }
-  }, [searchSuggestions.length]);
 
   useEffect(() => {
     const handleDocumentClick = (e: MouseEvent) => {
@@ -370,8 +362,8 @@ const StructureModule = () => {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             onKeyDown={handleKeyDown}
-            onFocus={() => { setIsSuggestionsOpen(true); setSearchFocus(true); }}
-            onBlur={() => setSearchFocus(false)}
+            onFocus={() => { setIsSuggestionsOpen(true); /* setSearchFocus(true); */ }}
+            onBlur={() => /* setSearchFocus(false) */ {}}
             className="w-full px-3 py-1 bg-white border-none rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
           />
           {isSuggestionsOpen && searchSuggestions.length > 0 && (
@@ -422,8 +414,8 @@ const StructureModule = () => {
               {filteredEmployees.results.map((emp) => (
                 <div key={emp.eid} className="bg-white rounded-lg p-6 shadow-sm border border-gray-200">
                   <div className="flex gap-4">
-                    <div className="flex-shrink-0">
-                      <div className="w-16 h-16 rounded-full flex items-center justify-center text-white font-bold text-xl bg-gradient-to-br from-purple-500 to-fuchsia-500">
+                    <div>
+                      <div className="w-16 h-16 rounded-full flex items-center justify-center text-white font-bold text-xl bg-linear-to-br from-purple-500 to-fuchsia-500">
                         {getAvatarInitials(emp.full_name)}
                       </div>
                     </div>
