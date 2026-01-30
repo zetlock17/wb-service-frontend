@@ -22,6 +22,43 @@ export interface OrgUnitHierarchy {
     children: OrgUnitHierarchy[];
 }
 
+export interface ProfileSearchEmployee {
+  eid: number;
+  full_name: string;
+  position: string;
+  work_email: string;
+  work_phone: string;
+  organization_unit_id: string;
+  organization_unit_name: string;
+  work_band: string;
+  score: number;
+}
+
+export interface ProfileSearchResult {
+  total: number;
+  results: ProfileSearchEmployee[];
+  error?: string | null;
+}
+
+export interface ProfileSuggestion {
+  eid: number;
+  full_name: string;
+  position: string;
+  department: string;
+}
+
+export interface ProfileSearchSuggestResponse {
+  suggestions: ProfileSuggestion[];
+}
+
 export const getOrgHierarchy = async (): Promise<ApiResponse<OrgUnitHierarchy[]>> => {
     return await getRequest<OrgUnitHierarchy[]>(`/api/v1/orgstructure/hierarchy`);
+};
+
+export const searchHierarchy = async (query: string, offset?: number, size?: number): Promise<ApiResponse<ProfileSearchResult>> => {
+    return await getRequest<ProfileSearchResult>(`/api/v1/profile/search`, { q: query, from_: offset, size: size ?? 10 });
+};
+
+export const searchSuggestHierarchy = async (query: string, size?: number): Promise<ApiResponse<ProfileSearchSuggestResponse>> => {
+    return await getRequest<ProfileSearchSuggestResponse>(`/api/v1/profile/suggest`, { q: query, size });
 };
