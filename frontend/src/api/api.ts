@@ -116,3 +116,21 @@ export const deleteRequest = async <T>(url: string, params?: object): Promise<Ap
     };
   }
 }
+
+export const putRequest = async <T>(url: string, params?: object): Promise<ApiResponse<T>> => {
+  try {
+    const response: AxiosResponse<T> = await api.put(url, { params });
+    return {
+      data: response.data,
+      status: response.status,
+    };
+  } catch (error: any) {
+    handleApiError(error, url);
+
+    return {
+      data: {} as T,
+      status: error.response?.status || 500,
+      message: error.response?.data?.message || error.message,
+    };
+  }
+}
