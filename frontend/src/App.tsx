@@ -13,6 +13,7 @@ import HomeModule from "./modules/home/HomeModule";
 import IdeasModule from "./modules/ideas/IdeasModule";
 import KnowledgeModule from "./modules/knowledge/KnowledgeModule";
 import NewsModule from "./modules/news/NewsModule";
+import NewsDetailPage from "./modules/news/NewsDetailPage";
 import ReportsModule from "./modules/reports/ReportsModule";
 import StructureModule from "./modules/structure/StructureModule";
 import SurveysModule from "./modules/surveys/SurveysModule";
@@ -22,7 +23,7 @@ import LoginPage from "./pages/LoginPage";
 import usePortalStore from "./store/usePortalStore";
 import type { GlobalSearchResults, ModuleId } from "./types/portal";
 import useWindowDimensions from "./hooks/useWindowDimensions";
-import { getAccessToken } from "./utils/authTokens";
+import { getAccessToken, getRefreshToken, getRolesFromToken } from "./utils/authTokens";
 
 const emptySearchResults: GlobalSearchResults = {
   documents: [],
@@ -228,11 +229,20 @@ const PortalShell = ({ isAuthenticated }: { isAuthenticated: boolean }) => {
 };
 
 function App() {
-  const [isAuthenticated, setIsAuthenticated] = useState(Boolean(getAccessToken()));
+  const [isAuthenticated, setIsAuthenticated] = useState(Boolean(getAccessToken() || getRefreshToken()));
+  const setRoles = usePortalStore((state) => state.setRoles);
 
   useEffect(() => {
+    let lastToken: string | null = null;
+
     const checkAuth = () => {
-      setIsAuthenticated(Boolean(getAccessToken()));
+      const accessToken = getAccessToken();
+      const refreshToken = getRefreshToken();
+      setIsAuthenticated(Boolean(accessToken || refreshToken));
+      if (accessToken !== lastToken) {
+        lastToken = accessToken;
+        setRoles(getRolesFromToken(accessToken));
+      }
     };
 
     // Проверка при изменении cookie (например, после логина)
@@ -243,7 +253,7 @@ function App() {
       clearInterval(interval);
       window.removeEventListener('storage', checkAuth);
     };
-  }, []);
+  }, [setRoles]);
 
   return (
     <Routes>
@@ -253,6 +263,7 @@ function App() {
       />
       <Route element={<RequireAuth isAuthenticated={isAuthenticated} />}>
         <Route path="/" element={<Navigate to="/home" replace />} />
+        <Route path="/news/:newsId" element={<NewsDetailPage />} />
         <Route path="/:moduleId" element={<PortalShell isAuthenticated={isAuthenticated} />} />
       </Route>
       <Route

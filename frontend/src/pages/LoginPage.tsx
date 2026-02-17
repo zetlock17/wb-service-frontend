@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { login } from "../api/authApi";
-import { setTokens } from "../utils/authTokens";
+import usePortalStore from "../store/usePortalStore";
+import { getRolesFromToken, setTokens } from "../utils/authTokens";
 
 function LoginPage() {
   const navigate = useNavigate();
@@ -9,6 +10,7 @@ function LoginPage() {
   const [passwordValue, setPasswordValue] = useState("");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const setRoles = usePortalStore((state) => state.setRoles);
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -24,6 +26,8 @@ function LoginPage() {
         accessMaxAgeSec: response.data.expires_in,
         refreshMaxAgeSec: response.data.refresh_expires_in,
       });
+      const roles = getRolesFromToken(response.data.access_token);
+      setRoles(roles);
       navigate("/home", { replace: true });
       return;
     }

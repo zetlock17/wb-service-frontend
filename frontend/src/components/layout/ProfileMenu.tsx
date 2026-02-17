@@ -1,6 +1,7 @@
 import { LogOut, Settings, User } from "lucide-react";
 import usePortalStore from "../../store/usePortalStore";
 import { useAvatar } from "../../hooks/useAvatar";
+import { clearTokens } from "../../utils/authTokens";
 
 interface ProfileMenuProps {
   isOpen: boolean;
@@ -10,6 +11,11 @@ interface ProfileMenuProps {
 const ProfileMenu = ({ isOpen, onNavigateHome }: ProfileMenuProps) => {
   const { currentUser } = usePortalStore();
   const { avatarUrl } = useAvatar();
+
+  const handleLogout = () => {
+    clearTokens();
+    window.location.href = "/login";
+  };
 
   if (!isOpen) {
     return null;
@@ -73,7 +79,10 @@ const ProfileMenu = ({ isOpen, onNavigateHome }: ProfileMenuProps) => {
           <Settings className="w-4 h-4" />
           Настройки
         </button>
-        <button className="w-full flex items-center gap-3 px-3 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg">
+        <button
+          onClick={handleLogout}
+          className="w-full flex items-center gap-3 px-3 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg"
+        >
           <LogOut className="w-4 h-4" />
           Выход
         </button>

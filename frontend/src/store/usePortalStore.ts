@@ -47,6 +47,7 @@ interface PortalState {
   reports: ReportCard[];
   upcomingBirthdays: Birthday[];
   organizationHierarchy: OrgUnitHierarchy[];
+  roles: string[];
 
   loading: boolean;
   error: string | null;
@@ -59,6 +60,7 @@ interface PortalState {
   fetchOrgStructure: () => Promise<void>;
   setApiError: (error: string | null) => void;
   clearApiError: () => void;
+  setRoles: (roles: string[]) => void;
 }
 
 const usePortalStore = create<PortalState>((set) => ({
@@ -76,6 +78,7 @@ const usePortalStore = create<PortalState>((set) => ({
   reports: [],
   upcomingBirthdays: [],
   organizationHierarchy: [],
+  roles: [],
 
   loading: false,
   error: null,
@@ -199,6 +202,10 @@ const usePortalStore = create<PortalState>((set) => ({
 
   clearApiError: () => {
     set({ hasApiError: false, error: null });
+  },
+
+  setRoles: (roles: string[]) => {
+    set({ roles });
   },
 }));
 
