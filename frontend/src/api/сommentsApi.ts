@@ -3,7 +3,7 @@ import { getRequest, postRequest, putRequest, deleteRequest } from './api';
 
 // Интерфейсы для комментариев
 export interface Author {
-    eid: number;
+    eid: string;
     full_name: string;
 }
 
@@ -26,7 +26,7 @@ export interface CommentViewResponse {
 }
 
 export interface CommentCreate {
-    author_id: number;
+    author_id: string;
     news_id: number;
     parent_id?: number | null;
     content: string;
@@ -81,8 +81,8 @@ export const updateComment = async (commentData: CommentUpdate): Promise<ApiResp
  * @param eid - EID пользователя
  * @returns Ответ с результатом удаления
  */
-export const deleteComment = async (commentId: number, eid: number): Promise<ApiResponse<any>> => {
-    return await deleteRequest<any>(`/api/v1/comments/?comment_id=${commentId}&eid=${eid}`);
+export const deleteComment = async (commentId: number): Promise<ApiResponse<any>> => {
+    return await deleteRequest<any>(`/api/v1/comments/?comment_id=${commentId}`);
 };
 
 /**
@@ -91,8 +91,8 @@ export const deleteComment = async (commentId: number, eid: number): Promise<Api
  * @param eid - EID пользователя
  * @returns Ответ с результатом операции
  */
-export const addLikeToComment = async (commentId: number, eid: number): Promise<ApiResponse<any>> => {
-    return await postRequest<any>(`/api/v1/comments/like/add?comment_id=${commentId}&eid=${eid}`, {});
+export const addLikeToComment = async (commentId: number): Promise<ApiResponse<any>> => {
+    return await postRequest<any>(`/api/v1/comments/like/add?comment_id=${commentId}`, {});
 };
 
 /**
@@ -101,6 +101,6 @@ export const addLikeToComment = async (commentId: number, eid: number): Promise<
  * @param eid - EID пользователя
  * @returns Ответ с результатом операции
  */
-export const removeLikeFromComment = async (commentId: number, eid: number): Promise<ApiResponse<any>> => {
-    return await deleteRequest<any>(`/api/v1/comments/like/remove?comment_id=${commentId}&eid=${eid}`);
+export const removeLikeFromComment = async (commentId: number): Promise<ApiResponse<any>> => {
+    return await deleteRequest<any>(`/api/v1/comments/like/remove?comment_id=${commentId}`);
 };

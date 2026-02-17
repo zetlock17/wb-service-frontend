@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { Navigate, Outlet, Route, Routes, useNavigate, useParams } from "react-router-dom";
 import { registerApiErrorHandler } from "./api/api";
 import AppHeader from "./components/layout/AppHeader";
 import GlobalSearchModal, { type SearchFilter } from "./components/layout/GlobalSearchModal";
@@ -12,14 +13,17 @@ import HomeModule from "./modules/home/HomeModule";
 import IdeasModule from "./modules/ideas/IdeasModule";
 import KnowledgeModule from "./modules/knowledge/KnowledgeModule";
 import NewsModule from "./modules/news/NewsModule";
+import NewsDetailPage from "./modules/news/NewsDetailPage";
 import ReportsModule from "./modules/reports/ReportsModule";
 import StructureModule from "./modules/structure/StructureModule";
 import SurveysModule from "./modules/surveys/SurveysModule";
 import TrainingModule from "./modules/training/TrainingModule";
 import ErrorPage from "./pages/ErrorPage";
+import LoginPage from "./pages/LoginPage";
 import usePortalStore from "./store/usePortalStore";
 import type { GlobalSearchResults, ModuleId } from "./types/portal";
 import useWindowDimensions from "./hooks/useWindowDimensions";
+import { getAccessToken, getRefreshToken, getRolesFromToken } from "./utils/authTokens";
 
 const emptySearchResults: GlobalSearchResults = {
   documents: [],
@@ -28,29 +32,77 @@ const emptySearchResults: GlobalSearchResults = {
   news: [],
 };
 
-function App() {
-  const [activeModule, setActiveModule] = useState<ModuleId>("home");
+const moduleIds: ModuleId[] = [
+  "home",
+  "structure",
+  "documents",
+  "knowledge",
+  "news",
+  "surveys",
+  "ideas",
+  "calendar",
+  "training",
+  "reports",
+];
+
+const isValidModuleId = (value: string | undefined): value is ModuleId => {
+  return Boolean(value && moduleIds.includes(value as ModuleId));
+};
+
+const RequireAuth = ({ isAuthenticated }: { isAuthenticated: boolean }) => {
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace />;
+  }
+
+  return <Outlet />;
+};
+
+const PortalShell = ({ isAuthenticated }: { isAuthenticated: boolean }) => {
+  const { moduleId } = useParams();
+  const navigate = useNavigate();
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchFilter, setSearchFilter] = useState<SearchFilter>("all");
-  const { width, height } = useWindowDimensions();
+  const { width } = useWindowDimensions();
 
-  const { documents, knowledgeBase, employees, news, departments, fetchPortalData, hasApiError, error, setApiError, clearApiError } = usePortalStore();
+  const {
+    documents,
+    knowledgeBase,
+    employees,
+    news,
+    departments,
+    fetchPortalData,
+    hasApiError,
+    error,
+    setApiError,
+    clearApiError,
+  } = usePortalStore();
+
+  const resolvedModuleId = isValidModuleId(moduleId) ? moduleId : "home";
+  const activeModule = resolvedModuleId;
 
   useEffect(() => {
     registerApiErrorHandler(setApiError);
   }, [setApiError]);
 
   useEffect(() => {
-    fetchPortalData();
-  }, [fetchPortalData]);
+    if (isAuthenticated) {
+      fetchPortalData();
+    }
+  }, [fetchPortalData, isAuthenticated]);
 
-  const handleModuleChange = (moduleId: ModuleId) => {
-    setActiveModule(moduleId);
+  useEffect(() => {
+    if (moduleId && !isValidModuleId(moduleId)) {
+      navigate("/home", { replace: true });
+    }
+  }, [moduleId, navigate]);
+
+  const handleModuleChange = (nextModule: ModuleId) => {
     setIsMobileNavOpen(false);
+    navigate(`/${nextModule}`);
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
@@ -64,7 +116,7 @@ function App() {
     const filterMatches = (section: SearchFilter) => searchFilter === "all" || searchFilter === section;
 
     const getDepartmentName = (id: number) => {
-      const dept = departments.find(d => d.id === id);
+      const dept = departments.find((item) => item.id === id);
       return dept ? dept.name : "";
     };
 
@@ -89,7 +141,7 @@ function App() {
 
   const handleGoHome = () => {
     clearApiError();
-    setActiveModule("home");
+    handleModuleChange("home");
   };
 
   if (hasApiError) {
@@ -155,7 +207,10 @@ function App() {
         onNavigate={handleModuleChange}
       />
 
-      <div className={`fixed top-22 right-6 z-40`} style={width > 1280 ? { right: `${(width / 2 - 1280 / 2) / 16 + 2}rem` } : {}}>
+      <div
+        className="fixed top-22 right-6 z-40"
+        style={width > 1280 ? { right: `${(width / 2 - 1280 / 2) / 16 + 2}rem` } : {}}
+      >
         <div className="relative">
           <NotificationsPanel isOpen={isNotificationsOpen} onClose={() => setIsNotificationsOpen(false)} />
           <ProfileMenu isOpen={isProfileMenuOpen} onNavigateHome={() => handleModuleChange("home")} />
@@ -170,6 +225,52 @@ function App() {
         onClose={() => setIsMobileNavOpen(false)}
       />
     </div>
+  );
+};
+
+function App() {
+  const [isAuthenticated, setIsAuthenticated] = useState(Boolean(getAccessToken() || getRefreshToken()));
+  const setRoles = usePortalStore((state) => state.setRoles);
+
+  useEffect(() => {
+    let lastToken: string | null = null;
+
+    const checkAuth = () => {
+      const accessToken = getAccessToken();
+      const refreshToken = getRefreshToken();
+      setIsAuthenticated(Boolean(accessToken || refreshToken));
+      if (accessToken !== lastToken) {
+        lastToken = accessToken;
+        setRoles(getRolesFromToken(accessToken));
+      }
+    };
+
+    // Проверка при изменении cookie (например, после логина)
+    const interval = setInterval(checkAuth, 500);
+    window.addEventListener('storage', checkAuth);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('storage', checkAuth);
+    };
+  }, [setRoles]);
+
+  return (
+    <Routes>
+      <Route
+        path="/login"
+        element={isAuthenticated ? <Navigate to="/home" replace /> : <LoginPage />}
+      />
+      <Route element={<RequireAuth isAuthenticated={isAuthenticated} />}>
+        <Route path="/" element={<Navigate to="/home" replace />} />
+        <Route path="/news/:newsId" element={<NewsDetailPage />} />
+        <Route path="/:moduleId" element={<PortalShell isAuthenticated={isAuthenticated} />} />
+      </Route>
+      <Route
+        path="*"
+        element={<Navigate to={isAuthenticated ? "/home" : "/login"} replace />}
+      />
+    </Routes>
   );
 }
 

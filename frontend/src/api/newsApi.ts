@@ -7,11 +7,14 @@ export interface NewsListItem {
     title: string;
     short_description: string;
     author_name: string;
+    categories?: Category[];
+    file_ids?: number[];
     published_at: string;
     is_pinned: boolean;
     views_count: number;
     likes_count: number;
     comments_count: number;
+    is_liked?: boolean;
 }
 
 export interface NewsDetail {
@@ -19,21 +22,25 @@ export interface NewsDetail {
     title: string;
     short_description: string;
     author_name: string;
+    file_ids?: number[];
     published_at: string;
     is_pinned: boolean;
     views_count: number;
     likes_count: number;
     comments_count: number;
+    is_liked?: boolean;
     content: string;
     mandatory_ack: boolean;
-    files: number[];
+    expires_at?: string | null;
+    tags?: string[];
+    categories?: Category[];
 }
 
 export interface NewsCreate {
     title: string;
     content: string;
     short_description: string;
-    category_id: number;
+    category_ids: number[];
     tag_names?: string[];
     is_pinned?: boolean;
     mandatory_ack?: boolean;
@@ -44,7 +51,7 @@ export interface NewsUpdate {
     title?: string;
     content?: string;
     short_description?: string;
-    category_id?: number;
+    category_ids?: number[];
     tag_names?: string[];
     is_pinned?: boolean;
     mandatory_ack?: boolean;
@@ -68,6 +75,8 @@ export interface NewsFilters {
     date_to?: string;
     sort_by?: NewsSortBy;
     page?: number;
+    size?: number;
+    likes?: boolean;
 }
 
 /**
@@ -83,6 +92,8 @@ export const getNews = async (filters?: NewsFilters): Promise<ApiResponse<NewsLi
     if (filters?.date_to) params.date_to = filters.date_to;
     if (filters?.sort_by) params.sort_by = filters.sort_by;
     if (filters?.page) params.page = filters.page;
+    if (filters?.size) params.size = filters.size;
+    if (filters?.likes !== undefined) params.likes = filters.likes;
     
     return await getRequest<NewsListItem[]>('/api/v1/news/', params);
 };
@@ -102,8 +113,8 @@ export const getNewsById = async (newsId: number): Promise<ApiResponse<NewsDetai
  * @param newsData - Данные новости
  * @returns Ответ с результатом создания
  */
-export const createNews = async (userEid: number, newsData: NewsCreate): Promise<ApiResponse<any>> => {
-    return await postRequest<any>(`/api/v1/news/?user_eid=${userEid}`, newsData);
+export const createNews = async (newsData: NewsCreate): Promise<ApiResponse<any>> => {
+    return await postRequest<any>('/api/v1/news/', newsData);
 };
 
 /**
@@ -113,12 +124,8 @@ export const createNews = async (userEid: number, newsData: NewsCreate): Promise
  * @param newsData - Данные для обновления
  * @returns Ответ с результатом обновления
  */
-export const updateNews = async (
-    newsId: number, 
-    userEid: number, 
-    newsData: NewsUpdate
-): Promise<ApiResponse<any>> => {
-    return await patchRequest<any>(`/api/v1/news/${newsId}?user_eid=${userEid}`, newsData);
+export const updateNews = async (newsId: number, newsData: NewsUpdate): Promise<ApiResponse<any>> => {
+    return await patchRequest<any>(`/api/v1/news/${newsId}`, newsData);
 };
 
 /**
@@ -127,8 +134,8 @@ export const updateNews = async (
  * @param userEid - EID пользователя
  * @returns Ответ с результатом удаления
  */
-export const deleteNews = async (newsId: number, userEid: number): Promise<ApiResponse<any>> => {
-    return await deleteRequest<any>(`/api/v1/news/${newsId}?user_eid=${userEid}`);
+export const deleteNews = async (newsId: number): Promise<ApiResponse<any>> => {
+    return await deleteRequest<any>(`/api/v1/news/${newsId}`);
 };
 
 /**
@@ -155,4 +162,22 @@ export const createCategory = async (categoryData: CategoryCreate): Promise<ApiR
  */
 export const deleteCategory = async (categoryId: number): Promise<ApiResponse<any>> => {
     return await deleteRequest<any>(`/api/v1/news/categories/${categoryId}`);
+};
+
+/**
+ * Добавление лайка к новости
+ * @param newsId - ID новости
+ * @returns Ответ с результатом операции
+ */
+export const addLikeToNews = async (newsId: number): Promise<ApiResponse<any>> => {
+    return await postRequest<any>(`/api/v1/news/like/add?news_id=${newsId}`, {});
+};
+
+/**
+ * Удаление лайка с новости
+ * @param newsId - ID новости
+ * @returns Ответ с результатом операции
+ */
+export const removeLikeFromNews = async (newsId: number): Promise<ApiResponse<any>> => {
+    return await deleteRequest<any>(`/api/v1/news/like/remove?news_id=${newsId}`);
 };

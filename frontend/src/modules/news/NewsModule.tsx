@@ -1,32 +1,27 @@
-import { Award, Eye, Filter, MessageCircle, Plus, Send, Share2, ThumbsUp, Trash2 } from "lucide-react";
+import { Award, Eye, Filter, MessageCircle, Plus, Share2, ThumbsUp, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import Modal from "../../components/common/Modal";
 import usePortalStore from "../../store/usePortalStore";
 import { 
   getNews, 
-  getNewsById, 
   getCategories,
+  createNews,
+  createCategory,
+  deleteCategory,
+  addLikeToNews,
+  removeLikeFromNews,
   type NewsListItem, 
-  type NewsDetail, 
   type Category,
   type NewsSortBy 
 } from "../../api/newsApi";
-import { 
-  getComments, 
-  createComment, 
-  deleteComment,
-  addLikeToComment,
-  removeLikeFromComment,
-  type Comment,
-  type CommentSortBy 
-} from "../../api/сommentsApi";
 
 const NewsModule = () => {
-  const { currentUser } = usePortalStore();
+  const { currentUser, roles } = usePortalStore();
+  const navigate = useNavigate();
   
   // Состояния для новостей
   const [newsList, setNewsList] = useState<NewsListItem[]>([]);
-  const [selectedNewsDetail, setSelectedNewsDetail] = useState<NewsDetail | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(false);
   
@@ -34,13 +29,6 @@ const NewsModule = () => {
   const [selectedCategory, setSelectedCategory] = useState<number | undefined>(undefined);
   const [sortBy, setSortBy] = useState<NewsSortBy>('newest');
   const [showFilters, setShowFilters] = useState(false);
-  
-  // Состояния для комментариев
-  const [comments, setComments] = useState<Comment[]>([]);
-  const [commentsCount, setCommentsCount] = useState(0);
-  const [commentSortBy, setCommentSortBy] = useState<CommentSortBy>('new');
-  const [newComment, setNewComment] = useState('');
-  const [loadingComments, setLoadingComments] = useState(false);
 
   // Состояния для создания новости
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -48,10 +36,16 @@ const NewsModule = () => {
     title: '',
     short_description: '',
     content: '',
-    category_id: 1,
+    category_ids: [] as number[],
     is_pinned: false,
     mandatory_ack: false,
   });
+  const [newCategoryName, setNewCategoryName] = useState('');
+  const [creatingCategory, setCreatingCategory] = useState(false);
+  const [deletingCategoryId, setDeletingCategoryId] = useState<number | null>(null);
+  const [categoryError, setCategoryError] = useState<string | null>(null);
+
+  const isNewsEditor = roles.includes('news_editor');
 
   // Загрузка новостей
   useEffect(() => {
@@ -77,138 +71,143 @@ const NewsModule = () => {
     }
   };
 
-  const fetchCategories = async () => {
+  const fetchCategories = async (selectCategoryId?: number) => {
     try {
       const response = await getCategories();
       if (response.status === 200 && response.data) {
         setCategories(response.data);
+
+        setNewNewsData((prev) => {
+          const requestedId = selectCategoryId ?? prev.category_ids[0];
+          const nextId = response.data.some((cat) => cat.id === requestedId)
+            ? requestedId
+            : response.data[0]?.id;
+
+          return {
+            ...prev,
+            category_ids: nextId ? [nextId] : [],
+          };
+        });
+
+        setSelectedCategory((prev) =>
+          prev && response.data.some((cat) => cat.id === prev) ? prev : undefined
+        );
       }
     } catch (error) {
       console.error('Ошибка загрузки категорий:', error);
     }
   };
 
-  // Открытие детальной новости
-  const openNewsDetail = async (newsId: number) => {
-    try {
-      const response = await getNewsById(newsId);
-      if (response.status === 200 && response.data) {
-        setSelectedNewsDetail(response.data);
-        fetchCommentsForNews(newsId);
-      }
-    } catch (error) {
-      console.error('Ошибка загрузки новости:', error);
+  const handleCreateCategory = async () => {
+    if (!isNewsEditor) return;
+
+    const name = newCategoryName.trim();
+    if (name.length < 2) {
+      setCategoryError('Название категории должно быть не короче 2 символов');
+      return;
     }
-  };
 
-  const closeNewsDetail = () => {
-    setSelectedNewsDetail(null);
-    setComments([]);
-    setNewComment('');
-  };
+    setCategoryError(null);
+    setCreatingCategory(true);
 
-  // Загрузка комментариев
-  const fetchCommentsForNews = async (newsId: number) => {
-    setLoadingComments(true);
     try {
-      const response = await getComments(newsId, commentSortBy);
+      const response = await createCategory({ name });
       if (response.status === 200 && response.data) {
-        setComments(response.data.result);
-        setCommentsCount(response.data.count);
+        setNewCategoryName('');
+        await fetchCategories(response.data);
       }
     } catch (error) {
-      console.error('Ошибка загрузки комментариев:', error);
+      console.error('Ошибка создания категории:', error);
+      setCategoryError('Не удалось создать категорию');
     } finally {
-      setLoadingComments(false);
+      setCreatingCategory(false);
     }
   };
 
-  // Обновление комментариев при изменении сортировки
-  useEffect(() => {
-    if (selectedNewsDetail) {
-      fetchCommentsForNews(selectedNewsDetail.id);
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [commentSortBy, selectedNewsDetail?.id]);
+  const handleDeleteCategory = async (categoryId: number) => {
+    if (!isNewsEditor) return;
 
-  // Создание комментария
-  const handleCreateComment = async () => {
-    if (!newComment.trim() || !currentUser || !selectedNewsDetail) return;
-
+    setDeletingCategoryId(categoryId);
     try {
-      const response = await createComment({
-        author_id: currentUser.eid,
-        news_id: selectedNewsDetail.id,
-        content: newComment.trim(),
-      });
-
+      const response = await deleteCategory(categoryId);
       if (response.status === 200) {
-        setNewComment('');
-        fetchCommentsForNews(selectedNewsDetail.id);
-        // Обновить счетчик комментариев в списке новостей
-        setNewsList(prev => prev.map(news => 
-          news.id === selectedNewsDetail.id 
-            ? { ...news, comments_count: news.comments_count + 1 }
-            : news
-        ));
+        if (selectedCategory === categoryId) {
+          setSelectedCategory(undefined);
+        }
+        await fetchCategories();
       }
     } catch (error) {
-      console.error('Ошибка создания комментария:', error);
+      console.error('Ошибка удаления категории:', error);
+    } finally {
+      setDeletingCategoryId(null);
     }
   };
 
-  // Удаление комментария
-  const handleDeleteComment = async (commentId: number) => {
-    if (!currentUser || !selectedNewsDetail) return;
-
-    try {
-      const response = await deleteComment(commentId, currentUser.eid);
-      if (response.status === 200) {
-        fetchCommentsForNews(selectedNewsDetail.id);
-        // Обновить счетчик комментариев в списке новостей
-        setNewsList(prev => prev.map(news => 
-          news.id === selectedNewsDetail.id 
-            ? { ...news, comments_count: Math.max(0, news.comments_count - 1) }
-            : news
-        ));
-      }
-    } catch (error) {
-      console.error('Ошибка удаления комментария:', error);
-    }
+  // Открытие детальной новости
+  const openNewsDetail = (newsId: number, news?: NewsListItem) => {
+    navigate(`/news/${newsId}`, { state: { news } });
   };
 
-  // Лайк комментария
-  const handleToggleCommentLike = async (commentId: number, isLiked: boolean) => {
+  const handleToggleNewsLike = async (newsId: number, isLiked: boolean) => {
     if (!currentUser) return;
 
     try {
       if (isLiked) {
-        await removeLikeFromComment(commentId, currentUser.eid);
+        await removeLikeFromNews(newsId);
       } else {
-        await addLikeToComment(commentId, currentUser.eid);
+        await addLikeToNews(newsId);
       }
-      if (selectedNewsDetail) {
-        fetchCommentsForNews(selectedNewsDetail.id);
-      }
+
+      setNewsList((prev) =>
+        prev.map((item) =>
+          item.id === newsId
+            ? {
+                ...item,
+                is_liked: !isLiked,
+                likes_count: Math.max(0, item.likes_count + (isLiked ? -1 : 1)),
+              }
+            : item
+        )
+      );
     } catch (error) {
-      console.error('Ошибка изменения лайка:', error);
+      console.error('Ошибка изменения лайка новости:', error);
     }
   };
 
   // Создание новости
   const handleCreateNews = async () => {
-    if (!currentUser || !newNewsData.title.trim() || !newNewsData.content.trim()) {
-      alert('Пожалуйста, заполните все обязательные поля');
+    const title = newNewsData.title.trim();
+    const shortDescription = newNewsData.short_description.trim();
+    const content = newNewsData.content.trim();
+
+    if (!currentUser || !isNewsEditor) return;
+
+    if (title.length < 5) {
+      alert('Заголовок должен быть не короче 5 символов');
+      return;
+    }
+
+    if (!shortDescription) {
+      alert('Краткое описание обязательно');
+      return;
+    }
+
+    if (!content) {
+      alert('Содержание обязательно');
+      return;
+    }
+
+    if (newNewsData.category_ids.length === 0) {
+      alert('Выберите категорию для новости');
       return;
     }
 
     try {
-      const { createNews } = await import('../../api/newsApi');
-      const response = await createNews(currentUser.eid, {
-        title: newNewsData.title,
-        short_description: newNewsData.short_description,
-        content: newNewsData.content,
-        category_id: newNewsData.category_id,
+      const response = await createNews({
+        title,
+        short_description: shortDescription,
+        content,
+        category_ids: newNewsData.category_ids,
         is_pinned: newNewsData.is_pinned,
         mandatory_ack: newNewsData.mandatory_ack,
       });
@@ -219,7 +218,7 @@ const NewsModule = () => {
           title: '',
           short_description: '',
           content: '',
-          category_id: 1,
+          category_ids: categories[0]?.id ? [categories[0].id] : [],
           is_pinned: false,
           mandatory_ack: false,
         });
@@ -230,6 +229,13 @@ const NewsModule = () => {
       alert('Произошла ошибка при создании новости');
     }
   };
+
+  const isCreateNewsDisabled =
+    !isNewsEditor ||
+    newNewsData.title.trim().length < 5 ||
+    !newNewsData.short_description.trim() ||
+    !newNewsData.content.trim() ||
+    newNewsData.category_ids.length === 0;
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
@@ -247,66 +253,6 @@ const NewsModule = () => {
       month: 'long', 
       year: 'numeric' 
     });
-  };
-
-  // Рендер комментария
-  const renderComment = (comment: Comment, depth: number = 0) => {
-    const initials = comment.author.full_name
-      .split(' ')
-      .map(n => n[0])
-      .join('')
-      .toUpperCase()
-      .slice(0, 2);
-
-    return (
-      <div key={comment.id} className={`${depth > 0 ? 'ml-12 mt-4' : 'mt-4'}`}>
-        <div className="flex gap-3">
-          <div className="w-10 h-10 bg-linear-to-br from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white text-sm font-bold shrink-0">
-            {initials}
-          </div>
-          <div className="flex-1">
-            <div className="bg-gray-50 rounded-lg p-3">
-              <div className="flex items-center justify-between mb-1">
-                <p className="font-medium text-sm text-gray-900">{comment.author.full_name}</p>
-                {currentUser?.eid === comment.author.eid && (
-                  <button
-                    onClick={() => handleDeleteComment(comment.id)}
-                    className="text-gray-400 hover:text-red-600 transition-colors"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                )}
-              </div>
-              <p className="text-sm text-gray-700">{comment.content}</p>
-              {comment.is_edited && (
-                <p className="text-xs text-gray-400 mt-1">изменено</p>
-              )}
-            </div>
-            <div className="flex items-center gap-4 mt-1 text-xs text-gray-500">
-              <span>{formatDate(comment.created_at)}</span>
-              <button
-                onClick={() => handleToggleCommentLike(comment.id, false)}
-                className="flex items-center gap-1 hover:text-purple-600 transition-colors"
-              >
-                <ThumbsUp className="w-3 h-3" />
-                <span>{comment.likes_count}</span>
-              </button>
-              {comment.replies_count > 0 && (
-                <span className="flex items-center gap-1">
-                  <MessageCircle className="w-3 h-3" />
-                  {comment.replies_count}
-                </span>
-              )}
-            </div>
-            {comment.replies && comment.replies.length > 0 && (
-              <div className="mt-2">
-                {comment.replies.map(reply => renderComment(reply, depth + 1))}
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-    );
   };
 
   if (loading) {
@@ -343,6 +289,8 @@ const NewsModule = () => {
             <button 
               onClick={() => setShowCreateModal(true)}
               className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 flex items-center gap-2 transition-colors"
+              disabled={!isNewsEditor}
+              aria-disabled={!isNewsEditor}
             >
               <Plus className="w-4 h-4" />
               Создать новость
@@ -384,6 +332,53 @@ const NewsModule = () => {
                 </select>
               </div>
             </div>
+
+            {isNewsEditor && (
+              <div className="mt-4 pt-4 border-t border-gray-200">
+                <div className="flex flex-wrap items-center gap-3">
+                  <input
+                    type="text"
+                    value={newCategoryName}
+                    onChange={(e) => {
+                      setNewCategoryName(e.target.value);
+                      setCategoryError(null);
+                    }}
+                    className="flex-1 min-w-[200px] px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    placeholder="Новая категория"
+                  />
+                  <button
+                    onClick={handleCreateCategory}
+                    disabled={creatingCategory || !newCategoryName.trim()}
+                    className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
+                  >
+                    Создать категорию
+                  </button>
+                </div>
+                {categoryError && (
+                  <p className="mt-2 text-sm text-red-600">{categoryError}</p>
+                )}
+                {categories.length > 0 && (
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {categories.map((cat) => (
+                      <div
+                        key={cat.id}
+                        className="flex items-center gap-2 bg-white border border-gray-200 rounded-full px-3 py-1 text-sm"
+                      >
+                        <span>{cat.name}</span>
+                        <button
+                          onClick={() => handleDeleteCategory(cat.id)}
+                          disabled={deletingCategoryId === cat.id}
+                          className="text-gray-400 hover:text-red-600 disabled:text-gray-300"
+                          aria-label={`Удалить категорию ${cat.name}`}
+                        >
+                          <Trash2 className="w-3 h-3" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         )}
 
@@ -398,7 +393,7 @@ const NewsModule = () => {
             newsList.map((newsItem) => (
               <button
                 key={newsItem.id}
-                onClick={() => openNewsDetail(newsItem.id)}
+                onClick={() => openNewsDetail(newsItem.id, newsItem)}
                 className={`w-full text-left border rounded-lg p-6 hover:shadow-md transition-shadow ${
                   newsItem.is_pinned ? "border-purple-300 bg-purple-50" : "border-gray-200"
                 }`}
@@ -425,10 +420,18 @@ const NewsModule = () => {
                     <Eye className="w-4 h-4" />
                     <span className="text-sm">{newsItem.views_count}</span>
                   </span>
-                  <span className="flex items-center gap-2 text-gray-600">
+                  <button
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      handleToggleNewsLike(newsItem.id, Boolean(newsItem.is_liked));
+                    }}
+                    className={`flex items-center gap-2 transition-colors ${
+                      newsItem.is_liked ? 'text-purple-600' : 'text-gray-600 hover:text-purple-600'
+                    }`}
+                  >
                     <ThumbsUp className="w-4 h-4" />
                     <span className="text-sm">{newsItem.likes_count}</span>
-                  </span>
+                  </button>
                   <span className="flex items-center gap-2 text-gray-600">
                     <MessageCircle className="w-4 h-4" />
                     <span className="text-sm">{newsItem.comments_count}</span>
@@ -444,102 +447,6 @@ const NewsModule = () => {
         </div>
       </div>
 
-      {/* Модальное окно с деталями новости */}
-      <Modal 
-        isOpen={Boolean(selectedNewsDetail)} 
-        title={selectedNewsDetail?.title ?? ""} 
-        onClose={closeNewsDetail}
-      >
-        {selectedNewsDetail && (
-          <div className="space-y-6">
-            <div className="flex flex-wrap items-center gap-4 text-sm text-gray-600">
-              <span className="px-3 py-1 bg-gray-100 rounded">Новость</span>
-              <span>{formatDate(selectedNewsDetail.published_at)}</span>
-              <span>{selectedNewsDetail.author_name}</span>
-            </div>
-            
-            <div className="prose max-w-none">
-              <p className="text-gray-700 leading-relaxed whitespace-pre-wrap">{selectedNewsDetail.content}</p>
-            </div>
-
-            <div className="flex items-center gap-6 border-t border-gray-200 pt-4">
-              <div className="flex items-center gap-2 text-gray-600">
-                <Eye className="w-5 h-5" />
-                <span>{selectedNewsDetail.views_count}</span>
-              </div>
-              <div className="flex items-center gap-2 text-gray-600">
-                <ThumbsUp className="w-5 h-5" />
-                <span>{selectedNewsDetail.likes_count}</span>
-              </div>
-              <div className="flex items-center gap-2 text-gray-600">
-                <MessageCircle className="w-5 h-5" />
-                <span>{commentsCount} комментариев</span>
-              </div>
-            </div>
-
-            {/* Секция комментариев */}
-            <div>
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="font-semibold text-gray-900">
-                  Комментарии ({commentsCount})
-                </h3>
-                <select
-                  value={commentSortBy}
-                  onChange={(e) => setCommentSortBy(e.target.value as CommentSortBy)}
-                  className="px-3 py-1 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-                >
-                  <option value="new">Сначала новые</option>
-                  <option value="popular">Популярные</option>
-                </select>
-              </div>
-
-              {loadingComments ? (
-                <div className="space-y-4 animate-pulse">
-                  <div className="h-20 bg-gray-100 rounded"></div>
-                  <div className="h-20 bg-gray-100 rounded"></div>
-                </div>
-              ) : comments.length === 0 ? (
-                <div className="text-center py-8 text-gray-500">
-                  <MessageCircle className="w-12 h-12 mx-auto mb-2 text-gray-300" />
-                  <p>Комментариев пока нет</p>
-                </div>
-              ) : (
-                <div className="space-y-2 max-h-96 overflow-y-auto">
-                  {comments.map(comment => renderComment(comment))}
-                </div>
-              )}
-
-              {/* Форма добавления комментария */}
-              <div className="mt-6 pt-4 border-t border-gray-200">
-                <div className="flex gap-3">
-                  <input
-                    type="text"
-                    placeholder="Написать комментарий..."
-                    value={newComment}
-                    onChange={(e) => setNewComment(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' && !e.shiftKey) {
-                        e.preventDefault();
-                        handleCreateComment();
-                      }
-                    }}
-                    className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-                  />
-                  <button
-                    onClick={handleCreateComment}
-                    disabled={!newComment.trim()}
-                    className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center gap-2 transition-colors"
-                  >
-                    <Send className="w-4 h-4" />
-                    Отправить
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-      </Modal>
-
       {/* Модальное окно создания новости */}
       <Modal
         isOpen={showCreateModal}
@@ -550,11 +457,12 @@ const NewsModule = () => {
             title: '',
             short_description: '',
             content: '',
-            category_id: 1,
+            category_ids: categories[0]?.id ? [categories[0].id] : [],
             is_pinned: false,
             mandatory_ack: false,
           });
         }}
+        widthClass="max-w-2xl"
       >
         <div className="space-y-4">
           <div>
@@ -600,17 +508,49 @@ const NewsModule = () => {
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Категория
             </label>
-            <select
-              value={newNewsData.category_id}
-              onChange={(e) => setNewNewsData({ ...newNewsData, category_id: Number(e.target.value) })}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-            >
-              {categories.map((cat) => (
-                <option key={cat.id} value={cat.id}>
-                  {cat.name}
-                </option>
-              ))}
-            </select>
+            {categories.length === 0 ? (
+              <div className="rounded-lg border border-gray-200 bg-gray-50 p-3">
+                <p className="text-sm text-gray-600">Сначала создайте категорию.</p>
+                {isNewsEditor && (
+                  <div className="mt-3 flex flex-wrap items-center gap-3">
+                    <input
+                      type="text"
+                      value={newCategoryName}
+                      onChange={(e) => {
+                        setNewCategoryName(e.target.value);
+                        setCategoryError(null);
+                      }}
+                      className="flex-1 min-w-[200px] px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                      placeholder="Новая категория"
+                    />
+                    <button
+                      onClick={handleCreateCategory}
+                      disabled={creatingCategory || !newCategoryName.trim()}
+                      className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
+                    >
+                      Создать
+                    </button>
+                  </div>
+                )}
+                {categoryError && (
+                  <p className="mt-2 text-sm text-red-600">{categoryError}</p>
+                )}
+              </div>
+            ) : (
+              <select
+                value={newNewsData.category_ids[0] ?? ''}
+                onChange={(e) =>
+                  setNewNewsData({ ...newNewsData, category_ids: [Number(e.target.value)] })
+                }
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+              >
+                {categories.map((cat) => (
+                  <option key={cat.id} value={cat.id}>
+                    {cat.name}
+                  </option>
+                ))}
+              </select>
+            )}
           </div>
 
           <div className="flex items-center gap-4">
@@ -638,7 +578,7 @@ const NewsModule = () => {
           <div className="flex items-center gap-3 pt-4 border-t border-gray-200">
             <button
               onClick={handleCreateNews}
-              disabled={!newNewsData.title.trim() || !newNewsData.content.trim()}
+              disabled={isCreateNewsDisabled}
               className="flex-1 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
             >
               Создать
@@ -650,7 +590,7 @@ const NewsModule = () => {
                   title: '',
                   short_description: '',
                   content: '',
-                  category_id: 1,
+                  category_ids: categories[0]?.id ? [categories[0].id] : [],
                   is_pinned: false,
                   mandatory_ack: false,
                 });
