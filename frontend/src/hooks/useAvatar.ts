@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { fetchStatic, uploadPhoto, deleteStatic } from '../api/photoApi';
+import { fetchStatic, uploadPhoto, deleteStatic } from '../api/filesApi';
 import usePortalStore from '../store/usePortalStore';
 
 // Упрощенная версия хука только для отображения аватарки

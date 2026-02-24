@@ -65,6 +65,13 @@ export interface CanEdit {
   telegram?: string | null;
   about_me?: string | null;
   projects?: ProfileProjectUpdate[] | null;
+  full_name?: string | null;
+  position?: string | null;
+  org_unit_id?: number | null;
+  work_phone?: string | null;
+  work_email?: string | null;
+  manager_eid?: string | null;
+  hrbp_eid?: string | null;
 }
 
 // Legacy interfaces for backward compatibility

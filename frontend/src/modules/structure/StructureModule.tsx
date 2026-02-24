@@ -1,7 +1,14 @@
-import { Download, Search, SlidersVertical } from "lucide-react";
+import { Download, Search, SlidersVertical, Edit, Trash2, Plus, Users } from "lucide-react";
 import { useState, useCallback, useEffect, useRef } from "react";
 import { searchHierarchy, searchSuggestHierarchy, type OrgUnitHierarchy, type OrgUnitManager, type ProfileSearchResult, type ProfileSuggestion } from "../../api/orgStructureApi";
-import usePortalStore from "../../store/usePortalStore"; 
+import usePortalStore from "../../store/usePortalStore";
+import {
+  CreateOrgUnitModal,
+  EditOrgUnitModal,
+  DeleteOrgUnitModal,
+  SetManagerModal,
+  MoveOrgUnitModal,
+} from "./OrgUnitManagement"; 
 
 
 const Triangle = ({ isExpanded, className = "" }: { isExpanded: boolean; className?: string }) => (
@@ -156,6 +163,13 @@ interface DepartmentNodeProps {
   level?: number;
   expandedNodes: ExpandedNodes;
   setExpandedNodes: (nodes: ExpandedNodes) => void;
+  canManage?: boolean;
+  allUnits?: OrgUnitHierarchy[];
+  onEdit?: (unit: OrgUnitHierarchy) => void;
+  onDelete?: (unit: OrgUnitHierarchy) => void;
+  onSetManager?: (unit: OrgUnitHierarchy) => void;
+  onMove?: (unit: OrgUnitHierarchy) => void;
+  onCreateChild?: (parentId: number) => void;
 }
 
 const DepartmentNode = ({
@@ -163,6 +177,13 @@ const DepartmentNode = ({
   level = 0,
   expandedNodes,
   setExpandedNodes,
+  canManage = false,
+  allUnits = [],
+  onEdit,
+  onDelete,
+  onSetManager,
+  onMove,
+  onCreateChild,
 }: DepartmentNodeProps) => {
   const unitKey = `unit-${unit.id}`;
   const isExpanded = expandedNodes[unitKey] ?? true;
@@ -202,22 +223,76 @@ const DepartmentNode = ({
         )}
 
         <div className="flex-1 py-2 pr-4">
-          <h3 className={`font-medium text-black text-${level > 0 ? level > 1 ? 'lg' : 'xl' : '2xl'}`}>{unit.name}</h3>
-          {unit.manager && (
-            <EmployeeCard
-              manager={unit.manager}
-              level={0}
-            />
-          )}
+          <div className="flex items-start justify-between gap-2">
+            <div className="flex-1 min-w-0">
+              <h3 className={`font-medium text-black text-${level > 0 ? level > 1 ? 'lg' : 'xl' : '2xl'}`}>{unit.name}</h3>
+              {unit.manager && (
+                <EmployeeCard
+                  manager={unit.manager}
+                  level={0}
+                />
+              )}
+            </div>
+            
+            {canManage && (
+              <div className="flex gap-1 shrink-0">
+                {!unit.manager && (
+                  <button
+                    onClick={() => onSetManager?.(unit)}
+                    className="p-2 text-gray-600 hover:bg-purple-100 rounded-lg transition-colors"
+                    title="Назначить руководителя"
+                  >
+                    <Users className="w-4 h-4" />
+                  </button>
+                )}
+                <button
+                  onClick={() => onCreateChild?.(unit.id)}
+                  className="p-2 text-gray-600 hover:bg-purple-100 rounded-lg transition-colors"
+                  title="Создать подразделение"
+                >
+                  <Plus className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => onEdit?.(unit)}
+                  className="p-2 text-gray-600 hover:bg-purple-100 rounded-lg transition-colors"
+                  title="Редактировать"
+                >
+                  <Edit className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => onMove?.(unit)}
+                  className="p-2 text-gray-600 hover:bg-purple-100 rounded-lg transition-colors"
+                  title="Переместить"
+                >
+                  <SlidersVertical className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => onDelete?.(unit)}
+                  className="p-2 text-gray-600 hover:bg-red-100 rounded-lg transition-colors"
+                  title="Удалить"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </div>
+            )}
+          </div>
+
           {isExpanded && unit.children && unit.children.length > 0 && (
-            <div className="space-y-1">
+            <div className="space-y-1 mt-2">
               {unit.children.map((child) => (
                 <DepartmentNode
                   key={child.id}
                   unit={child}
-                  level={level+1}
+                  level={level + 1}
                   expandedNodes={expandedNodes}
                   setExpandedNodes={setExpandedNodes}
+                  canManage={canManage}
+                  allUnits={allUnits}
+                  onEdit={onEdit}
+                  onDelete={onDelete}
+                  onSetManager={onSetManager}
+                  onMove={onMove}
+                  onCreateChild={onCreateChild}
                 />
               ))}
             </div>
@@ -236,9 +311,21 @@ const StructureModule = () => {
   const inputRef = useRef<HTMLInputElement | null>(null);
   const suggestionsRef = useRef<HTMLDivElement | null>(null);
   const [isSuggestionsOpen, setIsSuggestionsOpen] = useState<boolean>(false);
-  // const [searchFocus, setSearchFocus] = useState<boolean>(false);
 
-  const { organizationHierarchy, loading, fetchOrgStructure } = usePortalStore();
+  const { organizationHierarchy, loading, fetchOrgStructure, roles } = usePortalStore();
+
+  // Модальные окна
+  const [createModalOpen, setCreateModalOpen] = useState(false);
+  const [editModalOpen, setEditModalOpen] = useState(false);
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [setManagerModalOpen, setSetManagerModalOpen] = useState(false);
+  const [moveModalOpen, setMoveModalOpen] = useState(false);
+  
+  const [selectedUnit, setSelectedUnit] = useState<OrgUnitHierarchy | null>(null);
+  const [selectedParentId, setSelectedParentId] = useState<number | null>(null);
+
+  // Проверка прав на управление
+  const canManage = roles.includes('admin') || roles.includes('hr');
 
   useEffect(() => {
     if (organizationHierarchy.length === 0) {
@@ -342,6 +429,36 @@ const StructureModule = () => {
     setIsSuggestionsOpen(false);
   }, []);
 
+  // Обработчики для управления структурой
+  const handleCreateChild = useCallback((parentId: number) => {
+    setSelectedParentId(parentId);
+    setCreateModalOpen(true);
+  }, []);
+
+  const handleEditUnit = useCallback((unit: OrgUnitHierarchy) => {
+    setSelectedUnit(unit);
+    setEditModalOpen(true);
+  }, []);
+
+  const handleDeleteUnit = useCallback((unit: OrgUnitHierarchy) => {
+    setSelectedUnit(unit);
+    setDeleteModalOpen(true);
+  }, []);
+
+  const handleSetManager = useCallback((unit: OrgUnitHierarchy) => {
+    setSelectedUnit(unit);
+    setSetManagerModalOpen(true);
+  }, []);
+
+  const handleMoveUnit = useCallback((unit: OrgUnitHierarchy) => {
+    setSelectedUnit(unit);
+    setMoveModalOpen(true);
+  }, []);
+
+  const handleRefresh = useCallback(() => {
+    fetchOrgStructure();
+  }, [fetchOrgStructure]);
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -362,8 +479,8 @@ const StructureModule = () => {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             onKeyDown={handleKeyDown}
-            onFocus={() => { setIsSuggestionsOpen(true); /* setSearchFocus(true); */ }}
-            onBlur={() => /* setSearchFocus(false) */ {}}
+            onFocus={() => { setIsSuggestionsOpen(true); }}
+            onBlur={() => {}}
             className="w-full px-3 py-1 bg-white border-none rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
           />
           {isSuggestionsOpen && searchSuggestions.length > 0 && (
@@ -391,7 +508,7 @@ const StructureModule = () => {
           Экспорт
         </button>
         <button className="flex flex-row items-center gap-2 p-2 hover:bg-gray-100 rounded-lg transition-colors">
-        <SlidersVertical strokeWidth={2} className="w-6 h-6 text-gray-600" />
+          <SlidersVertical strokeWidth={2} className="w-6 h-6 text-gray-600" />
           Фильтры
         </button>
       </div>
@@ -462,6 +579,25 @@ const StructureModule = () => {
           </>
       ) : (
         <div className="space-y-4">
+          {canManage && (
+            <div className="flex justify-between items-center">
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setCreateModalOpen(true)}
+                  className="flex items-center gap-2 px-4 py-2 text-white bg-purple-600 hover:bg-purple-700 rounded-lg transition-colors"
+                >
+                  <Plus className="w-4 h-4" />
+                  Создать подразделение
+                </button>
+                <button
+                  onClick={handleRefresh}
+                  className="px-4 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+                >
+                  Обновить
+                </button>
+              </div>
+            </div>
+          )}
           {organizationHierarchy.length > 0 ? (
             organizationHierarchy.map((unit) => (
               <div key={unit.id} className="bg-white rounded-lg p-6">
@@ -469,6 +605,13 @@ const StructureModule = () => {
                   unit={unit}
                   expandedNodes={expandedNodes}
                   setExpandedNodes={setExpandedNodes}
+                  canManage={canManage}
+                  allUnits={organizationHierarchy}
+                  onEdit={handleEditUnit}
+                  onDelete={handleDeleteUnit}
+                  onSetManager={handleSetManager}
+                  onMove={handleMoveUnit}
+                  onCreateChild={handleCreateChild}
                 />
               </div>
             ))
@@ -480,6 +623,50 @@ const StructureModule = () => {
             </div>
           )}
         </div>)}
+
+      {/* Модальные окна */}
+      <CreateOrgUnitModal
+        isOpen={createModalOpen}
+        onClose={() => {
+          setCreateModalOpen(false);
+          setSelectedParentId(null);
+        }}
+        parentId={selectedParentId}
+        onSuccess={handleRefresh}
+      />
+
+      {selectedUnit && (
+        <>
+          <EditOrgUnitModal
+            isOpen={editModalOpen}
+            onClose={() => setEditModalOpen(false)}
+            unit={selectedUnit}
+            onSuccess={handleRefresh}
+          />
+
+          <DeleteOrgUnitModal
+            isOpen={deleteModalOpen}
+            onClose={() => setDeleteModalOpen(false)}
+            unit={selectedUnit}
+            onSuccess={handleRefresh}
+          />
+
+          <SetManagerModal
+            isOpen={setManagerModalOpen}
+            onClose={() => setSetManagerModalOpen(false)}
+            unit={selectedUnit}
+            onSuccess={handleRefresh}
+          />
+
+          <MoveOrgUnitModal
+            isOpen={moveModalOpen}
+            onClose={() => setMoveModalOpen(false)}
+            unit={selectedUnit}
+            allUnits={organizationHierarchy}
+            onSuccess={handleRefresh}
+          />
+        </>
+      )}
     </div>
   );
 };

@@ -1,15 +1,19 @@
 import {
   ArrowLeft,
   Check,
+  Download,
   Eye,
+  FileText,
   MessageCircle,
   Pencil,
+  Reply,
   Send,
+  Share2,
   ThumbsUp,
   Trash2,
   X,
 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import usePortalStore from "../../store/usePortalStore";
 import {
@@ -29,6 +33,7 @@ import {
   type Comment,
   type CommentSortBy,
 } from "../../api/сommentsApi";
+import { fetchStatic } from "../../api/filesApi";
 
 type LocationState = {
   news?: NewsDetail | NewsListItem;
@@ -41,6 +46,7 @@ const NewsDetailPage = () => {
   const { currentUser, roles } = usePortalStore();
 
   const isNewsEditor = roles.includes("news_editor");
+  const isAdmin = roles.includes("admin");
   const parsedId = Number(newsId);
 
   const initialNews = useMemo(() => {
@@ -61,22 +67,41 @@ const NewsDetailPage = () => {
   const [editingCommentId, setEditingCommentId] = useState<number | null>(null);
   const [editingCommentContent, setEditingCommentContent] = useState("");
   const [commentLikes, setCommentLikes] = useState<Record<number, boolean>>({});
+  const [replyingToCommentId, setReplyingToCommentId] = useState<number | null>(null);
+  const [replyContent, setReplyContent] = useState("");
+  const [refreshComments, setRefreshComments] = useState(0);
+  const [downloadingFileId, setDownloadingFileId] = useState<number | null>(null);
+  const fetchedNewsId = useRef<number | null>(null);
+  const isInitialMount = useRef(true);
 
   useEffect(() => {
     if (!parsedId || Number.isNaN(parsedId)) {
       return;
     }
 
-    if (newsDetail && newsDetail.id === parsedId) {
+    // Если уже загружена новость с этим ID, не загружаем повторно
+    if (fetchedNewsId.current === parsedId) {
       return;
     }
 
+    // Если есть новость из location.state с нужным ID и полным контентом, используем её
+    if (isInitialMount.current && initialNews && "content" in initialNews && initialNews.id === parsedId) {
+      setNewsDetail(initialNews as NewsDetail);
+      fetchedNewsId.current = parsedId;
+      isInitialMount.current = false;
+      return;
+    }
+
+    isInitialMount.current = false;
+
+    // Иначе загружаем новость с сервера
     const fetchNewsDetail = async () => {
       setLoadingNews(true);
       try {
         const response = await getNewsById(parsedId);
         if (response.status === 200 && response.data) {
           setNewsDetail(response.data);
+          fetchedNewsId.current = parsedId;
         }
       } catch (error) {
         console.error("Ошибка загрузки новости:", error);
@@ -86,7 +111,8 @@ const NewsDetailPage = () => {
     };
 
     fetchNewsDetail();
-  }, [newsDetail, parsedId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [parsedId]);
 
   useEffect(() => {
     if (!parsedId || Number.isNaN(parsedId)) {
@@ -124,7 +150,7 @@ const NewsDetailPage = () => {
     };
 
     fetchCommentsForNews();
-  }, [commentSortBy, parsedId]);
+  }, [commentSortBy, parsedId, refreshComments]);
 
   const updateCommentTree = (
     items: Comment[],
@@ -170,6 +196,44 @@ const NewsDetailPage = () => {
     }
   };
 
+  const handleShareNews = async () => {
+    if (!newsDetail) return;
+
+    const shareUrl = `${window.location.origin}/news/${newsDetail.id}`;
+
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      alert("Ссылка на новость скопирована в буфер обмена!");
+    } catch (error) {
+      console.error("Ошибка копирования ссылки:", error);
+      alert("Не удалось скопировать ссылку");
+    }
+  };
+
+  const handleDownloadFile = async (fileId: number, fileName?: string) => {
+    setDownloadingFileId(fileId);
+    try {
+      const response = await fetchStatic(fileId);
+      if (response.status === 200 && response.data) {
+        // Создаем ссылку и скачиваем файл
+        const link = document.createElement("a");
+        link.href = response.data;
+        link.download = fileName || `file_${fileId}`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      } else {
+        console.error("Ошибка скачивания файла:", response.message);
+        alert("Не удалось скачать файл");
+      }
+    } catch (error) {
+      console.error("Ошибка скачивания файла:", error);
+      alert("Ошибка при скачивании файла");
+    } finally {
+      setDownloadingFileId(null);
+    }
+  };
+
   const handleCreateComment = async () => {
     if (!newComment.trim() || !currentUser || !newsDetail) return;
 
@@ -183,26 +247,55 @@ const NewsDetailPage = () => {
       if (response.status === 200) {
         setNewComment("");
         setCommentsCount((prev) => prev + 1);
+        setRefreshComments((prev) => prev + 1);
       }
     } catch (error) {
       console.error("Ошибка создания комментария:", error);
     }
   };
 
+  const handleReplyToComment = async (parentId: number) => {
+    if (!replyContent.trim() || !currentUser || !newsDetail) return;
+
+    try {
+      const response = await createComment({
+        author_id: String(currentUser.eid),
+        news_id: newsDetail.id,
+        content: replyContent.trim(),
+        parent_id: parentId,
+      });
+
+      if (response.status === 200) {
+        setReplyContent("");
+        setReplyingToCommentId(null);
+        setCommentsCount((prev) => prev + 1);
+        setRefreshComments((prev) => prev + 1);
+      }
+    } catch (error) {
+      console.error("Ошибка создания ответа:", error);
+    }
+  };
+
   const handleDeleteComment = async (commentId: number) => {
     if (!currentUser || !newsDetail) return;
 
+    const comment = findCommentById(comments, commentId);
     const canDeleteComment =
       isNewsEditor ||
-      String(currentUser.eid) ===
-        String(findCommentById(comments, commentId)?.author.eid);
+      isAdmin ||
+      String(currentUser.eid) === String(comment?.author.eid);
 
     if (!canDeleteComment) return;
+
+    if (!window.confirm('Вы уверены, что хотите удалить этот комментарий?')) {
+      return;
+    }
 
     try {
       const response = await deleteComment(commentId);
       if (response.status === 200) {
         setCommentsCount((prev) => Math.max(0, prev - 1));
+        setRefreshComments((prev) => prev + 1);
       }
     } catch (error) {
       console.error("Ошибка удаления комментария:", error);
@@ -290,7 +383,9 @@ const NewsDetailPage = () => {
 
     const isLiked = commentLikes[comment.id] ?? false;
     const canEditComment =
-      isNewsEditor || String(currentUser?.eid) === String(comment.author.eid);
+      isNewsEditor || isAdmin || String(currentUser?.eid) === String(comment.author.eid);
+    const canDeleteComment =
+      isNewsEditor || isAdmin || String(currentUser?.eid) === String(comment.author.eid);
 
     return (
       <div key={comment.id} className={`${depth > 0 ? "ml-12 mt-4" : "mt-4"}`}>
@@ -312,7 +407,7 @@ const NewsDetailPage = () => {
                       <Pencil className="w-4 h-4" />
                     </button>
                   )}
-                  {canEditComment && (
+                  {canDeleteComment && editingCommentId !== comment.id && (
                     <button
                       onClick={() => handleDeleteComment(comment.id)}
                       className="text-gray-400 hover:text-red-600 transition-colors"
@@ -375,7 +470,47 @@ const NewsDetailPage = () => {
                   {comment.replies_count}
                 </span>
               )}
+              <button
+                onClick={() => {
+                  setReplyingToCommentId(comment.id);
+                  setReplyContent("");
+                }}
+                className="flex items-center gap-1 hover:text-purple-600 transition-colors"
+              >
+                <Reply className="w-3 h-3" />
+                Ответить
+              </button>
             </div>
+            {replyingToCommentId === comment.id && (
+              <div className="mt-3 space-y-2">
+                <textarea
+                  value={replyContent}
+                  onChange={(event) => setReplyContent(event.target.value)}
+                  placeholder={`Ответить ${comment.author.full_name}...`}
+                  rows={3}
+                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                />
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => handleReplyToComment(comment.id)}
+                    disabled={!replyContent.trim()}
+                    className="px-3 py-1.5 text-sm bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center gap-1"
+                  >
+                    <Send className="w-3 h-3" />
+                    Отправить
+                  </button>
+                  <button
+                    onClick={() => {
+                      setReplyingToCommentId(null);
+                      setReplyContent("");
+                    }}
+                    className="px-3 py-1.5 text-sm bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300"
+                  >
+                    Отмена
+                  </button>
+                </div>
+              </div>
+            )}
             {comment.replies && comment.replies.length > 0 && (
               <div className="mt-2">
                 {comment.replies.map((reply) => renderComment(reply, depth + 1))}
@@ -438,6 +573,39 @@ const NewsDetailPage = () => {
               <p className="text-gray-700 leading-relaxed whitespace-pre-wrap">{newsDetail.content}</p>
             </div>
 
+            {newsDetail.file_ids && newsDetail.file_ids.length > 0 && (
+              <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                <h4 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                  <FileText className="w-4 h-4" />
+                  Прикреплённые файлы ({newsDetail.file_ids.length})
+                </h4>
+                <div className="space-y-2">
+                  {newsDetail.file_ids.map((fileId) => (
+                    <button
+                      key={fileId}
+                      onClick={() => handleDownloadFile(fileId)}
+                      disabled={downloadingFileId === fileId}
+                      className="w-full flex items-center justify-between p-3 bg-white border border-gray-300 rounded-lg hover:bg-purple-50 hover:border-purple-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <div className="flex items-center gap-3 flex-1 min-w-0">
+                        <FileText className="w-5 h-5 text-purple-600 shrink-0" />
+                        <span className="text-sm text-gray-700 text-left truncate">
+                          Файл #{fileId}
+                        </span>
+                      </div>
+                      <Download
+                        className={`w-4 h-4 ml-2 shrink-0 ${
+                          downloadingFileId === fileId
+                            ? "animate-bounce text-gray-400"
+                            : "text-purple-600"
+                        }`}
+                      />
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
             <div className="flex items-center gap-6 border-t border-gray-200 pt-4">
               <div className="flex items-center gap-2 text-gray-600">
                 <Eye className="w-5 h-5" />
@@ -458,6 +626,14 @@ const NewsDetailPage = () => {
                 <MessageCircle className="w-5 h-5" />
                 <span>{commentsCount} комментариев</span>
               </div>
+              <button
+                onClick={handleShareNews}
+                className="flex items-center gap-2 text-gray-600 hover:text-purple-600 transition-colors ml-auto"
+                title="Поделиться новостью"
+              >
+                <Share2 className="w-5 h-5" />
+                <span>Поделиться</span>
+              </button>
             </div>
           </div>
         )}
@@ -476,23 +652,7 @@ const NewsDetailPage = () => {
           </select>
         </div>
 
-        {loadingComments ? (
-          <div className="space-y-4 animate-pulse">
-            <div className="h-20 bg-gray-100 rounded"></div>
-            <div className="h-20 bg-gray-100 rounded"></div>
-          </div>
-        ) : comments.length === 0 ? (
-          <div className="text-center py-8 text-gray-500">
-            <MessageCircle className="w-12 h-12 mx-auto mb-2 text-gray-300" />
-            <p>Комментариев пока нет</p>
-          </div>
-        ) : (
-          <div className="space-y-2 max-h-112 overflow-y-auto">
-            {comments.map((comment) => renderComment(comment))}
-          </div>
-        )}
-
-        <div className="mt-6 pt-4 border-t border-gray-200">
+        <div className="mb-6 pb-4 border-b border-gray-200">
           <div className="flex gap-3">
             <input
               type="text"
@@ -517,6 +677,22 @@ const NewsDetailPage = () => {
             </button>
           </div>
         </div>
+
+        {loadingComments ? (
+          <div className="space-y-4 animate-pulse">
+            <div className="h-20 bg-gray-100 rounded"></div>
+            <div className="h-20 bg-gray-100 rounded"></div>
+          </div>
+        ) : comments.length === 0 ? (
+          <div className="text-center py-8 text-gray-500">
+            <MessageCircle className="w-12 h-12 mx-auto mb-2 text-gray-300" />
+            <p>Комментариев пока нет</p>
+          </div>
+        ) : (
+          <div className="space-y-2 max-h-112 overflow-y-auto">
+            {comments.map((comment) => renderComment(comment))}
+          </div>
+        )}
       </div>
     </div>
   );
