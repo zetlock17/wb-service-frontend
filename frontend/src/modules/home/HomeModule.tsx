@@ -23,7 +23,6 @@ import { useEffect, useMemo, useState, useRef } from "react";
 import Modal from "../../components/common/Modal";
 import usePortalStore from "../../store/usePortalStore";
 import type { Birthday, BirthDayType, ModuleId } from "../../types/portal";
-import { editableFields } from "../../types/portal";
 import { getCasualName, getInitials } from "../../utils/nameUtils";
 import { useAvatarWithEdit } from "../../hooks/useAvatar";
 
@@ -136,7 +135,51 @@ const HomeModule = ({ onNavigate }: HomeModuleProps) => {
     }
   };
 
-  const { currentUser, upcomingBirthdays, calendarEvents, courses, loading, updateCurrentUser, fetchBirthdays } = usePortalStore();
+  const {
+    currentUser,
+    upcomingBirthdays,
+    calendarEvents,
+    courses,
+    loading,
+    updateCurrentUser,
+    fetchBirthdays,
+    roles,
+    organizationHierarchy,
+    employees,
+  } = usePortalStore();
+
+  const isHrOrAdmin = roles.includes("admin") || roles.includes("hr");
+  const canEditPersonalFields = roles.length === 0 || roles.includes("employee") || isHrOrAdmin;
+
+  const orgUnitOptions = useMemo(() => {
+    const options: { value: number; label: string }[] = [];
+    const walk = (items: typeof organizationHierarchy) => {
+      items.forEach((unit) => {
+        options.push({ value: unit.id, label: unit.name });
+        if (unit.children?.length) {
+          walk(unit.children);
+        }
+      });
+    };
+    walk(organizationHierarchy || []);
+    return options;
+  }, [organizationHierarchy]);
+
+  const orgUnitIdByName = useMemo(() => {
+    return new Map(orgUnitOptions.map((unit) => [unit.label, unit.value]));
+  }, [orgUnitOptions]);
+
+  const employeeOptions = useMemo(() => {
+    return (employees || []).map((employee) => ({
+      value: String(employee.id),
+      label: `${employee.full_name} — ${employee.position}`,
+      name: employee.full_name,
+    }));
+  }, [employees]);
+
+  const employeeIdByName = useMemo(() => {
+    return new Map(employeeOptions.map((employee) => [employee.name, employee.value]));
+  }, [employeeOptions]);
 
   // Загружаем дни рождения при изменении фильтра
   useEffect(() => {
@@ -190,6 +233,179 @@ const HomeModule = ({ onNavigate }: HomeModuleProps) => {
     return "planned";
   };
 
+  const renderProfileEditor = () => {
+    if (editingField?.section !== "profile" || !editingField.field) {
+      return null;
+    }
+
+    switch (editingField.field) {
+      case "full_name":
+        return (
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">ФИО</label>
+            <input
+              type="text"
+              value={editingValues.full_name || ""}
+              onChange={(e) => setEditingValues({ ...editingValues, full_name: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+            />
+          </div>
+        );
+      case "position":
+        return (
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Должность</label>
+            <input
+              type="text"
+              value={editingValues.position || ""}
+              onChange={(e) => setEditingValues({ ...editingValues, position: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+            />
+          </div>
+        );
+      case "org_unit":
+        return (
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Подразделение</label>
+            <select
+              value={editingValues.org_unit_id ?? ""}
+              onChange={(e) => {
+                const nextValue = e.target.value ? Number(e.target.value) : null;
+                const selectedUnit = orgUnitOptions.find((unit) => unit.value === nextValue);
+                setEditingValues({
+                  ...editingValues,
+                  org_unit_id: nextValue,
+                  org_unit: selectedUnit?.label || "",
+                });
+              }}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+            >
+              <option value="">Выберите подразделение</option>
+              {orgUnitOptions.map((unit) => (
+                <option key={unit.value} value={unit.value}>
+                  {unit.label}
+                </option>
+              ))}
+            </select>
+          </div>
+        );
+      case "manager_eid":
+        return (
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Руководитель</label>
+            <select
+              value={editingValues.manager_eid || ""}
+              onChange={(e) => {
+                const nextValue = e.target.value || "";
+                const selectedEmployee = employeeOptions.find((employee) => employee.value === nextValue);
+                setEditingValues({
+                  ...editingValues,
+                  manager_eid: nextValue,
+                  manager_name: selectedEmployee?.name || "",
+                });
+              }}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+            >
+              <option value="">Выберите руководителя</option>
+              {employeeOptions.map((employee) => (
+                <option key={employee.value} value={employee.value}>
+                  {employee.label}
+                </option>
+              ))}
+            </select>
+          </div>
+        );
+      case "hrbp_eid":
+        return (
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">HR BP</label>
+            <select
+              value={editingValues.hrbp_eid || ""}
+              onChange={(e) => {
+                const nextValue = e.target.value || "";
+                const selectedEmployee = employeeOptions.find((employee) => employee.value === nextValue);
+                setEditingValues({
+                  ...editingValues,
+                  hrbp_eid: nextValue,
+                  hr_name: selectedEmployee?.name || "",
+                });
+              }}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+            >
+              <option value="">Выберите HR BP</option>
+              {employeeOptions.map((employee) => (
+                <option key={employee.value} value={employee.value}>
+                  {employee.label}
+                </option>
+              ))}
+            </select>
+          </div>
+        );
+      case "work_phone":
+        return (
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Рабочий телефон</label>
+            <input
+              type="text"
+              value={editingValues.work_phone || ""}
+              onChange={(e) => setEditingValues({ ...editingValues, work_phone: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+            />
+          </div>
+        );
+      case "work_email":
+        return (
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Рабочая почта</label>
+            <input
+              type="email"
+              value={editingValues.work_email || ""}
+              onChange={(e) => setEditingValues({ ...editingValues, work_email: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+            />
+          </div>
+        );
+      case "personal_phone":
+        return (
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Личный телефон</label>
+            <input
+              type="text"
+              value={editingValues.personal_phone || ""}
+              onChange={(e) => setEditingValues({ ...editingValues, personal_phone: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+            />
+          </div>
+        );
+      case "telegram":
+        return (
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Telegram</label>
+            <input
+              type="text"
+              value={editingValues.telegram || ""}
+              onChange={(e) => setEditingValues({ ...editingValues, telegram: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+            />
+          </div>
+        );
+      case "about_me":
+        return (
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">О себе</label>
+            <textarea
+              value={editingValues.about_me || ""}
+              onChange={(e) => setEditingValues({ ...editingValues, about_me: e.target.value })}
+              rows={4}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+            />
+          </div>
+        );
+      default:
+        return null;
+    }
+  };
+
   if (loading || !currentUser) {
     return (
       <div className="space-y-6 animate-pulse">
@@ -213,8 +429,8 @@ const HomeModule = ({ onNavigate }: HomeModuleProps) => {
         <div className="flex items-start justify-between mb-4">
           <div className="flex items-center gap-4">
             <div 
-              className="relative w-20 h-20 rounded-full cursor-pointer group"
-              onClick={handleAvatarClick}
+              className={`relative w-20 h-20 rounded-full group ${canEditPersonalFields ? "cursor-pointer" : "cursor-default"}`}
+              onClick={canEditPersonalFields ? handleAvatarClick : undefined}
             >
               {avatarUrl ? (
                 <img
@@ -227,9 +443,11 @@ const HomeModule = ({ onNavigate }: HomeModuleProps) => {
                   {getInitials(currentUser.full_name)}
                 </div>
               )}
-              <div className="absolute inset-0 bg-black bg-opacity-40 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                <Camera className="w-8 h-8 text-white" />
-              </div>
+              {canEditPersonalFields && (
+                <div className="absolute inset-0 bg-black bg-opacity-40 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                  <Camera className="w-8 h-8 text-white" />
+                </div>
+              )}
             </div>
             <div>
               <div className="flex items-center gap-2 mb-1">
@@ -262,21 +480,98 @@ const HomeModule = ({ onNavigate }: HomeModuleProps) => {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <InfoCard title="Данные профиля" icon={<User className="w-5 h-5 text-purple-600" />}>
           <div className="space-y-3">
-            <ProfileRow label="EID" value={user.eid.toString()} editable={editableFields.userProfile.eid} />
-            <ProfileRow label="Должность" value={user.position} editable={editableFields.userProfile.position} />
-            <ProfileRow label="Департамент" value={user.org_unit} editable={false} />
-            <ProfileRow label="Дата рождения" value={formatDate(user.birth_date, 'dm')} editable={editableFields.userProfile.birth_date} />
-            <ProfileRow label="Работает в компании" value={`с ${formatDate(user.hire_date)}`} editable={editableFields.userProfile.hire_date} />
+            <ProfileRow
+              label="EID"
+              value={user.eid.toString()}
+              editable={false}
+            />
+            <ProfileRow
+              label="ФИО"
+              value={user.full_name}
+              editable={isHrOrAdmin}
+              onEdit={() => startEditing('profile', 'full_name', { full_name: user.full_name })}
+            />
+            <ProfileRow
+              label="Должность"
+              value={user.position}
+              editable={isHrOrAdmin}
+              onEdit={() => startEditing('profile', 'position', { position: user.position })}
+            />
+            <ProfileRow
+              label="Подразделение"
+              value={user.org_unit}
+              editable={isHrOrAdmin}
+              onEdit={() =>
+                startEditing('profile', 'org_unit', {
+                  org_unit: user.org_unit,
+                  org_unit_id: orgUnitIdByName.get(user.org_unit) ?? null,
+                })
+              }
+            />
+            <ProfileRow
+              label="Руководитель"
+              value={user.manager_name || "Не указан"}
+              editable={isHrOrAdmin}
+              onEdit={() =>
+                startEditing('profile', 'manager_eid', {
+                  manager_name: user.manager_name || "",
+                  manager_eid: user.manager_name ? employeeIdByName.get(user.manager_name) ?? "" : "",
+                })
+              }
+            />
+            <ProfileRow
+              label="HR BP"
+              value={user.hr_name || "Не указан"}
+              editable={isHrOrAdmin}
+              onEdit={() =>
+                startEditing('profile', 'hrbp_eid', {
+                  hr_name: user.hr_name || "",
+                  hrbp_eid: user.hr_name ? employeeIdByName.get(user.hr_name) ?? "" : "",
+                })
+              }
+            />
+            <ProfileRow
+              label="Дата рождения"
+              value={formatDate(user.birth_date, 'dm')}
+              editable={false}
+            />
+            <ProfileRow
+              label="Работает в компании"
+              value={`с ${formatDate(user.hire_date)}`}
+              editable={false}
+            />
           </div>
         </InfoCard>
 
         <InfoCard title="Контакты" icon={<Mail className="w-5 h-5 text-purple-600" />}>
           <div className="space-y-3">
-            <ProfileRow label="Личный телефон" value={user.personal_phone} editable={editableFields.userProfile.personal_phone} onEdit={() => startEditing('profile', 'personal_phone', { personal_phone: user.personal_phone })} />
-            <ProfileRow label="Рабочий телефон" value={user.work_phone} editable={editableFields.userProfile.work_phone} />
-            <ProfileRow label="Рабочая почта" value={user.work_email} link={`mailto:${user.work_email}`} editable={editableFields.userProfile.work_email} isSmall />
-            <ProfileRow label="Band" value={user.work_band} editable={editableFields.userProfile.work_band} />
-            <ProfileRow label="Telegram" value={user.telegram || "Не указан"} editable={editableFields.userProfile.telegram} onEdit={() => startEditing('profile', 'telegram', { telegram: user.telegram || '' })} />
+            <ProfileRow
+              label="Личный телефон"
+              value={user.personal_phone}
+              editable={canEditPersonalFields}
+              onEdit={() => startEditing('profile', 'personal_phone', { personal_phone: user.personal_phone })}
+            />
+            <ProfileRow
+              label="Рабочий телефон"
+              value={user.work_phone}
+              editable={isHrOrAdmin}
+              onEdit={() => startEditing('profile', 'work_phone', { work_phone: user.work_phone })}
+            />
+            <ProfileRow
+              label="Рабочая почта"
+              value={user.work_email}
+              link={`mailto:${user.work_email}`}
+              editable={isHrOrAdmin}
+              onEdit={() => startEditing('profile', 'work_email', { work_email: user.work_email })}
+              isSmall
+            />
+            <ProfileRow label="Band" value={user.work_band} editable={false} />
+            <ProfileRow
+              label="Telegram"
+              value={user.telegram || "Не указан"}
+              editable={canEditPersonalFields}
+              onEdit={() => startEditing('profile', 'telegram', { telegram: user.telegram || '' })}
+            />
           </div>
         </InfoCard>
 
@@ -309,7 +604,20 @@ const HomeModule = ({ onNavigate }: HomeModuleProps) => {
         </InfoCard>
       </div>
 
-      <Card title="О себе" icon={<User className="w-5 h-5 text-purple-600" />} action={<button onClick={() => startEditing('profile', 'about_me', { about_me: user.about_me || '' })} className="px-4 py-2 text-sm font-normal text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 flex items-center gap-2"><Edit2 className="w-4 h-4" /> Редактировать</button>}>
+      <Card
+        title="О себе"
+        icon={<User className="w-5 h-5 text-purple-600" />}
+        action={
+          canEditPersonalFields ? (
+            <button
+              onClick={() => startEditing('profile', 'about_me', { about_me: user.about_me || '' })}
+              className="px-4 py-2 text-sm font-normal text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 flex items-center gap-2"
+            >
+              <Edit2 className="w-4 h-4" /> Редактировать
+            </button>
+          ) : null
+        }
+      >
         <p className="text-gray-700 leading-relaxed">{user.about_me || 'Не указано'}</p>
       </Card>
 
@@ -317,10 +625,12 @@ const HomeModule = ({ onNavigate }: HomeModuleProps) => {
         title="Проекты"
         icon={<Award className="w-5 h-5 text-purple-600" />}
         action={
-          <button onClick={() => startEditing('projects', 'add', {})} className="px-3 py-1.5 text-sm text-purple-600 hover:bg-purple-50 rounded-lg flex items-center gap-1">
-            <Plus className="w-4 h-4" />
-            Добавить проект
-          </button>
+          canEditPersonalFields ? (
+            <button onClick={() => startEditing('projects', 'add', {})} className="px-3 py-1.5 text-sm text-purple-600 hover:bg-purple-50 rounded-lg flex items-center gap-1">
+              <Plus className="w-4 h-4" />
+              Добавить проект
+            </button>
+          ) : null
         }
       >
         <div className="space-y-3">
@@ -360,7 +670,11 @@ const HomeModule = ({ onNavigate }: HomeModuleProps) => {
               title="Отпуск"
               icon={<Calendar className="w-5 h-5 text-purple-600" />}
               status={<span className={`px-3 py-1 text-sm font-medium rounded-full ${getVacationStatus(currentVacation) === "active" ? "bg-orange-100 text-orange-700" : "bg-purple-600 text-white"}`}>{getVacationStatus(currentVacation) === "active" ? "В отпуске" : "Планируется"} </span>}
-              action={<button onClick={() => startEditing('vacations', undefined, currentVacation)} className="px-3 py-1.5 text-sm text-purple-600 hover:bg-purple-50 rounded-lg flex items-center gap-1"><ArrowRight strokeWidth={1.5} className="w-4 h-4" /> Отправить заявку</button>}>
+              action={
+                canEditPersonalFields ? (
+                  <button onClick={() => startEditing('vacations', undefined, currentVacation)} className="px-3 py-1.5 text-sm text-purple-600 hover:bg-purple-50 rounded-lg flex items-center gap-1"><ArrowRight strokeWidth={1.5} className="w-4 h-4" /> Отправить заявку</button>
+                ) : null
+              }>
               <div className="space-y-4">
                 <div className="flex items-center justify-between px-5 py-4 bg-purple-50 rounded-lg">
                   <VacationInfo label="Дата начала" value={formatDate(currentVacation.start_date)} />
@@ -510,39 +824,7 @@ const HomeModule = ({ onNavigate }: HomeModuleProps) => {
       >
         {editingField && (
           <div className="space-y-4">
-            {editingField.section === 'profile' && editingField.field === 'personal_phone' && (
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Личный телефон</label>
-                <input
-                  type="text"
-                  value={editingValues.personal_phone || ''}
-                  onChange={(e) => setEditingValues({ ...editingValues, personal_phone: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-                />
-              </div>
-            )}
-            {editingField.section === 'profile' && editingField.field === 'telegram' && (
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Telegram</label>
-                <input
-                  type="text"
-                  value={editingValues.telegram || ''}
-                  onChange={(e) => setEditingValues({ ...editingValues, telegram: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-                />
-              </div>
-            )}
-            {editingField.section === 'profile' && editingField.field === 'about_me' && (
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">О себе</label>
-                <textarea
-                  value={editingValues.about_me || ''}
-                  onChange={(e) => setEditingValues({ ...editingValues, about_me: e.target.value })}
-                  rows={4}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-                />
-              </div>
-            )}
+            {renderProfileEditor()}
             {(editingField.section === 'projects' && editingField.field === 'add') || (editingField.section === 'projects' && editingField.index !== undefined) && (
               <div className="space-y-4">
                 <div>

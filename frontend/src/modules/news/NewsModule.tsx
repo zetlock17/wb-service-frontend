@@ -1,4 +1,4 @@
-import { Award, Eye, Filter, MessageCircle, Plus, Share2, ThumbsUp, Trash2 } from "lucide-react";
+import { Pin, Eye, Filter, MessageCircle, Paperclip, Plus, ThumbsUp, Trash2, Upload, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Modal from "../../components/common/Modal";
@@ -15,22 +15,20 @@ import {
   type Category,
   type NewsSortBy 
 } from "../../api/newsApi";
+import { uploadPhoto } from "../../api/filesApi";
 
 const NewsModule = () => {
   const { currentUser, roles } = usePortalStore();
   const navigate = useNavigate();
-  
-  // Состояния для новостей
+
   const [newsList, setNewsList] = useState<NewsListItem[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(false);
-  
-  // Фильтры и сортировка
+
   const [selectedCategory, setSelectedCategory] = useState<number | undefined>(undefined);
   const [sortBy, setSortBy] = useState<NewsSortBy>('newest');
   const [showFilters, setShowFilters] = useState(false);
 
-  // Состояния для создания новости
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [newNewsData, setNewNewsData] = useState({
     title: '',
@@ -39,15 +37,20 @@ const NewsModule = () => {
     category_ids: [] as number[],
     is_pinned: false,
     mandatory_ack: false,
+    file_ids: [] as number[],
   });
+  const [uploadedFiles, setUploadedFiles] = useState<{ id: number; name: string }[]>([]);
+  const [uploadingFiles, setUploadingFiles] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState('');
   const [creatingCategory, setCreatingCategory] = useState(false);
   const [deletingCategoryId, setDeletingCategoryId] = useState<number | null>(null);
   const [categoryError, setCategoryError] = useState<string | null>(null);
 
   const isNewsEditor = roles.includes('news_editor');
+  const isAdmin = roles.includes('admin');
 
-  // Загрузка новостей
   useEffect(() => {
     fetchNews();
     fetchCategories();
@@ -99,7 +102,7 @@ const NewsModule = () => {
   };
 
   const handleCreateCategory = async () => {
-    if (!isNewsEditor) return;
+    if (!isAdmin) return;
 
     const name = newCategoryName.trim();
     if (name.length < 2) {
@@ -125,7 +128,7 @@ const NewsModule = () => {
   };
 
   const handleDeleteCategory = async (categoryId: number) => {
-    if (!isNewsEditor) return;
+    if (!isAdmin) return;
 
     setDeletingCategoryId(categoryId);
     try {
@@ -143,7 +146,6 @@ const NewsModule = () => {
     }
   };
 
-  // Открытие детальной новости
   const openNewsDetail = (newsId: number, news?: NewsListItem) => {
     navigate(`/news/${newsId}`, { state: { news } });
   };
@@ -172,6 +174,51 @@ const NewsModule = () => {
     } catch (error) {
       console.error('Ошибка изменения лайка новости:', error);
     }
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || !currentUser) return;
+
+    setUploadingFiles(true);
+    setUploadError(null);
+
+    try {
+      const newFileIds: number[] = [];
+      
+      for (const file of Array.from(files)) {
+        const response = await uploadPhoto(file, Number(currentUser.eid), 'document');
+        
+        if (response.status === 200 && response.data) {
+          newFileIds.push(response.data);
+          setUploadedFiles((prev) => [
+            ...prev,
+            { id: response.data, name: file.name }
+          ]);
+          setNewNewsData((prev) => ({
+            ...prev,
+            file_ids: [...prev.file_ids, response.data]
+          }));
+        } else {
+          throw new Error(response.message || `Ошибка загрузки файла ${file.name}`);
+        }
+      }
+    } catch (error) {
+      console.error('Ошибка загрузки файлов:', error);
+      setUploadError(error instanceof Error ? error.message : 'Ошибка при загрузке файлов');
+    } finally {
+      setUploadingFiles(false);
+
+      if (e.target) e.target.value = '';
+    }
+  };
+
+  const handleRemoveFile = (fileId: number) => {
+    setUploadedFiles((prev) => prev.filter((f) => f.id !== fileId));
+    setNewNewsData((prev) => ({
+      ...prev,
+      file_ids: prev.file_ids.filter((id) => id !== fileId)
+    }));
   };
 
   // Создание новости
@@ -210,6 +257,7 @@ const NewsModule = () => {
         category_ids: newNewsData.category_ids,
         is_pinned: newNewsData.is_pinned,
         mandatory_ack: newNewsData.mandatory_ack,
+        file_ids: newNewsData.file_ids.length > 0 ? newNewsData.file_ids : undefined,
       });
 
       if (response.status === 200) {
@@ -221,7 +269,10 @@ const NewsModule = () => {
           category_ids: categories[0]?.id ? [categories[0].id] : [],
           is_pinned: false,
           mandatory_ack: false,
+          file_ids: [],
         });
+        setUploadedFiles([]);
+        setUploadError(null);
         fetchNews();
       }
     } catch (error) {
@@ -286,15 +337,24 @@ const NewsModule = () => {
               <Filter className="w-4 h-4" />
               Фильтры
             </button>
-            <button 
-              onClick={() => setShowCreateModal(true)}
-              className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 flex items-center gap-2 transition-colors"
-              disabled={!isNewsEditor}
-              aria-disabled={!isNewsEditor}
-            >
-              <Plus className="w-4 h-4" />
-              Создать новость
-            </button>
+            {isNewsEditor && (
+              <button 
+                onClick={() => setShowCreateModal(true)}
+                className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 flex items-center gap-2 transition-colors"
+              >
+                <Plus className="w-4 h-4" />
+                Создать новость
+              </button>
+            )}
+            {isAdmin && (
+              <button 
+                onClick={() => setShowCategoryModal(true)}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2 transition-colors"
+              >
+                <Plus className="w-4 h-4" />
+                Управление категориями
+              </button>
+            )}
           </div>
         </div>
 
@@ -332,53 +392,6 @@ const NewsModule = () => {
                 </select>
               </div>
             </div>
-
-            {isNewsEditor && (
-              <div className="mt-4 pt-4 border-t border-gray-200">
-                <div className="flex flex-wrap items-center gap-3">
-                  <input
-                    type="text"
-                    value={newCategoryName}
-                    onChange={(e) => {
-                      setNewCategoryName(e.target.value);
-                      setCategoryError(null);
-                    }}
-                    className="flex-1 min-w-[200px] px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-                    placeholder="Новая категория"
-                  />
-                  <button
-                    onClick={handleCreateCategory}
-                    disabled={creatingCategory || !newCategoryName.trim()}
-                    className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
-                  >
-                    Создать категорию
-                  </button>
-                </div>
-                {categoryError && (
-                  <p className="mt-2 text-sm text-red-600">{categoryError}</p>
-                )}
-                {categories.length > 0 && (
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    {categories.map((cat) => (
-                      <div
-                        key={cat.id}
-                        className="flex items-center gap-2 bg-white border border-gray-200 rounded-full px-3 py-1 text-sm"
-                      >
-                        <span>{cat.name}</span>
-                        <button
-                          onClick={() => handleDeleteCategory(cat.id)}
-                          disabled={deletingCategoryId === cat.id}
-                          className="text-gray-400 hover:text-red-600 disabled:text-gray-300"
-                          aria-label={`Удалить категорию ${cat.name}`}
-                        >
-                          <Trash2 className="w-3 h-3" />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
           </div>
         )}
 
@@ -400,13 +413,21 @@ const NewsModule = () => {
               >
                 {newsItem.is_pinned && (
                   <div className="flex items-center gap-2 text-purple-600 text-sm font-medium mb-3">
-                    <Award className="w-4 h-4" />
+                    <Pin className="w-4 h-4" />
                     Закреплено
                   </div>
                 )}
                 <div className="flex items-start justify-between mb-3">
                   <div className="flex-1">
-                    <h3 className="text-xl font-semibold text-gray-900 mb-2">{newsItem.title}</h3>
+                    <div className="flex items-center gap-2 mb-2">
+                      <h3 className="text-xl font-semibold text-gray-900">{newsItem.title}</h3>
+                      {newsItem.file_ids && newsItem.file_ids.length > 0 && (
+                        <span className="inline-flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs font-medium">
+                          <Paperclip className="w-3 h-3" />
+                          {newsItem.file_ids.length}
+                        </span>
+                      )}
+                    </div>
                     <p className="text-gray-600 mb-3">{newsItem.short_description}</p>
                     <div className="flex flex-wrap items-center gap-4 text-sm text-gray-500">
                       <span className="px-2 py-1 bg-gray-100 rounded text-xs">Новость</span>
@@ -436,10 +457,6 @@ const NewsModule = () => {
                     <MessageCircle className="w-4 h-4" />
                     <span className="text-sm">{newsItem.comments_count}</span>
                   </span>
-                  <span className="flex items-center gap-2 text-gray-600 ml-auto">
-                    <Share2 className="w-4 h-4" />
-                    <span className="text-sm">Поделиться</span>
-                  </span>
                 </div>
               </button>
             ))
@@ -460,7 +477,10 @@ const NewsModule = () => {
             category_ids: categories[0]?.id ? [categories[0].id] : [],
             is_pinned: false,
             mandatory_ack: false,
+            file_ids: [],
           });
+          setUploadedFiles([]);
+          setUploadError(null);
         }}
         widthClass="max-w-2xl"
       >
@@ -510,31 +530,7 @@ const NewsModule = () => {
             </label>
             {categories.length === 0 ? (
               <div className="rounded-lg border border-gray-200 bg-gray-50 p-3">
-                <p className="text-sm text-gray-600">Сначала создайте категорию.</p>
-                {isNewsEditor && (
-                  <div className="mt-3 flex flex-wrap items-center gap-3">
-                    <input
-                      type="text"
-                      value={newCategoryName}
-                      onChange={(e) => {
-                        setNewCategoryName(e.target.value);
-                        setCategoryError(null);
-                      }}
-                      className="flex-1 min-w-[200px] px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-                      placeholder="Новая категория"
-                    />
-                    <button
-                      onClick={handleCreateCategory}
-                      disabled={creatingCategory || !newCategoryName.trim()}
-                      className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
-                    >
-                      Создать
-                    </button>
-                  </div>
-                )}
-                {categoryError && (
-                  <p className="mt-2 text-sm text-red-600">{categoryError}</p>
-                )}
+                <p className="text-sm text-gray-600">Сначала создайте категорию через "Управление категориями".</p>
               </div>
             ) : (
               <select
@@ -575,6 +571,60 @@ const NewsModule = () => {
             </label>
           </div>
 
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Файлы
+            </label>
+            <div className="relative">
+              <input
+                type="file"
+                multiple
+                onChange={handleFileUpload}
+                disabled={uploadingFiles}
+                className="hidden"
+                id="file-input"
+              />
+              <label
+                htmlFor="file-input"
+                className="flex items-center justify-center w-full px-4 py-2 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-purple-500 hover:bg-purple-50 transition-colors disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <div className="flex items-center gap-2">
+                  <Upload className="w-4 h-4 text-gray-600" />
+                  <span className="text-sm text-gray-600">
+                    {uploadingFiles ? 'Загрузка...' : 'Выберите файлы'}
+                  </span>
+                </div>
+              </label>
+            </div>
+            
+            {uploadError && (
+              <p className="mt-2 text-sm text-red-600">{uploadError}</p>
+            )}
+
+            {uploadedFiles.length > 0 && (
+              <div className="mt-3 space-y-2">
+                <p className="text-sm font-medium text-gray-700">Загруженные файлы:</p>
+                <div className="space-y-1">
+                  {uploadedFiles.map((file) => (
+                    <div
+                      key={file.id}
+                      className="flex items-center justify-between p-2 bg-gray-50 border border-gray-200 rounded-lg"
+                    >
+                      <span className="text-sm text-gray-700 truncate">{file.name}</span>
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveFile(file.id)}
+                        className="p-1 text-gray-400 hover:text-red-600 transition-colors"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+
           <div className="flex items-center gap-3 pt-4 border-t border-gray-200">
             <button
               onClick={handleCreateNews}
@@ -593,11 +643,104 @@ const NewsModule = () => {
                   category_ids: categories[0]?.id ? [categories[0].id] : [],
                   is_pinned: false,
                   mandatory_ack: false,
+                  file_ids: [],
                 });
+                setUploadedFiles([]);
+                setUploadError(null);
               }}
               className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
             >
               Отмена
+            </button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Модальное окно управления категориями */}
+      <Modal
+        isOpen={showCategoryModal}
+        title="Управление категориями"
+        onClose={() => {
+          setShowCategoryModal(false);
+          setNewCategoryName('');
+          setCategoryError(null);
+        }}
+        widthClass="max-w-2xl"
+      >
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Создать новую категорию
+            </label>
+            <div className="flex gap-3">
+              <input
+                type="text"
+                value={newCategoryName}
+                onChange={(e) => {
+                  setNewCategoryName(e.target.value);
+                  setCategoryError(null);
+                }}
+                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="Название категории"
+              />
+              <button
+                onClick={handleCreateCategory}
+                disabled={creatingCategory || !newCategoryName.trim()}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
+              >
+                <Plus className="w-4 h-4" />
+                {creatingCategory ? 'Создание...' : 'Создать'}
+              </button>
+            </div>
+            {categoryError && (
+              <p className="mt-2 text-sm text-red-600">{categoryError}</p>
+            )}
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-3">
+              Существующие категории ({categories.length})
+            </label>
+            {categories.length === 0 ? (
+              <div className="text-center py-8 text-gray-500">
+                <p>Категорий пока нет</p>
+              </div>
+            ) : (
+              <div className="space-y-2 max-h-96 overflow-y-auto">
+                {categories.map((cat) => (
+                  <div
+                    key={cat.id}
+                    className="flex items-center justify-between bg-gray-50 border border-gray-200 rounded-lg px-4 py-3"
+                  >
+                    <span className="text-gray-900 font-medium">{cat.name}</span>
+                    <button
+                      onClick={() => handleDeleteCategory(cat.id)}
+                      disabled={deletingCategoryId === cat.id}
+                      className="text-gray-400 hover:text-red-600 disabled:text-gray-300 transition-colors"
+                      aria-label={`Удалить категорию ${cat.name}`}
+                    >
+                      {deletingCategoryId === cat.id ? (
+                        <span className="text-xs">Удаление...</span>
+                      ) : (
+                        <Trash2 className="w-4 h-4" />
+                      )}
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="flex justify-end pt-4 border-t border-gray-200">
+            <button
+              onClick={() => {
+                setShowCategoryModal(false);
+                setNewCategoryName('');
+                setCategoryError(null);
+              }}
+              className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
+            >
+              Закрыть
             </button>
           </div>
         </div>

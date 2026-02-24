@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { deleteRequest } from './api';
+import { getAccessToken } from '../utils/authTokens';
 
 interface UploadResponse {
     data: number;
@@ -10,10 +11,18 @@ interface UploadResponse {
 export const fetchStatic = async (id: number) => {
     const baseURL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
     const url = `${baseURL}/api/v1/static/get?id=${id}`;
+    const token = getAccessToken();
 
     try {
-        const response = await axios.get(url, { responseType: 'blob' });
+        console.log(`[FILE_DOWNLOAD] Отправка GET запроса...`);
+        const response = await axios.get(url, {
+            responseType: 'blob',
+            headers: {
+                Authorization: token ? `Bearer ${token}` : '',
+            },
+        });
         const blob = response.data as Blob;
+
 
         const dataUrl = await new Promise<string>((resolve, reject) => {
             const reader = new FileReader();
@@ -29,7 +38,6 @@ export const fetchStatic = async (id: number) => {
             status: response.status,
         };
     } catch (error: any) {
-        console.error('Failed fetchStatic:', error);
         return {
             data: '',
             status: error.response?.status || 500,
@@ -43,16 +51,20 @@ export const uploadPhoto = async (
     eid: number,
     type: 'image' | 'video' | 'audio' | 'document' = 'image',
 ): Promise<UploadResponse> => {
+
     const formData = new FormData();
     formData.append('file', file);
 
     const baseURL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
     const url = `${baseURL}/api/v1/static/add?type=${type}&eid=${eid}`;
+    const token = getAccessToken();
 
     try {
+
         const response = await axios.post<number>(url, formData, {
             headers: {
                 'Content-Type': 'multipart/form-data',
+                Authorization: token ? `Bearer ${token}` : '',
             },
         });
 
@@ -61,7 +73,6 @@ export const uploadPhoto = async (
             status: response.status,
         };
     } catch (error: any) {
-        console.error('Upload error:', error);
         return {
             data: 0,
             status: error.response?.status || 500,

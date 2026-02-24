@@ -14,7 +14,17 @@ import {
 } from "../data/mockData";
 import { getProfile, updateProfile } from "../api/profileApi";
 import { getBirthdays } from "../api/birthdaysApi";
-import { getOrgHierarchy, type OrgUnitHierarchy } from "../api/orgStructureApi";
+import { 
+  getOrgHierarchy, 
+  moveOrgUnit,
+  createOrgUnit,
+  updateOrgUnit,
+  deleteOrgUnit,
+  setOrgUnitManager,
+  type OrgUnitHierarchy,
+  type OrgUnitCreate,
+  type OrgUnitUpdate,
+} from "../api/orgStructureApi";
 import type {
   Birthday,
   BirthDayType,
@@ -55,9 +65,21 @@ interface PortalState {
 
   fetchPortalData: () => Promise<void>;
   fetchProfile: (eid: number) => Promise<void>;
-  updateCurrentUser: (eid: number, updatedUser: Partial<UserProfile>) => Promise<void>;
+  updateCurrentUser: (
+    eid: number,
+    updatedUser: Partial<UserProfile> & {
+      org_unit_id?: number | null;
+      manager_eid?: string | null;
+      hrbp_eid?: string | null;
+    }
+  ) => Promise<void>;
   fetchBirthdays: (timeUnit: BirthDayType) => Promise<void>;
   fetchOrgStructure: () => Promise<void>;
+  moveOrgUnitAsync: (unitId: number, newParentId?: number | null) => Promise<void>;
+  createOrgUnitAsync: (unitData: OrgUnitCreate) => Promise<void>;
+  updateOrgUnitAsync: (unitId: number, unitData: OrgUnitUpdate) => Promise<void>;
+  deleteOrgUnitAsync: (unitId: number) => Promise<void>;
+  setOrgUnitManagerAsync: (unitId: number, managerEid: string) => Promise<void>;
   setApiError: (error: string | null) => void;
   clearApiError: () => void;
   setRoles: (roles: string[]) => void;
@@ -133,7 +155,14 @@ const usePortalStore = create<PortalState>((set) => ({
     }
   },
   
-  updateCurrentUser: async (eid: number, updatedUser: Partial<UserProfile>) => {
+  updateCurrentUser: async (
+    eid: number,
+    updatedUser: Partial<UserProfile> & {
+      org_unit_id?: number | null;
+      manager_eid?: string | null;
+      hrbp_eid?: string | null;
+    }
+  ) => {
     const currentState = usePortalStore.getState().currentUser;
     
     try {
@@ -149,6 +178,13 @@ const usePortalStore = create<PortalState>((set) => ({
       if (updatedUser.about_me !== undefined) editableData.about_me = updatedUser.about_me;
       if (updatedUser.projects !== undefined) editableData.projects = updatedUser.projects;
       if (updatedUser.avatar_id !== undefined) editableData.avatar_id = updatedUser.avatar_id;
+      if (updatedUser.full_name !== undefined) editableData.full_name = updatedUser.full_name;
+      if (updatedUser.position !== undefined) editableData.position = updatedUser.position;
+      if (updatedUser.org_unit_id !== undefined) editableData.org_unit_id = updatedUser.org_unit_id;
+      if (updatedUser.work_phone !== undefined) editableData.work_phone = updatedUser.work_phone;
+      if (updatedUser.work_email !== undefined) editableData.work_email = updatedUser.work_email;
+      if (updatedUser.manager_eid !== undefined) editableData.manager_eid = updatedUser.manager_eid;
+      if (updatedUser.hrbp_eid !== undefined) editableData.hrbp_eid = updatedUser.hrbp_eid;
       // Примечание: vacations не входят в ProfileUpdateSchema и не могут быть отредактированы
       
       // Отправляем обновление на бэкенд
@@ -202,6 +238,66 @@ const usePortalStore = create<PortalState>((set) => ({
 
   clearApiError: () => {
     set({ hasApiError: false, error: null });
+  },
+
+  moveOrgUnitAsync: async (unitId: number, newParentId?: number | null) => {
+    try {
+      await moveOrgUnit(unitId, newParentId);
+      // Перезагружаем структуру после операции
+      const response = await getOrgHierarchy();
+      set({ organizationHierarchy: response.data || [] });
+    } catch (error) {
+      console.error("Failed to move org unit:", error);
+      throw error;
+    }
+  },
+
+  createOrgUnitAsync: async (unitData: OrgUnitCreate) => {
+    try {
+      await createOrgUnit(unitData);
+      // Перезагружаем структуру после операции
+      const response = await getOrgHierarchy();
+      set({ organizationHierarchy: response.data || [] });
+    } catch (error) {
+      console.error("Failed to create org unit:", error);
+      throw error;
+    }
+  },
+
+  updateOrgUnitAsync: async (unitId: number, unitData: OrgUnitUpdate) => {
+    try {
+      await updateOrgUnit(unitId, unitData);
+      // Перезагружаем структуру после операции
+      const response = await getOrgHierarchy();
+      set({ organizationHierarchy: response.data || [] });
+    } catch (error) {
+      console.error("Failed to update org unit:", error);
+      throw error;
+    }
+  },
+
+  deleteOrgUnitAsync: async (unitId: number) => {
+    try {
+      await deleteOrgUnit(unitId);
+      // Перезагружаем структуру после операции
+      const response = await getOrgHierarchy();
+      set({ organizationHierarchy: response.data || [] });
+    } catch (error) {
+      console.error("Failed to delete org unit:", error);
+      throw error;
+    }
+  },
+
+  setOrgUnitManagerAsync: async (unitId: number, managerEid: string) => {
+    try {
+      await setOrgUnitManager(unitId, managerEid);
+      // Перезагружаем структуру после операции
+      const response = await getOrgHierarchy();
+      set({ organizationHierarchy: response.data || [] });
+    } catch (error) {
+      console.error("Failed to set org unit manager:", error);
+      throw error;
+    }
   },
 
   setRoles: (roles: string[]) => {

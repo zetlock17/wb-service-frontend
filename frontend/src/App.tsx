@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Navigate, Outlet, Route, Routes, useNavigate, useParams } from "react-router-dom";
 import { registerApiErrorHandler } from "./api/api";
 import AppHeader from "./components/layout/AppHeader";
+import DetailPageWrapper from "./components/layout/DetailPageWrapper";
 import GlobalSearchModal, { type SearchFilter } from "./components/layout/GlobalSearchModal";
 import MobileNav from "./components/layout/MobileNav";
 import NotificationsPanel from "./components/layout/NotificationsPanel";
@@ -13,7 +14,7 @@ import HomeModule from "./modules/home/HomeModule";
 import IdeasModule from "./modules/ideas/IdeasModule";
 import KnowledgeModule from "./modules/knowledge/KnowledgeModule";
 import NewsModule from "./modules/news/NewsModule";
-import NewsDetailPage from "./modules/news/NewsDetailPage";
+import NewsDetailWrapper from "./modules/news/NewsDetailWrapper";
 import ReportsModule from "./modules/reports/ReportsModule";
 import StructureModule from "./modules/structure/StructureModule";
 import SurveysModule from "./modules/surveys/SurveysModule";
@@ -263,7 +264,16 @@ function App() {
       />
       <Route element={<RequireAuth isAuthenticated={isAuthenticated} />}>
         <Route path="/" element={<Navigate to="/home" replace />} />
-        <Route path="/news/:newsId" element={<NewsDetailPage />} />
+        <Route
+          path="/news/:newsId"
+          element={
+            <DetailPageWrapper
+              isAuthenticated={isAuthenticated}
+              detailComponent={<NewsDetailWrapper />}
+              moduleFallback="news"
+            />
+          }
+        />
         <Route path="/:moduleId" element={<PortalShell isAuthenticated={isAuthenticated} />} />
       </Route>
       <Route
