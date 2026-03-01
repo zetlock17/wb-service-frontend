@@ -11,10 +11,13 @@ export interface NewsListItem {
     file_ids?: number[];
     published_at: string;
     is_pinned: boolean;
+    comments_enabled: boolean;
     views_count: number;
     likes_count: number;
     comments_count: number;
     is_liked?: boolean;
+    status?: NewsStatus;
+    tags?: string[];
 }
 
 export interface NewsDetail {
@@ -25,16 +28,24 @@ export interface NewsDetail {
     file_ids?: number[];
     published_at: string;
     is_pinned: boolean;
+    comments_enabled: boolean;
     views_count: number;
     likes_count: number;
     comments_count: number;
     is_liked?: boolean;
     content: string;
     mandatory_ack: boolean;
+    ack_target_all: boolean;
+    is_acknowledged: boolean;
+    must_acknowledge: boolean;
     expires_at?: string | null;
+    scheduled_publish_at?: string | null;
     tags?: string[];
     categories?: Category[];
+    status?: NewsStatus;
 }
+
+export type NewsStatus = 'DRAFT' | 'PUBLISHED' | 'ARCHIVED' | 'SCHEDULED';
 
 export interface NewsCreate {
     title: string;
@@ -44,7 +55,14 @@ export interface NewsCreate {
     tag_names?: string[];
     is_pinned?: boolean;
     mandatory_ack?: boolean;
+    ack_target_all?: boolean;
+    ack_target_eids?: string[];
+    ack_target_org_unit_ids?: number[];
+    comments_enabled?: boolean;
     file_ids?: number[];
+    status?: NewsStatus;
+    scheduled_publish_at?: string | null;
+    expires_at?: string | null;
 }
 
 export interface NewsUpdate {
@@ -55,7 +73,14 @@ export interface NewsUpdate {
     tag_names?: string[];
     is_pinned?: boolean;
     mandatory_ack?: boolean;
+    ack_target_all?: boolean;
+    ack_target_eids?: string[];
+    ack_target_org_unit_ids?: number[];
+    comments_enabled?: boolean;
     file_ids?: number[];
+    status?: NewsStatus;
+    scheduled_publish_at?: string | null;
+    expires_at?: string | null;
 }
 
 export interface Category {
@@ -77,6 +102,9 @@ export interface NewsFilters {
     page?: number;
     size?: number;
     likes?: boolean;
+    status?: NewsStatus;
+    tag?: string;
+    search?: string;
 }
 
 /**
@@ -94,6 +122,9 @@ export const getNews = async (filters?: NewsFilters): Promise<ApiResponse<NewsLi
     if (filters?.page) params.page = filters.page;
     if (filters?.size) params.size = filters.size;
     if (filters?.likes !== undefined) params.likes = filters.likes;
+    if (filters?.status) params.status = filters.status;
+    if (filters?.tag) params.tag = filters.tag;
+    if (filters?.search) params.search = filters.search;
     
     return await getRequest<NewsListItem[]>('/api/v1/news/', params);
 };
@@ -147,6 +178,32 @@ export const getCategories = async (): Promise<ApiResponse<Category[]>> => {
 };
 
 /**
+ * Получение списка отслеживаемых категорий текущим пользователем
+ * @returns Массив отслеживаемых категорий
+ */
+export const getFollowedCategories = async (): Promise<ApiResponse<Category[]>> => {
+    return await getRequest<Category[]>('/api/v1/news/categories/followed');
+};
+
+/**
+ * Подписаться на категорию
+ * @param categoryId - ID категории
+ * @returns Ответ с результатом операции
+ */
+export const followCategory = async (categoryId: number): Promise<ApiResponse<any>> => {
+    return await postRequest<any>(`/api/v1/news/categories/${categoryId}/follow`, {});
+};
+
+/**
+ * Отписаться от категории
+ * @param categoryId - ID категории
+ * @returns Ответ с результатом операции
+ */
+export const unfollowCategory = async (categoryId: number): Promise<ApiResponse<any>> => {
+    return await deleteRequest<any>(`/api/v1/news/categories/${categoryId}/follow`);
+};
+
+/**
  * Создание новой категории (только для администратора)
  * @param categoryData - Данные категории
  * @returns ID созданной категории
@@ -180,4 +237,31 @@ export const addLikeToNews = async (newsId: number): Promise<ApiResponse<any>> =
  */
 export const removeLikeFromNews = async (newsId: number): Promise<ApiResponse<any>> => {
     return await deleteRequest<any>(`/api/v1/news/like/remove?news_id=${newsId}`);
+};
+
+/**
+ * Подтвердить прочтение новости (для обязательных новостей)
+ * @param newsId - ID новости
+ * @returns Ответ с результатом операции
+ */
+export const acknowledgeNews = async (newsId: number): Promise<ApiResponse<any>> => {
+    return await postRequest<any>(`/api/v1/news/${newsId}/acknowledge`, {});
+};
+
+/**
+ * Получить статус подтверждений прочтения новости
+ * @param newsId - ID новости
+ * @returns Статус подтверждений (кто прочитал, кто нет)
+ */
+export const getNewsAcknowledgements = async (newsId: number): Promise<ApiResponse<any>> => {
+    return await getRequest<any>(`/api/v1/news/${newsId}/acknowledgements`);
+};
+
+/**
+ * Получить историю изменений новости
+ * @param newsId - ID новости
+ * @returns История изменений
+ */
+export const getNewsEditLog = async (newsId: number): Promise<ApiResponse<any>> => {
+    return await getRequest<any>(`/api/v1/news/${newsId}/log`);
 };
