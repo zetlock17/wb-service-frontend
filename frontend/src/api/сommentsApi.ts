@@ -7,6 +7,11 @@ export interface Author {
     full_name: string;
 }
 
+export interface MentionedUser {
+    eid: string;
+    full_name: string;
+}
+
 export interface Comment {
     id: number;
     parent_id: number | null;
@@ -15,7 +20,9 @@ export interface Comment {
     created_at: string;
     is_edited: boolean;
     file_ids: number[] | null;
+    mentioned_users?: MentionedUser[];
     likes_count: number;
+    is_liked?: boolean;
     replies_count: number;
     replies: Comment[];
 }
@@ -103,4 +110,13 @@ export const addLikeToComment = async (commentId: number): Promise<ApiResponse<a
  */
 export const removeLikeFromComment = async (commentId: number): Promise<ApiResponse<any>> => {
     return await deleteRequest<any>(`/api/v1/comments/like/remove?comment_id=${commentId}`);
+};
+
+/**
+ * Получить историю изменений комментария
+ * @param commentId - ID комментария
+ * @returns История изменений
+ */
+export const getCommentEditLog = async (commentId: number): Promise<ApiResponse<any>> => {
+    return await getRequest<any>(`/api/v1/comments/${commentId}/log`);
 };

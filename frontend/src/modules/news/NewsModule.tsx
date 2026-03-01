@@ -1,11 +1,14 @@
-import { Pin, Eye, Filter, MessageCircle, Paperclip, Plus, ThumbsUp, Trash2, Upload, X } from "lucide-react";
-import { useEffect, useState } from "react";
+import { Pin, Eye, Filter, MessageCircle, Paperclip, Plus, ThumbsUp, Trash2, Upload, X, Search, Tag, Bell, BellOff } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Modal from "../../components/common/Modal";
 import usePortalStore from "../../store/usePortalStore";
 import { 
   getNews, 
   getCategories,
+  getFollowedCategories,
+  followCategory,
+  unfollowCategory,
   createNews,
   createCategory,
   deleteCategory,
@@ -13,7 +16,8 @@ import {
   removeLikeFromNews,
   type NewsListItem, 
   type Category,
-  type NewsSortBy 
+  type NewsSortBy,
+  type NewsStatus
 } from "../../api/newsApi";
 import { uploadPhoto } from "../../api/filesApi";
 
@@ -23,11 +27,21 @@ const NewsModule = () => {
 
   const [newsList, setNewsList] = useState<NewsListItem[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [followedCategories, setFollowedCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(false);
 
   const [selectedCategory, setSelectedCategory] = useState<number | undefined>(undefined);
   const [sortBy, setSortBy] = useState<NewsSortBy>('newest');
+  const [statusFilter, setStatusFilter] = useState<NewsStatus | ''>('');
+  const [searchInput, setSearchInput] = useState('');
+  const [appliedSearch, setAppliedSearch] = useState('');
+  const [tagInput, setTagInput] = useState('');
+  const [appliedTag, setAppliedTag] = useState('');
   const [showFilters, setShowFilters] = useState(false);
+  const [activeTab, setActiveTab] = useState<'news' | 'drafts'>('news');
+  const [draftsList, setDraftsList] = useState<NewsListItem[]>([]);
+  const [loadingDrafts, setLoadingDrafts] = useState(false);
+  const searchRef = useRef<HTMLInputElement>(null);
 
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [newNewsData, setNewNewsData] = useState({
@@ -37,6 +51,11 @@ const NewsModule = () => {
     category_ids: [] as number[],
     is_pinned: false,
     mandatory_ack: false,
+    comments_enabled: true,
+    status: 'PUBLISHED' as NewsStatus,
+    scheduled_publish_at: '' as string,
+    expires_at: '' as string,
+    tag_names: '' as string,
     file_ids: [] as number[],
   });
   const [uploadedFiles, setUploadedFiles] = useState<{ id: number; name: string }[]>([]);
@@ -54,8 +73,31 @@ const NewsModule = () => {
   useEffect(() => {
     fetchNews();
     fetchCategories();
+    fetchFollowedCategories();
+    if (isNewsEditor) fetchDrafts();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedCategory, sortBy]);
+  }, [selectedCategory, sortBy, statusFilter, appliedSearch, appliedTag]);
+
+  useEffect(() => {
+    if (isNewsEditor && activeTab === 'drafts') {
+      fetchDrafts();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab]);
+
+  const fetchDrafts = async () => {
+    setLoadingDrafts(true);
+    try {
+      const response = await getNews({ status: 'DRAFT', sort_by: 'newest' });
+      if (response.status === 200 && response.data) {
+        setDraftsList(response.data);
+      }
+    } catch (error) {
+      console.error('Ошибка загрузки черновиков:', error);
+    } finally {
+      setLoadingDrafts(false);
+    }
+  };
 
   const fetchNews = async () => {
     setLoading(true);
@@ -63,6 +105,9 @@ const NewsModule = () => {
       const response = await getNews({
         category_id: selectedCategory,
         sort_by: sortBy,
+        status: statusFilter || undefined,
+        search: appliedSearch || undefined,
+        tag: appliedTag || undefined,
       });
       if (response.status === 200 && response.data) {
         setNewsList(response.data);
@@ -71,6 +116,17 @@ const NewsModule = () => {
       console.error('Ошибка загрузки новостей:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchFollowedCategories = async () => {
+    try {
+      const response = await getFollowedCategories();
+      if (response.status === 200 && response.data) {
+        setFollowedCategories(response.data);
+      }
+    } catch (error) {
+      console.error('Ошибка загрузки подписок:', error);
     }
   };
 
@@ -138,11 +194,35 @@ const NewsModule = () => {
           setSelectedCategory(undefined);
         }
         await fetchCategories();
+        setFollowedCategories(prev => prev.filter(c => c.id !== categoryId));
       }
     } catch (error) {
       console.error('Ошибка удаления категории:', error);
     } finally {
       setDeletingCategoryId(null);
+    }
+  };
+
+  const handleFollowCategory = async (categoryId: number) => {
+    try {
+      const response = await followCategory(categoryId);
+      if (response.status === 200) {
+        const cat = categories.find(c => c.id === categoryId);
+        if (cat) setFollowedCategories(prev => [...prev, cat]);
+      }
+    } catch (error) {
+      console.error('Ошибка подписки на категорию:', error);
+    }
+  };
+
+  const handleUnfollowCategory = async (categoryId: number) => {
+    try {
+      const response = await unfollowCategory(categoryId);
+      if (response.status === 200) {
+        setFollowedCategories(prev => prev.filter(c => c.id !== categoryId));
+      }
+    } catch (error) {
+      console.error('Ошибка отписки от категории:', error);
     }
   };
 
@@ -250,6 +330,11 @@ const NewsModule = () => {
     }
 
     try {
+      const parsedTags = newNewsData.tag_names
+        .split(',')
+        .map(t => t.trim())
+        .filter(Boolean);
+
       const response = await createNews({
         title,
         short_description: shortDescription,
@@ -257,6 +342,15 @@ const NewsModule = () => {
         category_ids: newNewsData.category_ids,
         is_pinned: newNewsData.is_pinned,
         mandatory_ack: newNewsData.mandatory_ack,
+        comments_enabled: newNewsData.comments_enabled,
+        status: newNewsData.status,
+        scheduled_publish_at: newNewsData.status === 'SCHEDULED' && newNewsData.scheduled_publish_at
+          ? new Date(newNewsData.scheduled_publish_at).toISOString()
+          : null,
+        expires_at: newNewsData.expires_at
+          ? new Date(newNewsData.expires_at).toISOString()
+          : null,
+        tag_names: parsedTags.length > 0 ? parsedTags : undefined,
         file_ids: newNewsData.file_ids.length > 0 ? newNewsData.file_ids : undefined,
       });
 
@@ -269,6 +363,11 @@ const NewsModule = () => {
           category_ids: categories[0]?.id ? [categories[0].id] : [],
           is_pinned: false,
           mandatory_ack: false,
+          comments_enabled: true,
+          status: 'PUBLISHED',
+          scheduled_publish_at: '',
+          expires_at: '',
+          tag_names: '',
           file_ids: [],
         });
         setUploadedFiles([]);
@@ -286,7 +385,8 @@ const NewsModule = () => {
     newNewsData.title.trim().length < 5 ||
     !newNewsData.short_description.trim() ||
     !newNewsData.content.trim() ||
-    newNewsData.category_ids.length === 0;
+    newNewsData.category_ids.length === 0 ||
+    (newNewsData.status === 'SCHEDULED' && !newNewsData.scheduled_publish_at);
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
@@ -306,6 +406,19 @@ const NewsModule = () => {
     });
   };
 
+  const getStatusLabel = (status?: NewsStatus): { label: string; className: string } => {
+    switch (status) {
+      case 'DRAFT':     return { label: 'Черновик',       className: 'bg-gray-100 text-gray-600' };
+      case 'PUBLISHED': return { label: 'Опубликовано',   className: 'bg-green-100 text-green-700' };
+      case 'ARCHIVED':  return { label: 'Архив',           className: 'bg-yellow-100 text-yellow-700' };
+      case 'SCHEDULED': return { label: 'По расписанию',  className: 'bg-blue-100 text-blue-700' };
+      default:          return { label: 'Новость',         className: 'bg-gray-100 text-gray-600' };
+    }
+  };
+
+  const isFollowedCategory = (categoryId: number) =>
+    followedCategories.some(c => c.id === categoryId);
+
   if (loading) {
     return (
       <div className="space-y-6 animate-pulse">
@@ -324,7 +437,38 @@ const NewsModule = () => {
     <div className="space-y-6">
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
         <div className="flex items-center justify-between mb-6">
-          <h2 className="text-2xl font-bold text-gray-900">Внутренние коммуникации</h2>
+          <div className="flex items-center gap-4">
+            <h2 className="text-2xl font-bold text-gray-900">Внутренние коммуникации</h2>
+            {isNewsEditor && (
+              <div className="flex rounded-lg border border-gray-200 overflow-hidden">
+                <button
+                  onClick={() => setActiveTab('news')}
+                  className={`px-4 py-1.5 text-sm font-medium transition-colors ${
+                    activeTab === 'news'
+                      ? 'bg-purple-600 text-white'
+                      : 'bg-white text-gray-600 hover:bg-gray-50'
+                  }`}
+                >
+                  Новости
+                </button>
+                <button
+                  onClick={() => setActiveTab('drafts')}
+                  className={`px-4 py-1.5 text-sm font-medium transition-colors ${
+                    activeTab === 'drafts'
+                      ? 'bg-gray-600 text-white'
+                      : 'bg-white text-gray-600 hover:bg-gray-50'
+                  }`}
+                >
+                  Черновики
+                  {draftsList.length > 0 && activeTab !== 'drafts' && (
+                    <span className="ml-1.5 px-1.5 py-0.5 bg-gray-200 text-gray-700 rounded-full text-xs">
+                      {draftsList.length}
+                    </span>
+                  )}
+                </button>
+              </div>
+            )}
+          </div>
           <div className="flex items-center gap-3">
             <button
               onClick={() => setShowFilters(!showFilters)}
@@ -358,10 +502,33 @@ const NewsModule = () => {
           </div>
         </div>
 
+        {/* Отслеживаемые категории */}
+        {followedCategories.length > 0 && (
+          <div className="mb-4 flex flex-wrap items-center gap-2">
+            <span className="text-sm text-gray-500 shrink-0 flex items-center gap-1">
+              <Bell className="w-3.5 h-3.5" />
+              Подписки:
+            </span>
+            {followedCategories.map(cat => (
+              <span
+                key={cat.id}
+                onClick={() => setSelectedCategory(cat.id === selectedCategory ? undefined : cat.id)}
+                className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm cursor-pointer transition-colors ${
+                  selectedCategory === cat.id
+                    ? 'bg-purple-600 text-white'
+                    : 'bg-purple-100 text-purple-700 hover:bg-purple-200'
+                }`}
+              >
+                {cat.name}
+              </span>
+            ))}
+          </div>
+        )}
+
         {/* Панель фильтров */}
         {showFilters && (
           <div className="mb-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Категория
@@ -391,12 +558,156 @@ const NewsModule = () => {
                   <option value="discussed">Обсуждаемые</option>
                 </select>
               </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Статус
+                </label>
+                <select
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value as NewsStatus | '')}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                >
+                  <option value="">Все статусы</option>
+                  <option value="PUBLISHED">Опубликовано</option>
+                  <option value="DRAFT">Черновик</option>
+                  <option value="SCHEDULED">По расписанию</option>
+                  <option value="ARCHIVED">Архив</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Поиск по названию / описанию
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    ref={searchRef}
+                    type="text"
+                    value={searchInput}
+                    onChange={(e) => setSearchInput(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === 'Enter') setAppliedSearch(searchInput); }}
+                    placeholder="Введите запрос..."
+                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm"
+                  />
+                  <button
+                    onClick={() => setAppliedSearch(searchInput)}
+                    className="px-3 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+                  >
+                    <Search className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Фильтр по тегу
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={tagInput}
+                    onChange={(e) => setTagInput(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === 'Enter') setAppliedTag(tagInput); }}
+                    placeholder="Введите тег..."
+                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm"
+                  />
+                  <button
+                    onClick={() => setAppliedTag(tagInput)}
+                    className="px-3 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+                  >
+                    <Tag className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
             </div>
+            {(appliedSearch || appliedTag || statusFilter) && (
+              <div className="flex flex-wrap gap-2 pt-3 border-t border-gray-200">
+                <span className="text-sm text-gray-500">Активные фильтры:</span>
+                {appliedSearch && (
+                  <span className="inline-flex items-center gap-1 px-2 py-1 bg-purple-100 text-purple-700 rounded text-xs">
+                    <Search className="w-3 h-3" />
+                    {appliedSearch}
+                    <button onClick={() => { setAppliedSearch(''); setSearchInput(''); }} className="hover:text-purple-900"><X className="w-3 h-3" /></button>
+                  </span>
+                )}
+                {appliedTag && (
+                  <span className="inline-flex items-center gap-1 px-2 py-1 bg-purple-100 text-purple-700 rounded text-xs">
+                    <Tag className="w-3 h-3" />
+                    {appliedTag}
+                    <button onClick={() => { setAppliedTag(''); setTagInput(''); }} className="hover:text-purple-900"><X className="w-3 h-3" /></button>
+                  </span>
+                )}
+                {statusFilter && (
+                  <span className="inline-flex items-center gap-1 px-2 py-1 bg-purple-100 text-purple-700 rounded text-xs">
+                    {getStatusLabel(statusFilter).label}
+                    <button onClick={() => setStatusFilter('')} className="hover:text-purple-900"><X className="w-3 h-3" /></button>
+                  </span>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Список черновиков */}
+        {activeTab === 'drafts' && isNewsEditor && (
+          <div className="space-y-4">
+            {loadingDrafts ? (
+              <div className="space-y-4 animate-pulse">
+                <div className="h-40 bg-gray-200 rounded"></div>
+                <div className="h-40 bg-gray-200 rounded"></div>
+              </div>
+            ) : draftsList.length === 0 ? (
+              <div className="text-center py-12 text-gray-500">
+                <MessageCircle className="w-16 h-16 mx-auto mb-4 text-gray-300" />
+                <p className="text-lg">Черновиков нет</p>
+              </div>
+            ) : (
+              draftsList.map((newsItem) => (
+                <button
+                  key={newsItem.id}
+                  onClick={() => openNewsDetail(newsItem.id, newsItem)}
+                  className="w-full text-left border border-dashed border-gray-300 bg-gray-50 rounded-lg p-6 hover:shadow-md transition-shadow"
+                >
+                  <div className="flex items-start justify-between mb-3">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-2 flex-wrap">
+                        <h3 className="text-xl font-semibold text-gray-900">{newsItem.title}</h3>
+                        {newsItem.file_ids && newsItem.file_ids.length > 0 && (
+                          <span className="inline-flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs font-medium">
+                            <Paperclip className="w-3 h-3" />
+                            {newsItem.file_ids.length}
+                          </span>
+                        )}
+                        <span className="px-2 py-1 rounded text-xs font-medium bg-gray-100 text-gray-600">Черновик</span>
+                      </div>
+                      <p className="text-gray-600 mb-3">{newsItem.short_description}</p>
+                      {newsItem.tags && newsItem.tags.length > 0 && (
+                        <div className="flex flex-wrap gap-1 mb-3">
+                          {newsItem.tags.map(tag => (
+                            <span key={tag} className="inline-flex items-center gap-1 px-2 py-0.5 bg-purple-50 text-purple-600 border border-purple-200 rounded-full text-xs">
+                              <Tag className="w-2.5 h-2.5" />
+                              {tag}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                      <div className="flex flex-wrap items-center gap-3 text-sm text-gray-500">
+                        {newsItem.categories && newsItem.categories.length > 0 && (
+                          newsItem.categories.map(cat => (
+                            <span key={cat.id} className="px-2 py-1 bg-gray-100 rounded text-xs">{cat.name}</span>
+                          ))
+                        )}
+                        <span>{formatDate(newsItem.published_at)}</span>
+                        <span>{newsItem.author_name}</span>
+                      </div>
+                    </div>
+                  </div>
+                </button>
+              ))
+            )}
           </div>
         )}
 
         {/* Список новостей */}
-        <div className="space-y-4">
+        {activeTab === 'news' && <div className="space-y-4">
           {newsList.length === 0 ? (
             <div className="text-center py-12 text-gray-500">
               <MessageCircle className="w-16 h-16 mx-auto mb-4 text-gray-300" />
@@ -419,7 +730,7 @@ const NewsModule = () => {
                 )}
                 <div className="flex items-start justify-between mb-3">
                   <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-2">
+                    <div className="flex items-center gap-2 mb-2 flex-wrap">
                       <h3 className="text-xl font-semibold text-gray-900">{newsItem.title}</h3>
                       {newsItem.file_ids && newsItem.file_ids.length > 0 && (
                         <span className="inline-flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs font-medium">
@@ -427,10 +738,45 @@ const NewsModule = () => {
                           {newsItem.file_ids.length}
                         </span>
                       )}
+                      {/* Статус */}
+                      {(() => {
+                        const s = getStatusLabel(newsItem.status);
+                        return (
+                          <span className={`px-2 py-1 rounded text-xs font-medium ${s.className}`}>
+                            {s.label}
+                          </span>
+                        );
+                      })()}
+                      {/* Комментарии включены/выключены */}
+                      <span
+                        className={`inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium ${
+                          newsItem.comments_enabled
+                            ? 'bg-green-100 text-green-700'
+                            : 'bg-gray-100 text-gray-500'
+                        }`}
+                        title={newsItem.comments_enabled ? 'Комментарии включены' : 'Комментарии выключены'}
+                      >
+                        <MessageCircle className="w-3 h-3" />
+                        {newsItem.comments_enabled ? 'Открыты' : 'Закрыты'}
+                      </span>
                     </div>
                     <p className="text-gray-600 mb-3">{newsItem.short_description}</p>
-                    <div className="flex flex-wrap items-center gap-4 text-sm text-gray-500">
-                      <span className="px-2 py-1 bg-gray-100 rounded text-xs">Новость</span>
+                    {newsItem.tags && newsItem.tags.length > 0 && (
+                      <div className="flex flex-wrap gap-1 mb-3">
+                        {newsItem.tags.map(tag => (
+                          <span key={tag} className="inline-flex items-center gap-1 px-2 py-0.5 bg-purple-50 text-purple-600 border border-purple-200 rounded-full text-xs">
+                            <Tag className="w-2.5 h-2.5" />
+                            {tag}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                    <div className="flex flex-wrap items-center gap-3 text-sm text-gray-500">
+                      {newsItem.categories && newsItem.categories.length > 0 && (
+                        newsItem.categories.map(cat => (
+                          <span key={cat.id} className="px-2 py-1 bg-gray-100 rounded text-xs">{cat.name}</span>
+                        ))
+                      )}
                       <span>{formatDate(newsItem.published_at)}</span>
                       <span>{newsItem.author_name}</span>
                     </div>
@@ -461,7 +807,7 @@ const NewsModule = () => {
               </button>
             ))
           )}
-        </div>
+        </div>}
       </div>
 
       {/* Модальное окно создания новости */}
@@ -477,6 +823,11 @@ const NewsModule = () => {
             category_ids: categories[0]?.id ? [categories[0].id] : [],
             is_pinned: false,
             mandatory_ack: false,
+            comments_enabled: true,
+            status: 'PUBLISHED',
+            scheduled_publish_at: '',
+            expires_at: '',
+            tag_names: '',
             file_ids: [],
           });
           setUploadedFiles([]);
@@ -549,7 +900,7 @@ const NewsModule = () => {
             )}
           </div>
 
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-4 flex-wrap">
             <label className="flex items-center gap-2 cursor-pointer">
               <input
                 type="checkbox"
@@ -569,6 +920,83 @@ const NewsModule = () => {
               />
               <span className="text-sm text-gray-700">Обязательное ознакомление</span>
             </label>
+
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={newNewsData.comments_enabled}
+                onChange={(e) => setNewNewsData({ ...newNewsData, comments_enabled: e.target.checked })}
+                className="w-4 h-4 text-purple-600 border-gray-300 rounded focus:ring-purple-500"
+              />
+              <span className="text-sm text-gray-700">Комментарии включены</span>
+            </label>
+          </div>
+
+          {/* Статус / черновик / отложенная публикация */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Статус публикации
+            </label>
+            <div className="flex gap-2">
+              {(['PUBLISHED', 'DRAFT', 'SCHEDULED'] as NewsStatus[]).map(s => (
+                <button
+                  key={s}
+                  type="button"
+                  onClick={() => setNewNewsData({ ...newNewsData, status: s })}
+                  className={`px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors ${
+                    newNewsData.status === s
+                      ? s === 'DRAFT'
+                        ? 'bg-gray-600 text-white border-gray-600'
+                        : s === 'SCHEDULED'
+                        ? 'bg-blue-600 text-white border-blue-600'
+                        : 'bg-green-600 text-white border-green-600'
+                      : 'bg-white text-gray-600 border-gray-300 hover:border-gray-400'
+                  }`}
+                >
+                  {s === 'PUBLISHED' ? 'Опубликовать' : s === 'DRAFT' ? 'Черновик' : 'По расписанию'}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {newNewsData.status === 'SCHEDULED' && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Дата и время публикации <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="datetime-local"
+                value={newNewsData.scheduled_publish_at}
+                onChange={(e) => setNewNewsData({ ...newNewsData, scheduled_publish_at: e.target.value })}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+          )}
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Теги <span className="text-gray-400 font-normal">(через запятую)</span>
+              </label>
+              <input
+                type="text"
+                value={newNewsData.tag_names}
+                onChange={(e) => setNewNewsData({ ...newNewsData, tag_names: e.target.value })}
+                placeholder="важно, обновление, кадры"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Дата устаревания <span className="text-gray-400 font-normal">(необязательно)</span>
+              </label>
+              <input
+                type="datetime-local"
+                value={newNewsData.expires_at}
+                onChange={(e) => setNewNewsData({ ...newNewsData, expires_at: e.target.value })}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+              />
+            </div>
           </div>
 
           <div>
@@ -631,7 +1059,7 @@ const NewsModule = () => {
               disabled={isCreateNewsDisabled}
               className="flex-1 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
             >
-              Создать
+              {newNewsData.status === 'DRAFT' ? 'Сохранить черновик' : newNewsData.status === 'SCHEDULED' ? 'Запланировать' : 'Опубликовать'}
             </button>
             <button
               onClick={() => {
@@ -643,6 +1071,11 @@ const NewsModule = () => {
                   category_ids: categories[0]?.id ? [categories[0].id] : [],
                   is_pinned: false,
                   mandatory_ack: false,
+                  comments_enabled: true,
+                  status: 'PUBLISHED',
+                  scheduled_publish_at: '',
+                  expires_at: '',
+                  tag_names: '',
                   file_ids: [],
                 });
                 setUploadedFiles([]);
@@ -707,26 +1140,55 @@ const NewsModule = () => {
               </div>
             ) : (
               <div className="space-y-2 max-h-96 overflow-y-auto">
-                {categories.map((cat) => (
-                  <div
-                    key={cat.id}
-                    className="flex items-center justify-between bg-gray-50 border border-gray-200 rounded-lg px-4 py-3"
-                  >
-                    <span className="text-gray-900 font-medium">{cat.name}</span>
-                    <button
-                      onClick={() => handleDeleteCategory(cat.id)}
-                      disabled={deletingCategoryId === cat.id}
-                      className="text-gray-400 hover:text-red-600 disabled:text-gray-300 transition-colors"
-                      aria-label={`Удалить категорию ${cat.name}`}
+                {categories.map((cat) => {
+                  const isFollowed = isFollowedCategory(cat.id);
+                  return (
+                    <div
+                      key={cat.id}
+                      className="flex items-center justify-between bg-gray-50 border border-gray-200 rounded-lg px-4 py-3"
                     >
-                      {deletingCategoryId === cat.id ? (
-                        <span className="text-xs">Удаление...</span>
-                      ) : (
-                        <Trash2 className="w-4 h-4" />
-                      )}
-                    </button>
-                  </div>
-                ))}
+                      <div className="flex items-center gap-3 flex-1 min-w-0">
+                        <span className="text-gray-900 font-medium truncate">{cat.name}</span>
+                        {isFollowed && (
+                          <span className="text-xs px-2 py-0.5 bg-purple-100 text-purple-700 rounded-full shrink-0">
+                            Отслеживается
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2 ml-3 shrink-0">
+                        <button
+                          onClick={() => isFollowed ? handleUnfollowCategory(cat.id) : handleFollowCategory(cat.id)}
+                          className={`flex items-center gap-1 px-2 py-1 rounded text-xs font-medium transition-colors ${
+                            isFollowed
+                              ? 'bg-purple-100 text-purple-700 hover:bg-purple-200'
+                              : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                          }`}
+                          title={isFollowed ? 'Отписаться от категории' : 'Подписаться на категорию'}
+                        >
+                          {isFollowed ? (
+                            <><BellOff className="w-3 h-3" /> Отписаться</>
+                          ) : (
+                            <><Bell className="w-3 h-3" /> Подписаться</>
+                          )}
+                        </button>
+                        {isAdmin && (
+                          <button
+                            onClick={() => handleDeleteCategory(cat.id)}
+                            disabled={deletingCategoryId === cat.id}
+                            className="text-gray-400 hover:text-red-600 disabled:text-gray-300 transition-colors"
+                            aria-label={`Удалить категорию ${cat.name}`}
+                          >
+                            {deletingCategoryId === cat.id ? (
+                              <span className="text-xs">Удаление...</span>
+                            ) : (
+                              <Trash2 className="w-4 h-4" />
+                            )}
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             )}
           </div>

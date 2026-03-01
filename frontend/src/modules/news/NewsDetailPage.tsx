@@ -1,14 +1,19 @@
 import {
   ArrowLeft,
   Check,
+  CheckCircle2,
+  Clock,
   Download,
   Eye,
   FileText,
+  Lock,
   MessageCircle,
+  MessageCircleOff,
   Pencil,
   Reply,
   Send,
   Share2,
+  Tag,
   ThumbsUp,
   Trash2,
   X,
@@ -18,11 +23,19 @@ import { useLocation, useNavigate, useParams } from "react-router-dom";
 import usePortalStore from "../../store/usePortalStore";
 import {
   addLikeToNews,
+  acknowledgeNews,
+  getCategories,
+  getNewsAcknowledgements,
   getNewsById,
   removeLikeFromNews,
+  updateNews,
+  type Category,
   type NewsDetail,
   type NewsListItem,
+  type NewsStatus,
+  type NewsUpdate,
 } from "../../api/newsApi";
+import Modal from "../../components/common/Modal";
 import {
   addLikeToComment,
   createComment,
@@ -71,6 +84,48 @@ const NewsDetailPage = () => {
   const [replyContent, setReplyContent] = useState("");
   const [refreshComments, setRefreshComments] = useState(0);
   const [downloadingFileId, setDownloadingFileId] = useState<number | null>(null);
+  const [acknowledging, setAcknowledging] = useState(false);
+  const [acknowledgementsData, setAcknowledgementsData] = useState<{
+    acknowledged: { eid: string; full_name: string; acknowledged_at: string }[];
+    not_acknowledged: { eid: string; full_name: string }[];
+    total: number;
+    acknowledged_count: number;
+  } | null>(null);
+  const [showAckDetails, setShowAckDetails] = useState(false);
+
+  // Edit modal state
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editCategories, setEditCategories] = useState<Category[]>([]);
+  const [savingEdit, setSavingEdit] = useState(false);
+  interface EditFormData {
+    title: string;
+    short_description: string;
+    content: string;
+    category_ids: number[];
+    is_pinned: boolean;
+    mandatory_ack: boolean;
+    comments_enabled: boolean;
+    status: NewsStatus;
+    tag_names: string;
+    scheduled_publish_at_local: string;
+    expires_at_local: string;
+    file_ids: number[];
+  }
+  const [editData, setEditData] = useState<EditFormData>({
+    title: '',
+    short_description: '',
+    content: '',
+    category_ids: [],
+    is_pinned: false,
+    mandatory_ack: false,
+    comments_enabled: true,
+    status: 'PUBLISHED',
+    tag_names: '',
+    scheduled_publish_at_local: '',
+    expires_at_local: '',
+    file_ids: [],
+  });
+
   const fetchedNewsId = useRef<number | null>(null);
   const isInitialMount = useRef(true);
 
@@ -102,6 +157,10 @@ const NewsDetailPage = () => {
         if (response.status === 200 && response.data) {
           setNewsDetail(response.data);
           fetchedNewsId.current = parsedId;
+          // Загружаем подтверждения если нужно
+          if (response.data.mandatory_ack && (isAdmin || isNewsEditor)) {
+            fetchAcknowledgements(parsedId);
+          }
         }
       } catch (error) {
         console.error("Ошибка загрузки новости:", error);
@@ -113,6 +172,14 @@ const NewsDetailPage = () => {
     fetchNewsDetail();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [parsedId]);
+
+  // Fetch acknowledgements when newsDetail loads (covers case when loaded from location.state)
+  useEffect(() => {
+    if (newsDetail?.mandatory_ack && (isAdmin || isNewsEditor) && !acknowledgementsData) {
+      fetchAcknowledgements(newsDetail.id);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [newsDetail?.id, newsDetail?.mandatory_ack]);
 
   useEffect(() => {
     if (!parsedId || Number.isNaN(parsedId)) {
@@ -132,7 +199,8 @@ const NewsDetailPage = () => {
             const next: Record<number, boolean> = {};
             const collect = (items: Comment[]) => {
               items.forEach((item) => {
-                next[item.id] = prev[item.id] ?? false;
+                // Use is_liked from server response; fall back to prev state
+                next[item.id] = item.is_liked ?? prev[item.id] ?? false;
                 if (item.replies && item.replies.length > 0) {
                   collect(item.replies);
                 }
@@ -355,6 +423,120 @@ const NewsDetailPage = () => {
     }
   };
 
+  const handleOpenEditModal = async () => {
+    if (!newsDetail) return;
+    const cats = await getCategories();
+    if (cats.status === 200 && cats.data) setEditCategories(cats.data);
+    setEditData({
+      title: newsDetail.title,
+      short_description: newsDetail.short_description,
+      content: newsDetail.content,
+      category_ids: newsDetail.categories?.map(c => c.id) ?? [],
+      is_pinned: newsDetail.is_pinned,
+      mandatory_ack: newsDetail.mandatory_ack,
+      comments_enabled: newsDetail.comments_enabled,
+      status: (newsDetail.status as NewsStatus) ?? 'PUBLISHED',
+      tag_names: newsDetail.tags?.join(', ') ?? '',
+      scheduled_publish_at_local: newsDetail.scheduled_publish_at
+        ? new Date(newsDetail.scheduled_publish_at).toISOString().slice(0, 16)
+        : '',
+      expires_at_local: newsDetail.expires_at
+        ? new Date(newsDetail.expires_at).toISOString().slice(0, 16)
+        : '',
+      file_ids: newsDetail.file_ids ?? [],
+    });
+    setShowEditModal(true);
+  };
+
+  const handleSaveEdit = async () => {
+    if (!newsDetail || !isNewsEditor) return;
+    setSavingEdit(true);
+    try {
+      const parsedTags = editData.tag_names
+        .split(',')
+        .map(t => t.trim())
+        .filter(Boolean);
+      const payload: NewsUpdate = {
+        title: editData.title?.trim(),
+        short_description: editData.short_description?.trim(),
+        content: editData.content?.trim(),
+        category_ids: editData.category_ids,
+        is_pinned: editData.is_pinned,
+        mandatory_ack: editData.mandatory_ack,
+        comments_enabled: editData.comments_enabled,
+        status: editData.status,
+        scheduled_publish_at: editData.status === 'SCHEDULED' && editData.scheduled_publish_at_local
+          ? new Date(editData.scheduled_publish_at_local).toISOString()
+          : null,
+        expires_at: editData.expires_at_local
+          ? new Date(editData.expires_at_local).toISOString()
+          : null,
+        tag_names: parsedTags.length > 0 ? parsedTags : [],
+        file_ids: editData.file_ids,
+      };
+      const response = await updateNews(newsDetail.id, payload);
+      if (response.status === 200) {
+        setShowEditModal(false);
+        // Reload news data
+        fetchedNewsId.current = null;
+        const refreshed = await getNewsById(newsDetail.id);
+        if (refreshed.status === 200 && refreshed.data) {
+          setNewsDetail(refreshed.data);
+          fetchedNewsId.current = newsDetail.id;
+        }
+      } else {
+        alert('Ошибка при сохранении новости');
+      }
+    } catch (err) {
+      console.error('Ошибка обновления новости:', err);
+      alert('Ошибка при сохранении новости');
+    } finally {
+      setSavingEdit(false);
+    }
+  };
+
+  const fetchAcknowledgements = async (newsId: number) => {
+    try {
+      const response = await getNewsAcknowledgements(newsId);
+      if (response.status === 200 && response.data) {
+        setAcknowledgementsData(response.data);
+      }
+    } catch (error) {
+      console.error("Ошибка загрузки подтверждений:", error);
+    }
+  };
+
+  const handleAcknowledge = async () => {
+    if (!newsDetail || acknowledging) return;
+    setAcknowledging(true);
+    try {
+      const response = await acknowledgeNews(newsDetail.id);
+      if (response.status === 200) {
+        setNewsDetail((prev) =>
+          prev ? { ...prev, is_acknowledged: true, must_acknowledge: false } : prev
+        );
+        if (isAdmin || isNewsEditor) {
+          await fetchAcknowledgements(newsDetail.id);
+        }
+      }
+    } catch (error) {
+      console.error("Ошибка подтверждения прочтения:", error);
+    } finally {
+      setAcknowledging(false);
+    }
+  };
+
+  const getStatusLabel = (status?: NewsStatus): { label: string; className: string; icon?: React.ReactNode } => {
+    switch (status) {
+      case 'DRAFT':     return { label: 'Черновик',        className: 'bg-gray-100 text-gray-600' };
+      case 'PUBLISHED': return { label: 'Опубликовано',    className: 'bg-green-100 text-green-700' };
+      case 'ARCHIVED':  return { label: 'Архив',           className: 'bg-yellow-100 text-yellow-700' };
+      case 'SCHEDULED': return { label: 'По расписанию',   className: 'bg-blue-100 text-blue-700',
+        icon: <Clock className="w-3 h-3" /> };
+      default:          return { label: 'Новость',         className: 'bg-gray-100 text-gray-600' };
+    }
+  };
+
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     const now = new Date();
@@ -541,13 +723,24 @@ const NewsDetailPage = () => {
 
   return (
     <div className="space-y-6">
-      <button
-        onClick={() => navigate("/news")}
-        className="inline-flex items-center gap-2 text-sm text-gray-600 hover:text-purple-600"
-      >
-        <ArrowLeft className="w-4 h-4" />
-        Назад к новостям
-      </button>
+      <div className="flex items-center justify-between">
+        <button
+          onClick={() => navigate("/news")}
+          className="inline-flex items-center gap-2 text-sm text-gray-600 hover:text-purple-600"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          Назад к новостям
+        </button>
+        {isNewsEditor && newsDetail && (
+          <button
+            onClick={handleOpenEditModal}
+            className="inline-flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors text-sm font-medium"
+          >
+            <Pencil className="w-4 h-4" />
+            Редактировать
+          </button>
+        )}
+      </div>
 
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
         {loadingNews || !newsDetail ? (
@@ -563,11 +756,56 @@ const NewsDetailPage = () => {
               <p className="text-gray-600 mt-2">{newsDetail.short_description}</p>
             </div>
 
-            <div className="flex flex-wrap items-center gap-4 text-sm text-gray-600">
-              <span className="px-3 py-1 bg-gray-100 rounded">Новость</span>
+            <div className="flex flex-wrap items-center gap-3 text-sm text-gray-600">
+              {/* Статус */}
+              {(() => {
+                const s = getStatusLabel(newsDetail.status);
+                return (
+                  <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full font-medium text-xs ${s.className}`}>
+                    {s.icon}
+                    {s.label}
+                  </span>
+                );
+              })()}
+              {/* Категории */}
+              {newsDetail.categories && newsDetail.categories.map(cat => (
+                <span key={cat.id} className="px-3 py-1 bg-gray-100 rounded-full text-xs">{cat.name}</span>
+              ))}
               <span>{formatDate(newsDetail.published_at)}</span>
               <span>{newsDetail.author_name}</span>
+              {/* Комментарии включены/выключены */}
+              <span
+                className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium ${
+                  newsDetail.comments_enabled
+                    ? 'bg-green-100 text-green-700'
+                    : 'bg-red-50 text-red-500'
+                }`}
+              >
+                {newsDetail.comments_enabled
+                  ? <><MessageCircle className="w-3 h-3" /> Комментарии открыты</>
+                  : <><MessageCircleOff className="w-3 h-3" /> Комментарии закрыты</>
+                }
+              </span>
+              {/* Обязательное ознакомление badge */}
+              {newsDetail.mandatory_ack && (
+                <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium bg-orange-100 text-orange-700">
+                  <Lock className="w-3 h-3" />
+                  Обязательное прочтение
+                </span>
+              )}
             </div>
+
+            {/* Теги */}
+            {newsDetail.tags && newsDetail.tags.length > 0 && (
+              <div className="flex flex-wrap gap-2">
+                {newsDetail.tags.map(tag => (
+                  <span key={tag} className="inline-flex items-center gap-1 px-3 py-1 bg-purple-50 text-purple-600 border border-purple-200 rounded-full text-xs">
+                    <Tag className="w-3 h-3" />
+                    {tag}
+                  </span>
+                ))}
+              </div>
+            )}
 
             <div className="prose max-w-none">
               <p className="text-gray-700 leading-relaxed whitespace-pre-wrap">{newsDetail.content}</p>
@@ -635,65 +873,290 @@ const NewsDetailPage = () => {
                 <span>Поделиться</span>
               </button>
             </div>
+
+            {/* Блок подтверждения прочтения (обязательные новости) */}
+            {newsDetail.mandatory_ack && (
+              <div className={`rounded-lg border p-4 ${
+                newsDetail.is_acknowledged
+                  ? 'bg-green-50 border-green-200'
+                  : 'bg-orange-50 border-orange-200'
+              }`}>
+                <div className="flex items-start justify-between gap-4 flex-wrap">
+                  <div className="flex items-start gap-3">
+                    {newsDetail.is_acknowledged ? (
+                      <CheckCircle2 className="w-5 h-5 text-green-600 shrink-0 mt-0.5" />
+                    ) : (
+                      <Lock className="w-5 h-5 text-orange-600 shrink-0 mt-0.5" />
+                    )}
+                    <div>
+                      <p className={`font-semibold text-sm ${newsDetail.is_acknowledged ? 'text-green-800' : 'text-orange-800'}`}>
+                        {newsDetail.is_acknowledged
+                          ? 'Вы подтвердили прочтение этой новости'
+                          : newsDetail.must_acknowledge
+                            ? 'Необходимо подтвердить прочтение'
+                            : 'Обязательная новость'}
+                      </p>
+                      {!newsDetail.is_acknowledged && newsDetail.must_acknowledge && (
+                        <p className="text-xs text-orange-700 mt-1">
+                          Эта новость требует вашего подтверждения прочтения
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                  {newsDetail.must_acknowledge && !newsDetail.is_acknowledged && (
+                    <button
+                      onClick={handleAcknowledge}
+                      disabled={acknowledging}
+                      className="flex items-center gap-2 px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors text-sm font-medium shrink-0"
+                    >
+                      <Check className="w-4 h-4" />
+                      {acknowledging ? 'Подтверждение...' : 'Подтвердить прочтение'}
+                    </button>
+                  )}
+                </div>
+
+                {/* Статистика подтверждений для редакторов/администраторов */}
+                {(isAdmin || isNewsEditor) && acknowledgementsData && (
+                  <div className="mt-4 pt-4 border-t border-orange-200">
+                    <button
+                      onClick={() => setShowAckDetails(prev => !prev)}
+                      className="flex items-center gap-2 text-sm font-medium text-orange-800 hover:text-orange-900"
+                    >
+                      <CheckCircle2 className="w-4 h-4" />
+                      Подтверждений: {acknowledgementsData.acknowledged_count} / {acknowledgementsData.total}
+                      <span className="text-xs ml-1 underline">{showAckDetails ? '▲ Скрыть' : '▼ Подробнее'}</span>
+                    </button>
+                    {showAckDetails && (
+                      <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        {acknowledgementsData.acknowledged.length > 0 && (
+                          <div>
+                            <p className="text-xs font-semibold text-green-700 mb-2 flex items-center gap-1">
+                              <Check className="w-3 h-3" /> Подтвердили ({acknowledgementsData.acknowledged.length})
+                            </p>
+                            <ul className="space-y-1 max-h-40 overflow-y-auto">
+                              {acknowledgementsData.acknowledged.map(u => (
+                                <li key={u.eid} className="text-xs text-gray-700 flex items-center justify-between">
+                                  <span>{u.full_name}</span>
+                                  <span className="text-gray-400 ml-2">{formatDate(u.acknowledged_at)}</span>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                        {acknowledgementsData.not_acknowledged.length > 0 && (
+                          <div>
+                            <p className="text-xs font-semibold text-red-600 mb-2 flex items-center gap-1">
+                              <X className="w-3 h-3" /> Не подтвердили ({acknowledgementsData.not_acknowledged.length})
+                            </p>
+                            <ul className="space-y-1 max-h-40 overflow-y-auto">
+                              {acknowledgementsData.not_acknowledged.map(u => (
+                                <li key={u.eid} className="text-xs text-gray-700">{u.full_name}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         )}
       </div>
 
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="font-semibold text-gray-900">Комментарии ({commentsCount})</h3>
-          <select
-            value={commentSortBy}
-            onChange={(event) => setCommentSortBy(event.target.value as CommentSortBy)}
-            className="px-3 py-1 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-          >
-            <option value="new">Сначала новые</option>
-            <option value="popular">Популярные</option>
-          </select>
-        </div>
+      {newsDetail && newsDetail.comments_enabled && (
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="font-semibold text-gray-900">Комментарии ({commentsCount})</h3>
+            <select
+              value={commentSortBy}
+              onChange={(event) => setCommentSortBy(event.target.value as CommentSortBy)}
+              className="px-3 py-1 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+            >
+              <option value="new">Сначала новые</option>
+              <option value="popular">Популярные</option>
+            </select>
+          </div>
 
-        <div className="mb-6 pb-4 border-b border-gray-200">
-          <div className="flex gap-3">
+          <div className="mb-6 pb-4 border-b border-gray-200">
+            <div className="flex gap-3">
+              <input
+                type="text"
+                placeholder="Написать комментарий..."
+                value={newComment}
+                onChange={(event) => setNewComment(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" && !event.shiftKey) {
+                    event.preventDefault();
+                    handleCreateComment();
+                  }
+                }}
+                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+              />
+              <button
+                onClick={handleCreateComment}
+                disabled={!newComment.trim()}
+                className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center gap-2 transition-colors"
+              >
+                <Send className="w-4 h-4" />
+                Отправить
+              </button>
+            </div>
+          </div>
+
+          {loadingComments ? (
+            <div className="space-y-4 animate-pulse">
+              <div className="h-20 bg-gray-100 rounded"></div>
+              <div className="h-20 bg-gray-100 rounded"></div>
+            </div>
+          ) : comments.length === 0 ? (
+            <div className="text-center py-8 text-gray-500">
+              <MessageCircle className="w-12 h-12 mx-auto mb-2 text-gray-300" />
+              <p>Комментариев пока нет</p>
+            </div>
+          ) : (
+            <div className="space-y-2 max-h-112 overflow-y-auto">
+              {comments.map((comment) => renderComment(comment))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Модальное окно редактирования новости */}
+      <Modal
+        isOpen={showEditModal}
+        title="Редактировать новость"
+        onClose={() => setShowEditModal(false)}
+        widthClass="max-w-2xl"
+      >
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Заголовок <span className="text-red-500">*</span></label>
             <input
               type="text"
-              placeholder="Написать комментарий..."
-              value={newComment}
-              onChange={(event) => setNewComment(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === "Enter" && !event.shiftKey) {
-                  event.preventDefault();
-                  handleCreateComment();
-                }
-              }}
-              className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+              value={editData.title}
+              onChange={(e) => setEditData({ ...editData, title: e.target.value })}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
             />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Краткое описание</label>
+            <input
+              type="text"
+              value={editData.short_description}
+              onChange={(e) => setEditData({ ...editData, short_description: e.target.value })}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Содержание <span className="text-red-500">*</span></label>
+            <textarea
+              rows={8}
+              value={editData.content}
+              onChange={(e) => setEditData({ ...editData, content: e.target.value })}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+            />
+          </div>
+          {editCategories.length > 0 && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Категория</label>
+              <select
+                value={editData.category_ids[0] ?? ''}
+                onChange={(e) => setEditData({ ...editData, category_ids: [Number(e.target.value)] })}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+              >
+                {editCategories.map(cat => (
+                  <option key={cat.id} value={cat.id}>{cat.name}</option>
+                ))}
+              </select>
+            </div>
+          )}
+          <div className="flex items-center gap-4 flex-wrap">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input type="checkbox" checked={editData.is_pinned} onChange={(e) => setEditData({ ...editData, is_pinned: e.target.checked })} className="w-4 h-4 text-purple-600 border-gray-300 rounded" />
+              <span className="text-sm text-gray-700">Закрепить</span>
+            </label>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input type="checkbox" checked={editData.mandatory_ack} onChange={(e) => setEditData({ ...editData, mandatory_ack: e.target.checked })} className="w-4 h-4 text-purple-600 border-gray-300 rounded" />
+              <span className="text-sm text-gray-700">Обязательное ознакомление</span>
+            </label>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input type="checkbox" checked={editData.comments_enabled} onChange={(e) => setEditData({ ...editData, comments_enabled: e.target.checked })} className="w-4 h-4 text-purple-600 border-gray-300 rounded" />
+              <span className="text-sm text-gray-700">Комментарии включены</span>
+            </label>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Статус</label>
+            <div className="flex gap-2">
+              {(['PUBLISHED', 'DRAFT', 'SCHEDULED', 'ARCHIVED'] as NewsStatus[]).map(s => (
+                <button
+                  key={s}
+                  type="button"
+                  onClick={() => setEditData({ ...editData, status: s })}
+                  className={`px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors ${
+                    editData.status === s
+                      ? s === 'DRAFT' ? 'bg-gray-600 text-white border-gray-600'
+                        : s === 'SCHEDULED' ? 'bg-blue-600 text-white border-blue-600'
+                        : s === 'ARCHIVED' ? 'bg-yellow-600 text-white border-yellow-600'
+                        : 'bg-green-600 text-white border-green-600'
+                      : 'bg-white text-gray-600 border-gray-300 hover:border-gray-400'
+                  }`}
+                >
+                  {s === 'PUBLISHED' ? 'Опубликовано' : s === 'DRAFT' ? 'Черновик' : s === 'SCHEDULED' ? 'По расписанию' : 'Архив'}
+                </button>
+              ))}
+            </div>
+          </div>
+          {editData.status === 'SCHEDULED' && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Дата публикации <span className="text-red-500">*</span></label>
+              <input
+                type="datetime-local"
+                value={editData.scheduled_publish_at_local}
+                onChange={(e) => setEditData({ ...editData, scheduled_publish_at_local: e.target.value })}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+          )}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Теги <span className="text-gray-400 font-normal">(через запятую)</span></label>
+              <input
+                type="text"
+                value={editData.tag_names}
+                onChange={(e) => setEditData({ ...editData, tag_names: e.target.value })}
+                placeholder="важно, обновление"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Дата устаревания <span className="text-gray-400 font-normal">(необязательно)</span></label>
+              <input
+                type="datetime-local"
+                value={editData.expires_at_local}
+                onChange={(e) => setEditData({ ...editData, expires_at_local: e.target.value })}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+              />
+            </div>
+          </div>
+          <div className="flex items-center gap-3 pt-4 border-t border-gray-200">
             <button
-              onClick={handleCreateComment}
-              disabled={!newComment.trim()}
-              className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center gap-2 transition-colors"
+              onClick={handleSaveEdit}
+              disabled={savingEdit || !editData.title?.trim() || !editData.content?.trim()}
+              className="flex-1 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
             >
-              <Send className="w-4 h-4" />
-              Отправить
+              {savingEdit ? 'Сохранение...' : editData.status === 'PUBLISHED' ? 'Опубликовать' : editData.status === 'DRAFT' ? 'Сохранить черновик' : editData.status === 'SCHEDULED' ? 'Запланировать' : 'Сохранить'}
+            </button>
+            <button
+              onClick={() => setShowEditModal(false)}
+              className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
+            >
+              Отмена
             </button>
           </div>
         </div>
-
-        {loadingComments ? (
-          <div className="space-y-4 animate-pulse">
-            <div className="h-20 bg-gray-100 rounded"></div>
-            <div className="h-20 bg-gray-100 rounded"></div>
-          </div>
-        ) : comments.length === 0 ? (
-          <div className="text-center py-8 text-gray-500">
-            <MessageCircle className="w-12 h-12 mx-auto mb-2 text-gray-300" />
-            <p>Комментариев пока нет</p>
-          </div>
-        ) : (
-          <div className="space-y-2 max-h-112 overflow-y-auto">
-            {comments.map((comment) => renderComment(comment))}
-          </div>
-        )}
-      </div>
+      </Modal>
     </div>
   );
 };
