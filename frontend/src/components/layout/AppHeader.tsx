@@ -3,6 +3,7 @@ import usePortalStore from "../../store/usePortalStore";
 import { useAvatar } from "../../hooks/useAvatar";
 import type { ModuleConfig, ModuleId } from "../../types/portal";
 import MainLogo from '../../assets/main-logo.svg'
+import Avatar from "../common/Avatar";
 
 interface AppHeaderProps {
   activeModule: ModuleId;
@@ -47,11 +48,6 @@ const AppHeader = ({
     );
   }
 
-  const getInitials = () => {
-    const arrayOfWords = currentUser.full_name.split(" ")
-    return arrayOfWords[0][0] + arrayOfWords[2][0]
-  };
-  
   return (
     <header className="bg-white border-b border-gray-200 sticky top-0 z-40">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -109,17 +105,11 @@ const AppHeader = ({
                 onClick={onToggleProfileMenu}
                 className="flex items-center p-2 hover:bg-gray-100 rounded-lg"
               >
-                {avatarUrl ? (
-                  <img
-                    src={avatarUrl}
-                    alt={currentUser.full_name}
-                    className="w-8 h-8 rounded-full object-cover"
-                  />
-                ) : (
-                  <div className="w-10 h-10 bg-linear-to-br from-purple-500 to-fuchsia-500 rounded-full flex items-center justify-center text-white text-sm font-bold">
-                    {getInitials()}
-                  </div>
-                )}
+                <Avatar 
+                  avatarUrl={avatarUrl ?? undefined}
+                  fullName={currentUser.full_name}
+                  size={10}
+                />
                 <ChevronDown strokeWidth={1} className="w-8 h-8 text-gray-600" />
               </button>
             </div>

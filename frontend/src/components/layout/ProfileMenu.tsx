@@ -2,6 +2,7 @@ import { LogOut, Settings, User } from "lucide-react";
 import usePortalStore from "../../store/usePortalStore";
 import { useAvatar } from "../../hooks/useAvatar";
 import { clearTokens } from "../../utils/authTokens";
+import Avatar from "../common/Avatar";
 
 interface ProfileMenuProps {
   isOpen: boolean;
@@ -37,27 +38,16 @@ const ProfileMenu = ({ isOpen, onNavigateHome }: ProfileMenuProps) => {
     );
   }
 
-  const getInitials = () => {
-    const arrayOfWords = currentUser.full_name.split(" ")
-    return arrayOfWords[0][0] + arrayOfWords[2][0]
-  };
-
   return (
     <div className="absolute right-0 mt-2 w-64 bg-white rounded-lg shadow-lg border border-gray-200">
       <div className="p-4 border-b border-gray-200">
         <div className="flex items-center gap-3 mb-3">
           <div className="relative">
-            {avatarUrl ? (
-              <img
-                src={avatarUrl}
-                alt={currentUser.full_name}
-                className="w-16 h-16 rounded-full object-cover"
-              />
-            ) : (
-              <div className="w-16 h-16 bg-linear-to-br from-purple-500 to-fuchsia-500 rounded-full flex items-center justify-center text-white text-lg font-bold">
-                {getInitials()}
-              </div>
-            )}
+            <Avatar
+              avatarUrl={avatarUrl ?? undefined}
+              fullName={currentUser.full_name}
+              size={16}
+            />
           </div>
 
           <div className="flex-1">
