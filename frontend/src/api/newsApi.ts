@@ -145,7 +145,10 @@ export const getNewsById = async (newsId: number): Promise<ApiResponse<NewsDetai
  * @returns Ответ с результатом создания
  */
 export const createNews = async (newsData: NewsCreate): Promise<ApiResponse<any>> => {
-    return await postRequest<any>('/api/v1/news/', newsData);
+    console.log('Создание новости с данными:', newsData);
+    const response = await postRequest<any>('/api/v1/news/', newsData);
+    console.log('Создана новость:', response);
+    return response;
 };
 
 /**

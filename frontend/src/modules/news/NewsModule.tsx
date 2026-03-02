@@ -345,10 +345,10 @@ const NewsModule = () => {
         comments_enabled: newNewsData.comments_enabled,
         status: newNewsData.status,
         scheduled_publish_at: newNewsData.status === 'SCHEDULED' && newNewsData.scheduled_publish_at
-          ? new Date(newNewsData.scheduled_publish_at).toISOString()
+          ? new Date(newNewsData.scheduled_publish_at).toISOString().replace(/\.\d{3}Z$/, '')
           : null,
         expires_at: newNewsData.expires_at
-          ? new Date(newNewsData.expires_at).toISOString()
+          ? new Date(newNewsData.expires_at).toISOString().replace(/\.\d{3}Z$/, '')
           : null,
         tag_names: parsedTags.length > 0 ? parsedTags : undefined,
         file_ids: newNewsData.file_ids.length > 0 ? newNewsData.file_ids : undefined,
@@ -556,22 +556,6 @@ const NewsModule = () => {
                   <option value="newest">Сначала новые</option>
                   <option value="popular">Популярные</option>
                   <option value="discussed">Обсуждаемые</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Статус
-                </label>
-                <select
-                  value={statusFilter}
-                  onChange={(e) => setStatusFilter(e.target.value as NewsStatus | '')}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-                >
-                  <option value="">Все статусы</option>
-                  <option value="PUBLISHED">Опубликовано</option>
-                  <option value="DRAFT">Черновик</option>
-                  <option value="SCHEDULED">По расписанию</option>
-                  <option value="ARCHIVED">Архив</option>
                 </select>
               </div>
               <div>
