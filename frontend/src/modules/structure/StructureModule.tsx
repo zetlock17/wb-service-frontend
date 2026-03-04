@@ -9,6 +9,7 @@ import {
   SetManagerModal,
   MoveOrgUnitModal,
 } from "./OrgUnitManagement"; 
+import Avatar from "../../components/common/Avatar";
 
 
 const Triangle = ({ isExpanded, className = "" }: { isExpanded: boolean; className?: string }) => (
@@ -87,15 +88,6 @@ interface ExpandedNodes {
 //   position: string;
 // }
 
-const getAvatarInitials = (fullName: string): string => {
-  return fullName
-    .split(" ")
-    .map((name) => name[0])
-    .join("")
-    .toUpperCase()
-    .slice(0, 2);
-};
-
 // const collectAllEmployees = (
 //   nodes: OrgUnitHierarchy[]
 // ): SearchableEmployee[] => {
@@ -124,8 +116,6 @@ interface EmployeeCardProps {
 }
 
 const EmployeeCard = ({ manager, level }: EmployeeCardProps) => {
-  const initials = getAvatarInitials(manager.full_name);
-
   return (
     <div className="flex gap-0">
       <div className="flex flex-col items-center">
@@ -142,9 +132,10 @@ const EmployeeCard = ({ manager, level }: EmployeeCardProps) => {
       <div className="flex-1 min-w-0">
         <div className="p-1">
           <div className="flex flex-row items-center gap-1">
-            <div className="w-6 h-6 rounded-full flex items-center justify-center text-white font-bold text-[0.6rem] leading-none bg-linear-to-br from-purple-500 to-fuchsia-500">
-              {initials}
-            </div>
+            <Avatar
+              fullName={manager.full_name}
+              size={6}
+            />
             <h4 className="text-lg text-purple-500 truncate">
               {manager.full_name}
             </h4>
@@ -532,9 +523,10 @@ const StructureModule = () => {
                 <div key={emp.eid} className="bg-white rounded-lg p-6 shadow-sm border border-gray-200">
                   <div className="flex gap-4">
                     <div>
-                      <div className="w-16 h-16 rounded-full flex items-center justify-center text-white font-bold text-xl bg-linear-to-br from-purple-500 to-fuchsia-500">
-                        {getAvatarInitials(emp.full_name)}
-                      </div>
+                      <Avatar
+                        fullName={emp.full_name}
+                        size={16}
+                      />
                     </div>
                     <div className="flex-1 min-w-0">
                       <h3 className="text-xl font-semibold text-purple-600 mb-1">{emp.full_name}</h3>

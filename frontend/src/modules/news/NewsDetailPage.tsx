@@ -47,6 +47,7 @@ import {
   type CommentSortBy,
 } from "../../api/сommentsApi";
 import { fetchStatic } from "../../api/filesApi";
+import Avatar from "../../components/common/Avatar";
 
 type LocationState = {
   news?: NewsDetail | NewsListItem;
@@ -556,13 +557,6 @@ const NewsDetailPage = () => {
   };
 
   const renderComment = (comment: Comment, depth: number = 0) => {
-    const initials = comment.author.full_name
-      .split(" ")
-      .map((n) => n[0])
-      .join("")
-      .toUpperCase()
-      .slice(0, 2);
-
     const isLiked = commentLikes[comment.id] ?? false;
     const canEditComment =
       isNewsEditor || isAdmin || String(currentUser?.eid) === String(comment.author.eid);
@@ -572,9 +566,10 @@ const NewsDetailPage = () => {
     return (
       <div key={comment.id} className={`${depth > 0 ? "ml-12 mt-4" : "mt-4"}`}>
         <div className="flex gap-3">
-          <div className="w-10 h-10 bg-linear-to-br from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white text-sm font-bold shrink-0">
-            {initials}
-          </div>
+          <Avatar
+            fullName={comment.author.full_name}
+            size={10}
+          />
           <div className="flex-1">
             <div className="bg-gray-50 rounded-lg p-3">
               <div className="flex items-center justify-between mb-1">

@@ -23,8 +23,9 @@ import { useEffect, useMemo, useState, useRef } from "react";
 import Modal from "../../components/common/Modal";
 import usePortalStore from "../../store/usePortalStore";
 import type { Birthday, BirthDayType, ModuleId } from "../../types/portal";
-import { getCasualName, getInitials } from "../../utils/nameUtils";
+import { getCasualName } from "../../utils/nameUtils";
 import { useAvatarWithEdit } from "../../hooks/useAvatar";
+import Avatar from "../../components/common/Avatar";
 
 interface HomeModuleProps {
   onNavigate: (moduleId: ModuleId) => void;
@@ -432,17 +433,11 @@ const HomeModule = ({ onNavigate }: HomeModuleProps) => {
               className={`relative w-20 h-20 rounded-full group ${canEditPersonalFields ? "cursor-pointer" : "cursor-default"}`}
               onClick={canEditPersonalFields ? handleAvatarClick : undefined}
             >
-              {avatarUrl ? (
-                <img
-                  src={avatarUrl}
-                  alt={currentUser.full_name}
-                  className="w-20 h-20 rounded-full object-cover"
-                />
-              ) : (
-                <div className="w-20 h-20 bg-linear-to-br from-purple-500 to-fuchsia-500 rounded-full flex items-center justify-center text-white text-2xl font-bold">
-                  {getInitials(currentUser.full_name)}
-                </div>
-              )}
+              <Avatar 
+                avatarUrl={avatarUrl ?? undefined}
+                fullName={currentUser.full_name}
+                size={20}
+              />
               {canEditPersonalFields && (
                 <div className="absolute inset-0 bg-black bg-opacity-40 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
                   <Camera className="w-8 h-8 text-white" />
@@ -581,9 +576,11 @@ const HomeModule = ({ onNavigate }: HomeModuleProps) => {
             { id: 2, full_name: 'Козлова Мария Александровна', position: 'HR-бизнес-партнёр', department: 'HR департмент' }].map((employee) => (
               <div key={employee.id} className="p-2">
                 <div className="flex justify-between items-center gap-3">
-                  <div className="w-16 h-16 bg-linear-to-br from-purple-500 to-fuchsia-500 rounded-full flex items-center justify-center text-2xl text-white font-bold shrink-0">
-                    {getInitials(employee.full_name)}
-                  </div>
+
+                  <Avatar 
+                    fullName={employee.full_name}
+                    size={16}
+                  />
                   <div className="flex-1 min-w-0">
                     <p className="text-sm text-gray-500">{employee.position}</p>
                     <h3 className="font-semibold text-purple-600">{getCasualName(employee.full_name)}</h3>
