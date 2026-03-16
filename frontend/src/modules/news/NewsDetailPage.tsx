@@ -16,6 +16,8 @@ import {
   Tag,
   ThumbsUp,
   Trash2,
+  UserCheck,
+  Users,
   X,
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -48,6 +50,12 @@ import {
 } from "../../api/сommentsApi";
 import { fetchStatic } from "../../api/filesApi";
 import Avatar from "../../components/common/Avatar";
+import {
+  getOrgHierarchy,
+  searchSuggestHierarchy,
+  type OrgUnitHierarchy,
+  type ProfileSuggestion,
+} from "../../api/orgStructureApi";
 
 type LocationState = {
   news?: NewsDetail | NewsListItem;
@@ -111,6 +119,7 @@ const NewsDetailPage = () => {
     scheduled_publish_at_local: string;
     expires_at_local: string;
     file_ids: number[];
+    ack_target_all: boolean;
   }
   const [editData, setEditData] = useState<EditFormData>({
     title: '',
@@ -125,7 +134,17 @@ const NewsDetailPage = () => {
     scheduled_publish_at_local: '',
     expires_at_local: '',
     file_ids: [],
+    ack_target_all: true,
   });
+  const [editAckSelectedEmployees, setEditAckSelectedEmployees] = useState<{ eid: string; full_name: string }[]>([]);
+  const [editAckTargetMode, setEditAckTargetMode] = useState<'employees' | 'departments'>('employees');
+  const [editAckOrgUnitOptions, setEditAckOrgUnitOptions] = useState<{ id: number; name: string; level: number }[]>([]);
+  const [editAckSelectedOrgUnits, setEditAckSelectedOrgUnits] = useState<{ id: number; name: string; level: number }[]>([]);
+  const [editAckOrgUnitToAdd, setEditAckOrgUnitToAdd] = useState<string>('');
+  const [loadingEditAckOrgUnits, setLoadingEditAckOrgUnits] = useState(false);
+  const [editAckSearchQuery, setEditAckSearchQuery] = useState('');
+  const [editAckSearchResults, setEditAckSearchResults] = useState<ProfileSuggestion[]>([]);
+  const [editAckSearchLoading, setEditAckSearchLoading] = useState(false);
 
   const fetchedNewsId = useRef<number | null>(null);
   const isInitialMount = useRef(true);
@@ -220,6 +239,31 @@ const NewsDetailPage = () => {
 
     fetchCommentsForNews();
   }, [commentSortBy, parsedId, refreshComments]);
+
+  const flattenOrgUnits = (
+    nodes: OrgUnitHierarchy[],
+    level: number = 0
+  ): { id: number; name: string; level: number }[] =>
+    nodes.flatMap((node) => [
+      { id: node.id, name: node.name, level },
+      ...flattenOrgUnits(node.children || [], level + 1),
+    ]);
+
+  const loadOrgUnitsForEditAck = async () => {
+    if (editAckOrgUnitOptions.length > 0 || loadingEditAckOrgUnits) return;
+
+    setLoadingEditAckOrgUnits(true);
+    try {
+      const response = await getOrgHierarchy();
+      if (response.status === 200 && response.data) {
+        setEditAckOrgUnitOptions(flattenOrgUnits(response.data));
+      }
+    } catch (error) {
+      console.error('Ошибка загрузки отделов для ознакомления:', error);
+    } finally {
+      setLoadingEditAckOrgUnits(false);
+    }
+  };
 
   const updateCommentTree = (
     items: Comment[],
@@ -445,7 +489,14 @@ const NewsDetailPage = () => {
         ? new Date(newsDetail.expires_at).toISOString().slice(0, 16)
         : '',
       file_ids: newsDetail.file_ids ?? [],
+      ack_target_all: newsDetail.ack_target_all,
     });
+    setEditAckSelectedEmployees([]);
+    setEditAckTargetMode('employees');
+    setEditAckSelectedOrgUnits([]);
+    setEditAckOrgUnitToAdd('');
+    setEditAckSearchQuery('');
+    setEditAckSearchResults([]);
     setShowEditModal(true);
   };
 
@@ -464,6 +515,13 @@ const NewsDetailPage = () => {
         category_ids: editData.category_ids,
         is_pinned: editData.is_pinned,
         mandatory_ack: editData.mandatory_ack,
+        ack_target_all: editData.mandatory_ack ? editData.ack_target_all : true,
+        ack_target_eids: editData.mandatory_ack && !editData.ack_target_all && editAckTargetMode === 'employees'
+          ? editAckSelectedEmployees.map(e => e.eid)
+          : undefined,
+        ack_target_org_unit_ids: editData.mandatory_ack && !editData.ack_target_all && editAckTargetMode === 'departments'
+          ? editAckSelectedOrgUnits.map(unit => unit.id)
+          : undefined,
         comments_enabled: editData.comments_enabled,
         status: editData.status,
         scheduled_publish_at: editData.status === 'SCHEDULED' && editData.scheduled_publish_at_local
@@ -1081,6 +1139,211 @@ const NewsDetailPage = () => {
               <span className="text-sm text-gray-700">Комментарии включены</span>
             </label>
           </div>
+
+          {editData.mandatory_ack && (
+            <div className="border border-blue-200 bg-blue-50 rounded-lg p-4 space-y-3">
+              <p className="text-sm font-medium text-gray-700 flex items-center gap-2">
+                <UserCheck className="w-4 h-4 text-blue-600" />
+                Кому назначить ознакомление
+              </p>
+              <div className="flex gap-4">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    checked={editData.ack_target_all}
+                    onChange={() => {
+                      setEditData({ ...editData, ack_target_all: true });
+                      setEditAckSelectedEmployees([]);
+                      setEditAckSelectedOrgUnits([]);
+                      setEditAckOrgUnitToAdd('');
+                      setEditAckTargetMode('employees');
+                      setEditAckSearchQuery('');
+                      setEditAckSearchResults([]);
+                    }}
+                    className="w-4 h-4 text-blue-600"
+                  />
+                  <span className="text-sm text-gray-700 flex items-center gap-1">
+                    <Users className="w-3.5 h-3.5" />
+                    Всем сотрудникам
+                  </span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    checked={!editData.ack_target_all}
+                    onChange={() => setEditData({ ...editData, ack_target_all: false })}
+                    className="w-4 h-4 text-blue-600"
+                  />
+                  <span className="text-sm text-gray-700">Выбранным сотрудникам</span>
+                </label>
+              </div>
+
+              {!editData.ack_target_all && (
+                <div className="space-y-2">
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setEditAckTargetMode('employees')}
+                      className={`px-3 py-1.5 rounded-lg text-sm border ${editAckTargetMode === 'employees' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-600 border-gray-300'}`}
+                    >
+                      Сотрудники
+                    </button>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        setEditAckTargetMode('departments');
+                        await loadOrgUnitsForEditAck();
+                      }}
+                      className={`px-3 py-1.5 rounded-lg text-sm border ${editAckTargetMode === 'departments' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-600 border-gray-300'}`}
+                    >
+                      Отделы
+                    </button>
+                  </div>
+
+                  {editAckTargetMode === 'employees' && (
+                    <>
+                      <div className="relative">
+                        <input
+                          type="text"
+                          value={editAckSearchQuery}
+                          onChange={async (e) => {
+                            const q = e.target.value;
+                            setEditAckSearchQuery(q);
+                            if (q.trim().length < 2) { setEditAckSearchResults([]); return; }
+                            setEditAckSearchLoading(true);
+                            try {
+                              const res = await searchSuggestHierarchy(q, 8);
+                              if (res.status === 200 && res.data) {
+                                setEditAckSearchResults(res.data.suggestions.filter(
+                                  s => !editAckSelectedEmployees.some(item => String(item.eid) === String(s.eid))
+                                ));
+                              }
+                            } finally {
+                              setEditAckSearchLoading(false);
+                            }
+                          }}
+                          placeholder="Поиск сотрудника..."
+                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                        />
+                        {editAckSearchResults.length > 0 && (
+                          <div className="absolute z-10 top-full left-0 right-0 bg-white border border-gray-200 rounded-lg shadow-lg mt-1 max-h-48 overflow-y-auto">
+                            {editAckSearchResults.map(emp => (
+                              <button
+                                key={emp.eid}
+                                type="button"
+                                onClick={() => {
+                                  setEditAckSelectedEmployees(prev => [...prev, { eid: String(emp.eid), full_name: emp.full_name }]);
+                                  setEditAckSearchQuery('');
+                                  setEditAckSearchResults([]);
+                                }}
+                                className="w-full text-left px-4 py-2 hover:bg-blue-50 transition-colors"
+                              >
+                                <p className="text-sm font-medium text-gray-800">{emp.full_name}</p>
+                                <p className="text-xs text-gray-500">{emp.position} · {emp.department}</p>
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                        {editAckSearchLoading && (
+                          <div className="absolute z-10 top-full left-0 right-0 bg-white border border-gray-200 rounded-lg shadow-lg mt-1 p-3 text-center text-sm text-gray-500">
+                            Поиск...
+                          </div>
+                        )}
+                      </div>
+
+                      {editAckSelectedEmployees.length > 0 && (
+                        <div className="flex flex-wrap gap-2">
+                          {editAckSelectedEmployees.map(emp => (
+                            <span
+                              key={emp.eid}
+                              className="inline-flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs"
+                            >
+                              {emp.full_name}
+                              <button
+                                type="button"
+                                onClick={() => setEditAckSelectedEmployees(prev => prev.filter(item => item.eid !== emp.eid))}
+                                className="hover:text-blue-600"
+                              >
+                                <X className="w-3 h-3" />
+                              </button>
+                            </span>
+                          ))}
+                        </div>
+                      )}
+
+                      {editAckSelectedEmployees.length === 0 && (
+                        <p className="text-xs text-amber-600">Добавьте хотя бы одного сотрудника</p>
+                      )}
+                    </>
+                  )}
+
+                  {editAckTargetMode === 'departments' && (
+                    <>
+                      <div className="flex gap-2">
+                        <select
+                          value={editAckOrgUnitToAdd}
+                          onFocus={loadOrgUnitsForEditAck}
+                          onChange={(e) => setEditAckOrgUnitToAdd(e.target.value)}
+                          className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                        >
+                          <option value="">Выберите отдел</option>
+                          {editAckOrgUnitOptions
+                            .filter((unit) => !editAckSelectedOrgUnits.some((selected) => selected.id === unit.id))
+                            .map((unit) => (
+                              <option key={unit.id} value={unit.id}>
+                                {`${'\u00A0\u00A0'.repeat(unit.level)}${unit.name}`}
+                              </option>
+                            ))}
+                        </select>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const unit = editAckOrgUnitOptions.find((item) => String(item.id) === editAckOrgUnitToAdd);
+                            if (!unit) return;
+                            setEditAckSelectedOrgUnits((prev) => [...prev, unit]);
+                            setEditAckOrgUnitToAdd('');
+                          }}
+                          disabled={!editAckOrgUnitToAdd}
+                          className="px-3 py-2 rounded-lg bg-blue-600 text-white text-sm disabled:bg-gray-300"
+                        >
+                          Добавить
+                        </button>
+                      </div>
+
+                      {loadingEditAckOrgUnits && (
+                        <p className="text-xs text-gray-500">Загрузка отделов...</p>
+                      )}
+
+                      {editAckSelectedOrgUnits.length > 0 && (
+                        <div className="flex flex-wrap gap-2">
+                          {editAckSelectedOrgUnits.map((unit) => (
+                            <span
+                              key={unit.id}
+                              className="inline-flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs"
+                            >
+                              {unit.name}
+                              <button
+                                type="button"
+                                onClick={() => setEditAckSelectedOrgUnits((prev) => prev.filter((item) => item.id !== unit.id))}
+                                className="hover:text-blue-600"
+                              >
+                                <X className="w-3 h-3" />
+                              </button>
+                            </span>
+                          ))}
+                        </div>
+                      )}
+
+                      {editAckSelectedOrgUnits.length === 0 && (
+                        <p className="text-xs text-amber-600">Добавьте хотя бы один отдел</p>
+                      )}
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Статус</label>
             <div className="flex gap-2">
@@ -1138,7 +1401,19 @@ const NewsDetailPage = () => {
           <div className="flex items-center gap-3 pt-4 border-t border-gray-200">
             <button
               onClick={handleSaveEdit}
-              disabled={savingEdit || !editData.title?.trim() || !editData.content?.trim()}
+              disabled={
+                savingEdit ||
+                !editData.title?.trim() ||
+                !editData.content?.trim() ||
+                (editData.mandatory_ack &&
+                  !editData.ack_target_all &&
+                  editAckTargetMode === 'employees' &&
+                  editAckSelectedEmployees.length === 0) ||
+                (editData.mandatory_ack &&
+                  !editData.ack_target_all &&
+                  editAckTargetMode === 'departments' &&
+                  editAckSelectedOrgUnits.length === 0)
+              }
               className="flex-1 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
             >
               {savingEdit ? 'Сохранение...' : editData.status === 'PUBLISHED' ? 'Опубликовать' : editData.status === 'DRAFT' ? 'Сохранить черновик' : editData.status === 'SCHEDULED' ? 'Запланировать' : 'Сохранить'}

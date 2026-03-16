@@ -21,7 +21,7 @@ interface NotificationsPanelProps {
 
 const NotificationsPanel = ({ isOpen, onClose }: NotificationsPanelProps) => {
   const [filter, setFilter] = useState<NotificationItem["type"] | "all">("all");
-  const { notifications } = usePortalStore();
+  const { notifications, fetchNotifications, markNotificationAsReadAsync, markAllNotificationsAsReadAsync } = usePortalStore();
   const panelRef = useRef<HTMLDivElement>(null);
 
   const filteredNotifications = useMemo(
@@ -41,12 +41,13 @@ const NotificationsPanel = ({ isOpen, onClose }: NotificationsPanelProps) => {
 
     if (isOpen) {
       document.addEventListener('mousedown', handleClickOutside);
+      fetchNotifications();
     }
 
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
-  }, [isOpen, onClose]);
+  }, [isOpen, onClose, fetchNotifications]);
 
   if (!isOpen) {
     return null;
@@ -55,7 +56,15 @@ const NotificationsPanel = ({ isOpen, onClose }: NotificationsPanelProps) => {
   return (
     <div ref={panelRef} className="absolute right-0 mt-2 w-96 bg-white rounded-lg shadow-lg border border-gray-200 max-h-[500px] overflow-y-auto z-50">
       <div className="p-4 border-b border-gray-200">
-        <h3 className="font-semibold text-gray-900 mb-3">Уведомления</h3>
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="font-semibold text-gray-900">Уведомления</h3>
+          <button
+            onClick={() => markAllNotificationsAsReadAsync()}
+            className="text-xs text-purple-700 hover:text-purple-800"
+          >
+            Прочитать все
+          </button>
+        </div>
         <div className="flex gap-2 flex-wrap">
           {filters.map((item) => (
             <button
@@ -75,6 +84,7 @@ const NotificationsPanel = ({ isOpen, onClose }: NotificationsPanelProps) => {
           filteredNotifications.map((notification) => (
             <div
               key={notification.id}
+              onClick={() => markNotificationAsReadAsync(notification.id)}
               className={`p-4 hover:bg-gray-50 cursor-pointer ${notification.unread ? "bg-purple-50" : ""}`}
             >
               <p className="text-sm text-gray-900 mb-1">{notification.text}</p>

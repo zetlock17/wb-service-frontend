@@ -1,10 +1,10 @@
-import { Pin, Eye, Filter, MessageCircle, Paperclip, Plus, ThumbsUp, Trash2, Upload, X, Search, Tag, Bell, BellOff } from "lucide-react";
+import { Pin, Eye, Filter, MessageCircle, Paperclip, Plus, ThumbsUp, Trash2, Upload, X, Search, Tag, Bell, BellOff, Users, UserCheck } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Modal from "../../components/common/Modal";
 import usePortalStore from "../../store/usePortalStore";
-import { 
-  getNews, 
+import {
+  getNews,
   getCategories,
   getFollowedCategories,
   followCategory,
@@ -14,12 +14,18 @@ import {
   deleteCategory,
   addLikeToNews,
   removeLikeFromNews,
-  type NewsListItem, 
+  type NewsListItem,
   type Category,
   type NewsSortBy,
   type NewsStatus
 } from "../../api/newsApi";
 import { uploadPhoto } from "../../api/filesApi";
+import {
+  getOrgHierarchy,
+  searchSuggestHierarchy,
+  type OrgUnitHierarchy,
+  type ProfileSuggestion,
+} from "../../api/orgStructureApi";
 
 const NewsModule = () => {
   const { currentUser, roles } = usePortalStore();
@@ -57,7 +63,17 @@ const NewsModule = () => {
     expires_at: '' as string,
     tag_names: '' as string,
     file_ids: [] as number[],
+    ack_target_all: true as boolean,
   });
+  const [ackSelectedEmployees, setAckSelectedEmployees] = useState<{ eid: string; full_name: string }[]>([]);
+  const [ackTargetMode, setAckTargetMode] = useState<'employees' | 'departments'>('employees');
+  const [ackOrgUnitOptions, setAckOrgUnitOptions] = useState<{ id: number; name: string; level: number }[]>([]);
+  const [ackSelectedOrgUnits, setAckSelectedOrgUnits] = useState<{ id: number; name: string; level: number }[]>([]);
+  const [ackOrgUnitToAdd, setAckOrgUnitToAdd] = useState<string>('');
+  const [loadingAckOrgUnits, setLoadingAckOrgUnits] = useState(false);
+  const [ackSearchQuery, setAckSearchQuery] = useState('');
+  const [ackSearchResults, setAckSearchResults] = useState<ProfileSuggestion[]>([]);
+  const [ackSearchLoading, setAckSearchLoading] = useState(false);
   const [uploadedFiles, setUploadedFiles] = useState<{ id: number; name: string }[]>([]);
   const [uploadingFiles, setUploadingFiles] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
@@ -75,15 +91,40 @@ const NewsModule = () => {
     fetchCategories();
     fetchFollowedCategories();
     if (isNewsEditor) fetchDrafts();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedCategory, sortBy, statusFilter, appliedSearch, appliedTag]);
 
   useEffect(() => {
     if (isNewsEditor && activeTab === 'drafts') {
       fetchDrafts();
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab]);
+
+  const flattenOrgUnits = (
+    nodes: OrgUnitHierarchy[],
+    level: number = 0
+  ): { id: number; name: string; level: number }[] =>
+    nodes.flatMap((node) => [
+      { id: node.id, name: node.name, level },
+      ...flattenOrgUnits(node.children || [], level + 1),
+    ]);
+
+  const loadOrgUnitsForAck = async () => {
+    if (ackOrgUnitOptions.length > 0 || loadingAckOrgUnits) return;
+
+    setLoadingAckOrgUnits(true);
+    try {
+      const response = await getOrgHierarchy();
+      if (response.status === 200 && response.data) {
+        setAckOrgUnitOptions(flattenOrgUnits(response.data));
+      }
+    } catch (error) {
+      console.error('Ошибка загрузки отделов для ознакомления:', error);
+    } finally {
+      setLoadingAckOrgUnits(false);
+    }
+  };
 
   const fetchDrafts = async () => {
     setLoadingDrafts(true);
@@ -244,10 +285,10 @@ const NewsModule = () => {
         prev.map((item) =>
           item.id === newsId
             ? {
-                ...item,
-                is_liked: !isLiked,
-                likes_count: Math.max(0, item.likes_count + (isLiked ? -1 : 1)),
-              }
+              ...item,
+              is_liked: !isLiked,
+              likes_count: Math.max(0, item.likes_count + (isLiked ? -1 : 1)),
+            }
             : item
         )
       );
@@ -265,10 +306,10 @@ const NewsModule = () => {
 
     try {
       const newFileIds: number[] = [];
-      
+
       for (const file of Array.from(files)) {
         const response = await uploadPhoto(file, Number(currentUser.eid), 'document');
-        
+
         if (response.status === 200 && response.data) {
           newFileIds.push(response.data);
           setUploadedFiles((prev) => [
@@ -342,6 +383,13 @@ const NewsModule = () => {
         category_ids: newNewsData.category_ids,
         is_pinned: newNewsData.is_pinned,
         mandatory_ack: newNewsData.mandatory_ack,
+        ack_target_all: newNewsData.mandatory_ack ? newNewsData.ack_target_all : true,
+        ack_target_eids: newNewsData.mandatory_ack && !newNewsData.ack_target_all && ackTargetMode === 'employees'
+          ? ackSelectedEmployees.map(e => e.eid)
+          : undefined,
+        ack_target_org_unit_ids: newNewsData.mandatory_ack && !newNewsData.ack_target_all && ackTargetMode === 'departments'
+          ? ackSelectedOrgUnits.map(unit => unit.id)
+          : undefined,
         comments_enabled: newNewsData.comments_enabled,
         status: newNewsData.status,
         scheduled_publish_at: newNewsData.status === 'SCHEDULED' && newNewsData.scheduled_publish_at
@@ -369,7 +417,14 @@ const NewsModule = () => {
           expires_at: '',
           tag_names: '',
           file_ids: [],
+          ack_target_all: true,
         });
+        setAckSelectedEmployees([]);
+        setAckTargetMode('employees');
+        setAckSelectedOrgUnits([]);
+        setAckOrgUnitToAdd('');
+        setAckSearchQuery('');
+        setAckSearchResults([]);
         setUploadedFiles([]);
         setUploadError(null);
         fetchNews();
@@ -386,7 +441,9 @@ const NewsModule = () => {
     !newNewsData.short_description.trim() ||
     !newNewsData.content.trim() ||
     newNewsData.category_ids.length === 0 ||
-    (newNewsData.status === 'SCHEDULED' && !newNewsData.scheduled_publish_at);
+    (newNewsData.status === 'SCHEDULED' && !newNewsData.scheduled_publish_at) ||
+    (newNewsData.mandatory_ack && !newNewsData.ack_target_all && ackTargetMode === 'employees' && ackSelectedEmployees.length === 0) ||
+    (newNewsData.mandatory_ack && !newNewsData.ack_target_all && ackTargetMode === 'departments' && ackSelectedOrgUnits.length === 0);
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
@@ -398,21 +455,21 @@ const NewsModule = () => {
     if (diffHours < 1) return 'только что';
     if (diffHours < 24) return `${diffHours} ч. назад`;
     if (diffDays < 7) return `${diffDays} дн. назад`;
-    
-    return date.toLocaleDateString('ru-RU', { 
-      day: 'numeric', 
-      month: 'long', 
-      year: 'numeric' 
+
+    return date.toLocaleDateString('ru-RU', {
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric'
     });
   };
 
   const getStatusLabel = (status?: NewsStatus): { label: string; className: string } => {
     switch (status) {
-      case 'DRAFT':     return { label: 'Черновик',       className: 'bg-gray-100 text-gray-600' };
-      case 'PUBLISHED': return { label: 'Опубликовано',   className: 'bg-green-100 text-green-700' };
-      case 'ARCHIVED':  return { label: 'Архив',           className: 'bg-yellow-100 text-yellow-700' };
-      case 'SCHEDULED': return { label: 'По расписанию',  className: 'bg-blue-100 text-blue-700' };
-      default:          return { label: 'Новость',         className: 'bg-gray-100 text-gray-600' };
+      case 'DRAFT': return { label: 'Черновик', className: 'bg-gray-100 text-gray-600' };
+      case 'PUBLISHED': return { label: 'Опубликовано', className: 'bg-green-100 text-green-700' };
+      case 'ARCHIVED': return { label: 'Архив', className: 'bg-yellow-100 text-yellow-700' };
+      case 'SCHEDULED': return { label: 'По расписанию', className: 'bg-blue-100 text-blue-700' };
+      default: return { label: 'Новость', className: 'bg-gray-100 text-gray-600' };
     }
   };
 
@@ -443,21 +500,19 @@ const NewsModule = () => {
               <div className="flex rounded-lg border border-gray-200 overflow-hidden">
                 <button
                   onClick={() => setActiveTab('news')}
-                  className={`px-4 py-1.5 text-sm font-medium transition-colors ${
-                    activeTab === 'news'
-                      ? 'bg-purple-600 text-white'
-                      : 'bg-white text-gray-600 hover:bg-gray-50'
-                  }`}
+                  className={`px-4 py-1.5 text-sm font-medium transition-colors ${activeTab === 'news'
+                    ? 'bg-purple-600 text-white'
+                    : 'bg-white text-gray-600 hover:bg-gray-50'
+                    }`}
                 >
                   Новости
                 </button>
                 <button
                   onClick={() => setActiveTab('drafts')}
-                  className={`px-4 py-1.5 text-sm font-medium transition-colors ${
-                    activeTab === 'drafts'
-                      ? 'bg-gray-600 text-white'
-                      : 'bg-white text-gray-600 hover:bg-gray-50'
-                  }`}
+                  className={`px-4 py-1.5 text-sm font-medium transition-colors ${activeTab === 'drafts'
+                    ? 'bg-gray-600 text-white'
+                    : 'bg-white text-gray-600 hover:bg-gray-50'
+                    }`}
                 >
                   Черновики
                   {draftsList.length > 0 && activeTab !== 'drafts' && (
@@ -472,17 +527,16 @@ const NewsModule = () => {
           <div className="flex items-center gap-3">
             <button
               onClick={() => setShowFilters(!showFilters)}
-              className={`px-4 py-2 rounded-lg flex items-center gap-2 transition-colors ${
-                showFilters 
-                  ? 'bg-purple-100 text-purple-700' 
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              }`}
+              className={`px-4 py-2 rounded-lg flex items-center gap-2 transition-colors ${showFilters
+                ? 'bg-purple-100 text-purple-700'
+                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
             >
               <Filter className="w-4 h-4" />
               Фильтры
             </button>
             {isNewsEditor && (
-              <button 
+              <button
                 onClick={() => setShowCreateModal(true)}
                 className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 flex items-center gap-2 transition-colors"
               >
@@ -491,7 +545,7 @@ const NewsModule = () => {
               </button>
             )}
             {isAdmin && (
-              <button 
+              <button
                 onClick={() => setShowCategoryModal(true)}
                 className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2 transition-colors"
               >
@@ -513,11 +567,10 @@ const NewsModule = () => {
               <span
                 key={cat.id}
                 onClick={() => setSelectedCategory(cat.id === selectedCategory ? undefined : cat.id)}
-                className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm cursor-pointer transition-colors ${
-                  selectedCategory === cat.id
-                    ? 'bg-purple-600 text-white'
-                    : 'bg-purple-100 text-purple-700 hover:bg-purple-200'
-                }`}
+                className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm cursor-pointer transition-colors ${selectedCategory === cat.id
+                  ? 'bg-purple-600 text-white'
+                  : 'bg-purple-100 text-purple-700 hover:bg-purple-200'
+                  }`}
               >
                 {cat.name}
               </span>
@@ -702,9 +755,8 @@ const NewsModule = () => {
               <button
                 key={newsItem.id}
                 onClick={() => openNewsDetail(newsItem.id, newsItem)}
-                className={`w-full text-left border rounded-lg p-6 hover:shadow-md transition-shadow ${
-                  newsItem.is_pinned ? "border-purple-300 bg-purple-50" : "border-gray-200"
-                }`}
+                className={`w-full text-left border rounded-lg p-6 hover:shadow-md transition-shadow ${newsItem.is_pinned ? "border-purple-300 bg-purple-50" : "border-gray-200"
+                  }`}
               >
                 {newsItem.is_pinned && (
                   <div className="flex items-center gap-2 text-purple-600 text-sm font-medium mb-3">
@@ -733,11 +785,10 @@ const NewsModule = () => {
                       })()}
                       {/* Комментарии включены/выключены */}
                       <span
-                        className={`inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium ${
-                          newsItem.comments_enabled
-                            ? 'bg-green-100 text-green-700'
-                            : 'bg-gray-100 text-gray-500'
-                        }`}
+                        className={`inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium ${newsItem.comments_enabled
+                          ? 'bg-green-100 text-green-700'
+                          : 'bg-gray-100 text-gray-500'
+                          }`}
                         title={newsItem.comments_enabled ? 'Комментарии включены' : 'Комментарии выключены'}
                       >
                         <MessageCircle className="w-3 h-3" />
@@ -776,9 +827,8 @@ const NewsModule = () => {
                       event.stopPropagation();
                       handleToggleNewsLike(newsItem.id, Boolean(newsItem.is_liked));
                     }}
-                    className={`flex items-center gap-2 transition-colors ${
-                      newsItem.is_liked ? 'text-purple-600' : 'text-gray-600 hover:text-purple-600'
-                    }`}
+                    className={`flex items-center gap-2 transition-colors ${newsItem.is_liked ? 'text-purple-600' : 'text-gray-600 hover:text-purple-600'
+                      }`}
                   >
                     <ThumbsUp className="w-4 h-4" />
                     <span className="text-sm">{newsItem.likes_count}</span>
@@ -813,7 +863,14 @@ const NewsModule = () => {
             expires_at: '',
             tag_names: '',
             file_ids: [],
+            ack_target_all: true,
           });
+          setAckSelectedEmployees([]);
+          setAckTargetMode('employees');
+          setAckSelectedOrgUnits([]);
+          setAckOrgUnitToAdd('');
+          setAckSearchQuery('');
+          setAckSearchResults([]);
           setUploadedFiles([]);
           setUploadError(null);
         }}
@@ -916,6 +973,210 @@ const NewsModule = () => {
             </label>
           </div>
 
+          {newNewsData.mandatory_ack && (
+            <div className="border border-blue-200 bg-blue-50 rounded-lg p-4 space-y-3">
+              <p className="text-sm font-medium text-gray-700 flex items-center gap-2">
+                <UserCheck className="w-4 h-4 text-blue-600" />
+                Кому назначить ознакомление
+              </p>
+              <div className="flex gap-4">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    checked={newNewsData.ack_target_all}
+                    onChange={() => {
+                      setNewNewsData({ ...newNewsData, ack_target_all: true });
+                      setAckSelectedEmployees([]);
+                      setAckSelectedOrgUnits([]);
+                      setAckOrgUnitToAdd('');
+                      setAckTargetMode('employees');
+                      setAckSearchQuery('');
+                      setAckSearchResults([]);
+                    }}
+                    className="w-4 h-4 text-blue-600"
+                  />
+                  <span className="text-sm text-gray-700 flex items-center gap-1">
+                    <Users className="w-3.5 h-3.5" />
+                    Всем сотрудникам
+                  </span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    checked={!newNewsData.ack_target_all}
+                    onChange={() => setNewNewsData({ ...newNewsData, ack_target_all: false })}
+                    className="w-4 h-4 text-blue-600"
+                  />
+                  <span className="text-sm text-gray-700">Выбранным сотрудникам</span>
+                </label>
+              </div>
+
+              {!newNewsData.ack_target_all && (
+                <div className="space-y-2">
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setAckTargetMode('employees')}
+                      className={`px-3 py-1.5 rounded-lg text-sm border ${ackTargetMode === 'employees' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-600 border-gray-300'}`}
+                    >
+                      Сотрудники
+                    </button>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        setAckTargetMode('departments');
+                        await loadOrgUnitsForAck();
+                      }}
+                      className={`px-3 py-1.5 rounded-lg text-sm border ${ackTargetMode === 'departments' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-600 border-gray-300'}`}
+                    >
+                      Отделы
+                    </button>
+                  </div>
+
+                  {ackTargetMode === 'employees' && (
+                    <>
+                      <div className="relative">
+                        <input
+                          type="text"
+                          value={ackSearchQuery}
+                          onChange={async (e) => {
+                            const q = e.target.value;
+                            setAckSearchQuery(q);
+                            if (q.trim().length < 2) { setAckSearchResults([]); return; }
+                            setAckSearchLoading(true);
+                            try {
+                              const res = await searchSuggestHierarchy(q, 8);
+                              if (res.status === 200 && res.data) {
+                                setAckSearchResults(res.data.suggestions.filter(
+                                  s => !ackSelectedEmployees.some(item => String(item.eid) === String(s.eid))
+                                ));
+                              }
+                            } finally {
+                              setAckSearchLoading(false);
+                            }
+                          }}
+                          placeholder="Поиск сотрудника..."
+                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                        />
+                        {ackSearchResults.length > 0 && (
+                          <div className="absolute z-10 top-full left-0 right-0 bg-white border border-gray-200 rounded-lg shadow-lg mt-1 max-h-48 overflow-y-auto">
+                            {ackSearchResults.map(emp => (
+                              <button
+                                key={emp.eid}
+                                type="button"
+                                onClick={() => {
+                                  setAckSelectedEmployees(prev => [...prev, { eid: String(emp.eid), full_name: emp.full_name }]);
+                                  setAckSearchQuery('');
+                                  setAckSearchResults([]);
+                                }}
+                                className="w-full text-left px-4 py-2 hover:bg-blue-50 transition-colors"
+                              >
+                                <p className="text-sm font-medium text-gray-800">{emp.full_name}</p>
+                                <p className="text-xs text-gray-500">{emp.position} · {emp.department}</p>
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                        {ackSearchLoading && (
+                          <div className="absolute z-10 top-full left-0 right-0 bg-white border border-gray-200 rounded-lg shadow-lg mt-1 p-3 text-center text-sm text-gray-500">
+                            Поиск...
+                          </div>
+                        )}
+                      </div>
+
+                      {ackSelectedEmployees.length > 0 && (
+                        <div className="flex flex-wrap gap-2">
+                          {ackSelectedEmployees.map(emp => (
+                            <span
+                              key={emp.eid}
+                              className="inline-flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs"
+                            >
+                              {emp.full_name}
+                              <button
+                                type="button"
+                                onClick={() => setAckSelectedEmployees(prev => prev.filter(item => item.eid !== emp.eid))}
+                                className="hover:text-blue-600"
+                              >
+                                <X className="w-3 h-3" />
+                              </button>
+                            </span>
+                          ))}
+                        </div>
+                      )}
+
+                      {ackSelectedEmployees.length === 0 && (
+                        <p className="text-xs text-amber-600">Добавьте хотя бы одного сотрудника</p>
+                      )}
+                    </>
+                  )}
+
+                  {ackTargetMode === 'departments' && (
+                    <>
+                      <div className="flex gap-2">
+                        <select
+                          value={ackOrgUnitToAdd}
+                          onFocus={loadOrgUnitsForAck}
+                          onChange={(e) => setAckOrgUnitToAdd(e.target.value)}
+                          className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                        >
+                          <option value="">Выберите отдел</option>
+                          {ackOrgUnitOptions
+                            .filter((unit) => !ackSelectedOrgUnits.some((selected) => selected.id === unit.id))
+                            .map((unit) => (
+                              <option key={unit.id} value={unit.id}>
+                                {`${'\u00A0\u00A0'.repeat(unit.level)}${unit.name}`}
+                              </option>
+                            ))}
+                        </select>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const unit = ackOrgUnitOptions.find((item) => String(item.id) === ackOrgUnitToAdd);
+                            if (!unit) return;
+                            setAckSelectedOrgUnits((prev) => [...prev, unit]);
+                            setAckOrgUnitToAdd('');
+                          }}
+                          disabled={!ackOrgUnitToAdd}
+                          className="px-3 py-2 rounded-lg bg-blue-600 text-white text-sm disabled:bg-gray-300"
+                        >
+                          Добавить
+                        </button>
+                      </div>
+
+                      {loadingAckOrgUnits && (
+                        <p className="text-xs text-gray-500">Загрузка отделов...</p>
+                      )}
+
+                      {ackSelectedOrgUnits.length > 0 && (
+                        <div className="flex flex-wrap gap-2">
+                          {ackSelectedOrgUnits.map((unit) => (
+                            <span
+                              key={unit.id}
+                              className="inline-flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs"
+                            >
+                              {unit.name}
+                              <button
+                                type="button"
+                                onClick={() => setAckSelectedOrgUnits((prev) => prev.filter((item) => item.id !== unit.id))}
+                                className="hover:text-blue-600"
+                              >
+                                <X className="w-3 h-3" />
+                              </button>
+                            </span>
+                          ))}
+                        </div>
+                      )}
+
+                      {ackSelectedOrgUnits.length === 0 && (
+                        <p className="text-xs text-amber-600">Добавьте хотя бы один отдел</p>
+                      )}
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Статус / черновик / отложенная публикация */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -927,15 +1188,14 @@ const NewsModule = () => {
                   key={s}
                   type="button"
                   onClick={() => setNewNewsData({ ...newNewsData, status: s })}
-                  className={`px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors ${
-                    newNewsData.status === s
-                      ? s === 'DRAFT'
-                        ? 'bg-gray-600 text-white border-gray-600'
-                        : s === 'SCHEDULED'
+                  className={`px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors ${newNewsData.status === s
+                    ? s === 'DRAFT'
+                      ? 'bg-gray-600 text-white border-gray-600'
+                      : s === 'SCHEDULED'
                         ? 'bg-blue-600 text-white border-blue-600'
                         : 'bg-green-600 text-white border-green-600'
-                      : 'bg-white text-gray-600 border-gray-300 hover:border-gray-400'
-                  }`}
+                    : 'bg-white text-gray-600 border-gray-300 hover:border-gray-400'
+                    }`}
                 >
                   {s === 'PUBLISHED' ? 'Опубликовать' : s === 'DRAFT' ? 'Черновик' : 'По расписанию'}
                 </button>
@@ -1008,7 +1268,7 @@ const NewsModule = () => {
                 </div>
               </label>
             </div>
-            
+
             {uploadError && (
               <p className="mt-2 text-sm text-red-600">{uploadError}</p>
             )}
@@ -1061,7 +1321,14 @@ const NewsModule = () => {
                   expires_at: '',
                   tag_names: '',
                   file_ids: [],
+                  ack_target_all: true,
                 });
+                setAckSelectedEmployees([]);
+                setAckTargetMode('employees');
+                setAckSelectedOrgUnits([]);
+                setAckOrgUnitToAdd('');
+                setAckSearchQuery('');
+                setAckSearchResults([]);
                 setUploadedFiles([]);
                 setUploadError(null);
               }}
@@ -1142,11 +1409,10 @@ const NewsModule = () => {
                       <div className="flex items-center gap-2 ml-3 shrink-0">
                         <button
                           onClick={() => isFollowed ? handleUnfollowCategory(cat.id) : handleFollowCategory(cat.id)}
-                          className={`flex items-center gap-1 px-2 py-1 rounded text-xs font-medium transition-colors ${
-                            isFollowed
-                              ? 'bg-purple-100 text-purple-700 hover:bg-purple-200'
-                              : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                          }`}
+                          className={`flex items-center gap-1 px-2 py-1 rounded text-xs font-medium transition-colors ${isFollowed
+                            ? 'bg-purple-100 text-purple-700 hover:bg-purple-200'
+                            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                            }`}
                           title={isFollowed ? 'Отписаться от категории' : 'Подписаться на категорию'}
                         >
                           {isFollowed ? (

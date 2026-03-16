@@ -32,7 +32,7 @@ export const login = async (login: string, password: string) => {
     const params: LoginParams = {
         grant_type: 'password',
         client_id: 'wb-client',
-        client_secret: 'y8ped27zLJ65N3tNoPzkLjzqRrhLYcSc', // брать из окружения потом
+        client_secret: 'UywExoxpFsAXtIOEKFETGBt9CyyPHkwD', // брать из окружения потом
         username: login,
         password: password,
     };
@@ -58,7 +58,7 @@ export const refreshToken = async (refreshTokenValue: string) => {
     const params: LoginParams = {
         grant_type: 'refresh_token',
         client_id: 'wb-client',
-        client_secret: 'y8ped27zLJ65N3tNoPzkLjzqRrhLYcSc', // брать из окружения потом
+        client_secret: 'UywExoxpFsAXtIOEKFETGBt9CyyPHkwD', // брать из окружения потом
         refresh_token: refreshTokenValue,
     };
 

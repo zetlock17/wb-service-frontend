@@ -14,6 +14,11 @@ import {
 } from "../data/mockData";
 import { getProfile, updateProfile } from "../api/profileApi";
 import { getBirthdays } from "../api/birthdaysApi";
+import {
+  getNotifications,
+  markAllNotificationsAsRead,
+  markNotificationAsRead,
+} from "../api/notificationsApi";
 import { 
   getOrgHierarchy, 
   moveOrgUnit,
@@ -74,6 +79,9 @@ interface PortalState {
     }
   ) => Promise<void>;
   fetchBirthdays: (timeUnit: BirthDayType) => Promise<void>;
+  fetchNotifications: () => Promise<void>;
+  markNotificationAsReadAsync: (notificationId: number) => Promise<void>;
+  markAllNotificationsAsReadAsync: () => Promise<void>;
   fetchOrgStructure: () => Promise<void>;
   moveOrgUnitAsync: (unitId: number, newParentId?: number | null) => Promise<void>;
   createOrgUnitAsync: (unitData: OrgUnitCreate) => Promise<void>;
@@ -84,6 +92,33 @@ interface PortalState {
   clearApiError: () => void;
   setRoles: (roles: string[]) => void;
 }
+
+const mapEventTypeToNotificationType = (eventType: string): NotificationItem["type"] => {
+  const normalized = eventType.toLowerCase();
+
+  if (normalized.includes("doc")) return "document";
+  if (normalized.includes("comment")) return "comment";
+  if (normalized.includes("event")) return "event";
+  if (normalized.includes("survey")) return "survey";
+  if (normalized.includes("train")) return "training";
+  if (normalized.includes("birth")) return "birthday";
+
+  return "news";
+};
+
+const formatNotificationTime = (createdAt: string): string => {
+  const date = new Date(createdAt);
+  if (Number.isNaN(date.getTime())) {
+    return "";
+  }
+
+  return date.toLocaleString("ru-RU", {
+    day: "2-digit",
+    month: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+};
 
 const usePortalStore = create<PortalState>((set) => ({
   departments: [],
@@ -127,7 +162,7 @@ const usePortalStore = create<PortalState>((set) => ({
         news: mockNews,
         documents: mockDocuments,
         currentUser: profileResponse.data,
-        notifications: mockNotifications,
+        notifications: [],
         calendarEvents: mockCalendarEvents,
         courses: mockCourses,
         employees: mockEmployees,
@@ -138,6 +173,9 @@ const usePortalStore = create<PortalState>((set) => ({
         organizationHierarchy: orgStructureResponse.data || [],
         loading: false,
       });
+
+      // Загружаем уведомления отдельно, чтобы не блокировать первичный рендер портала.
+      await usePortalStore.getState().fetchNotifications();
     } catch (error) {
       console.error("Failed to fetch data:", error);
       set({ error: "Failed to fetch data", loading: false });
@@ -218,6 +256,69 @@ const usePortalStore = create<PortalState>((set) => ({
     } catch (error) {
       console.error("Failed to fetch birthdays:", error);
       set({ upcomingBirthdays: [] });
+    }
+  },
+
+  fetchNotifications: async () => {
+    try {
+      const response = await getNotifications({ page: 1, size: 100 });
+
+      if (response.status >= 200 && response.status < 300) {
+        const mappedNotifications: NotificationItem[] = (response.data.notifications || []).map((item) => ({
+          id: item.id,
+          type: mapEventTypeToNotificationType(item.event_type),
+          text: item.title ? `${item.title}: ${item.message}` : item.message,
+          time: formatNotificationTime(item.created_at),
+          unread: !item.is_read,
+        }));
+
+        set({ notifications: mappedNotifications });
+        return;
+      }
+
+      set({ notifications: mockNotifications });
+    } catch (error) {
+      console.error("Failed to fetch notifications:", error);
+      set({ notifications: mockNotifications });
+    }
+  },
+
+  markNotificationAsReadAsync: async (notificationId: number) => {
+    const notification = usePortalStore.getState().notifications.find((item) => item.id === notificationId);
+    if (!notification?.unread) {
+      return;
+    }
+
+    set((state) => ({
+      notifications: state.notifications.map((item) =>
+        item.id === notificationId ? { ...item, unread: false } : item
+      ),
+    }));
+
+    try {
+      await markNotificationAsRead(notificationId);
+    } catch (error) {
+      console.error("Failed to mark notification as read:", error);
+      set((state) => ({
+        notifications: state.notifications.map((item) =>
+          item.id === notificationId ? { ...item, unread: true } : item
+        ),
+      }));
+    }
+  },
+
+  markAllNotificationsAsReadAsync: async () => {
+    const currentNotifications = usePortalStore.getState().notifications;
+
+    set((state) => ({
+      notifications: state.notifications.map((item) => ({ ...item, unread: false })),
+    }));
+
+    try {
+      await markAllNotificationsAsRead();
+    } catch (error) {
+      console.error("Failed to mark all notifications as read:", error);
+      set({ notifications: currentNotifications });
     }
   },
   
