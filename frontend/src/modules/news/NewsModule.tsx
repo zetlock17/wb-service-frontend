@@ -2,6 +2,8 @@ import { Pin, Eye, Filter, MessageCircle, Paperclip, Plus, ThumbsUp, Trash2, Upl
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Modal from "../../components/common/Modal";
+import AlertModal from "../../components/common/AlertModal";
+import { useAlert } from "../../hooks/useAlert";
 import usePortalStore from "../../store/usePortalStore";
 import {
   getNews,
@@ -26,8 +28,10 @@ import {
   type OrgUnitHierarchy,
   type ProfileSuggestion,
 } from "../../api/orgStructureApi";
+import { suggestEmployees } from "../../api/profileApi";
 
 const NewsModule = () => {
+  const { alertState, showAlert, closeAlert } = useAlert();
   const { currentUser, roles } = usePortalStore();
   const navigate = useNavigate();
 
@@ -271,6 +275,22 @@ const NewsModule = () => {
     navigate(`/news/${newsId}`, { state: { news } });
   };
 
+  const openAuthorProfile = async (fullName: string) => {
+    try {
+      const response = await suggestEmployees(fullName, 10);
+      if (response.status >= 200 && response.status < 300 && response.data?.suggestions?.length) {
+        const normalized = fullName.trim().toLowerCase();
+        const exact = response.data.suggestions.find(
+          (item) => item.full_name.trim().toLowerCase() === normalized
+        );
+        const target = exact || response.data.suggestions[0];
+        navigate(`/profile/${target.eid}`);
+      }
+    } catch (error) {
+      console.error("Ошибка перехода в профиль автора:", error);
+    }
+  };
+
   const handleToggleNewsLike = async (newsId: number, isLiked: boolean) => {
     if (!currentUser) return;
 
@@ -351,22 +371,22 @@ const NewsModule = () => {
     if (!currentUser || !isNewsEditor) return;
 
     if (title.length < 5) {
-      alert('Заголовок должен быть не короче 5 символов');
+      showAlert('Заголовок должен быть не короче 5 символов', 'warning');
       return;
     }
 
     if (!shortDescription) {
-      alert('Краткое описание обязательно');
+      showAlert('Краткое описание обязательно', 'warning');
       return;
     }
 
     if (!content) {
-      alert('Содержание обязательно');
+      showAlert('Содержание обязательно', 'warning');
       return;
     }
 
     if (newNewsData.category_ids.length === 0) {
-      alert('Выберите категорию для новости');
+      showAlert('Выберите категорию для новости', 'warning');
       return;
     }
 
@@ -431,7 +451,7 @@ const NewsModule = () => {
       }
     } catch (error) {
       console.error('Ошибка создания новости:', error);
-      alert('Произошла ошибка при создании новости');
+      showAlert('Произошла ошибка при создании новости', 'error');
     }
   };
 
@@ -733,7 +753,16 @@ const NewsModule = () => {
                           ))
                         )}
                         <span>{formatDate(newsItem.published_at)}</span>
-                        <span>{newsItem.author_name}</span>
+                        <button
+                          type="button"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            openAuthorProfile(newsItem.author_name);
+                          }}
+                          className="hover:text-purple-600 hover:underline"
+                        >
+                          {newsItem.author_name}
+                        </button>
                       </div>
                     </div>
                   </div>
@@ -813,7 +842,16 @@ const NewsModule = () => {
                         ))
                       )}
                       <span>{formatDate(newsItem.published_at)}</span>
-                      <span>{newsItem.author_name}</span>
+                      <button
+                        type="button"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          openAuthorProfile(newsItem.author_name);
+                        }}
+                        className="hover:text-purple-600 hover:underline"
+                      >
+                        {newsItem.author_name}
+                      </button>
                     </div>
                   </div>
                 </div>
@@ -1457,6 +1495,7 @@ const NewsModule = () => {
           </div>
         </div>
       </Modal>
+      <AlertModal {...alertState} onClose={closeAlert} />
     </div>
   );
 };

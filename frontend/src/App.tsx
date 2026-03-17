@@ -21,6 +21,7 @@ import SurveysModule from "./modules/surveys/SurveysModule";
 import TrainingModule from "./modules/training/TrainingModule";
 import ErrorPage from "./pages/ErrorPage";
 import LoginPage from "./pages/LoginPage";
+import ProfilePage from "./pages/ProfilePage";
 import usePortalStore from "./store/usePortalStore";
 import type { GlobalSearchResults, ModuleId } from "./types/portal";
 import useWindowDimensions from "./hooks/useWindowDimensions";
@@ -271,6 +272,16 @@ function App() {
               isAuthenticated={isAuthenticated}
               detailComponent={<NewsDetailWrapper />}
               moduleFallback="news"
+            />
+          }
+        />
+        <Route
+          path="/profile/:eid"
+          element={
+            <DetailPageWrapper
+              isAuthenticated={isAuthenticated}
+              detailComponent={<ProfilePage />}
+              moduleFallback="home"
             />
           }
         />

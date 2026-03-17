@@ -16,6 +16,6 @@ export const getBirthdays = async (time_unit: BirthDayType = 'month'): Promise<B
     return response.data;
 }
 
-export const getBirthdayTelegramLink = async (eid: number, message: string): Promise<ApiResponse<TelegramLinkResponse>> => {
-    return await getRequest<TelegramLinkResponse>(`/api/v1/birthday/link`, { eid, message });
+export const getBirthdayTelegramLink = async (eid: string | number, message: string): Promise<ApiResponse<TelegramLinkResponse>> => {
+    return await getRequest<TelegramLinkResponse>(`/api/v1/birthday/link`, { eid: String(eid), message });
 }

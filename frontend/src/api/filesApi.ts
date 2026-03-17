@@ -48,15 +48,20 @@ export const fetchStatic = async (id: number) => {
 
 export const uploadPhoto = async (
     file: File,
-    eid: number,
+    createdFor?: number,
     type: 'image' | 'video' | 'audio' | 'document' = 'image',
+    lang: 'ru' | 'en' = 'ru',
 ): Promise<UploadResponse> => {
 
     const formData = new FormData();
     formData.append('file', file);
 
     const baseURL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
-    const url = `${baseURL}/api/v1/static/add?type=${type}&eid=${eid}`;
+    const params = new URLSearchParams({ type, lang });
+    if (createdFor !== undefined) {
+        params.append('created_for', String(createdFor));
+    }
+    const url = `${baseURL}/api/v1/static/add?${params.toString()}`;
     const token = getAccessToken();
 
     try {
@@ -81,8 +86,11 @@ export const uploadPhoto = async (
     }
 }
 
-export const deleteStatic = async (id: number, eid: number) => {
-    const params: Record<string, number> = { id };
-    if (eid) params.eid = eid;
+export const deleteStatic = async (
+    id: number,
+    _legacyEid?: number,
+    lang: 'ru' | 'en' = 'ru'
+) => {
+    const params: Record<string, number | string> = { id, lang };
     return await deleteRequest<void>('/api/v1/static/delete', params);
 }

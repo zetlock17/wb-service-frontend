@@ -20,15 +20,22 @@ import {
   Trash2,
 } from "lucide-react";
 import { useEffect, useMemo, useState, useRef } from "react";
+import { useNavigate } from "react-router-dom";
 import Modal from "../../components/common/Modal";
+import AlertModal from "../../components/common/AlertModal";
+import { useAlert } from "../../hooks/useAlert";
 import usePortalStore from "../../store/usePortalStore";
 import type { Birthday, BirthDayType, ModuleId } from "../../types/portal";
 import { getCasualName } from "../../utils/nameUtils";
 import { useAvatarWithEdit } from "../../hooks/useAvatar";
 import Avatar from "../../components/common/Avatar";
+import { fetchStatic } from "../../api/filesApi";
+import { getProfileByEid, suggestEmployees, updateProfileByEid } from "../../api/profileApi";
+import type { UserProfile } from "../../types/portal";
 
 interface HomeModuleProps {
   onNavigate: (moduleId: ModuleId) => void;
+  profileEid?: string;
 }
 
 type BirthdayFilter = "today" | "week" | "month";
@@ -39,12 +46,18 @@ const birthdayLabels: Record<BirthdayFilter, string> = {
   month: "Текущий месяц",
 };
 
-const HomeModule = ({ onNavigate }: HomeModuleProps) => {
+const HomeModule = ({ onNavigate, profileEid }: HomeModuleProps) => {
+  const { alertState, showAlert, closeAlert } = useAlert();
+  const navigate = useNavigate();
   const [birthdayFilter, setBirthdayFilter] = useState<BirthdayFilter>("week");
   const [selectedPerson, setSelectedPerson] = useState<Birthday | null>(null);
   const [editingField, setEditingField] = useState<{ section: string; field?: string; index?: number } | null>(null);
   const [editingValues, setEditingValues] = useState<any>({});
   const [showAvatarModal, setShowAvatarModal] = useState(false);
+  const [externalProfile, setExternalProfile] = useState<UserProfile | null>(null);
+  const [externalProfileLoading, setExternalProfileLoading] = useState(false);
+  const [externalProfileError, setExternalProfileError] = useState<string | null>(null);
+  const [externalAvatarUrl, setExternalAvatarUrl] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { avatarUrl, isLoading: avatarLoading, error: avatarError, deleteAvatar, updateAvatar } = useAvatarWithEdit();
 
@@ -54,13 +67,13 @@ const HomeModule = ({ onNavigate }: HomeModuleProps) => {
   };
 
   const saveEditing = async () => { // тут обработку ошибок бы сделать
-    if (!currentUser) return;
+    if (!user) return;
     const updates: any = {}; // Используем any, так как projects отправляются без id (ProfileProjectUpdate[])
 
     if (editingField?.section === 'profile') {
       Object.assign(updates, editingValues);
     } else if (editingField?.section === 'projects') {
-      const currentProjects = currentUser.projects || [];
+      const currentProjects = user.projects || [];
       if (editingField.field === 'add') {
         // Новые проекты отправляем без id, так как API сам создаст id
         const { id, ...projectData } = editingValues;
@@ -79,7 +92,7 @@ const HomeModule = ({ onNavigate }: HomeModuleProps) => {
         });
       }
     } else if (editingField?.section === 'vacations') {
-      const currentVacations = currentUser.vacations || [];
+      const currentVacations = user.vacations || [];
       if (currentVacations.length > 0) {
         const updatedVacations = [...currentVacations];
         updatedVacations[0] = { ...updatedVacations[0], ...editingValues };
@@ -87,7 +100,15 @@ const HomeModule = ({ onNavigate }: HomeModuleProps) => {
       }
     }
 
-    await updateCurrentUser(currentUser.eid, updates);
+    if (isForeignProfile && isHr) {
+      const response = await updateProfileByEid(String(user.eid), updates);
+      if (response.status >= 200 && response.status < 300 && response.data) {
+        setExternalProfile(response.data);
+      }
+    } else if (currentUser) {
+      await updateCurrentUser(currentUser.eid, updates);
+    }
+
     setEditingField(null);
   };
 
@@ -105,13 +126,13 @@ const HomeModule = ({ onNavigate }: HomeModuleProps) => {
 
     // Проверка типа файла
     if (!file.type.startsWith('image/')) {
-      alert('Пожалуйста, выберите файл изображения');
+      showAlert('Пожалуйста, выберите файл изображения', 'warning');
       return;
     }
 
     // Проверка размера файла (максимум 5MB)
     if (file.size > 5 * 1024 * 1024) {
-      alert('Размер файла не должен превышать 5MB');
+      showAlert('Размер файла не должен превышать 5MB', 'warning');
       return;
     }
 
@@ -149,8 +170,66 @@ const HomeModule = ({ onNavigate }: HomeModuleProps) => {
     employees,
   } = usePortalStore();
 
-  const isHrOrAdmin = roles.includes("admin") || roles.includes("hr");
-  const canEditPersonalFields = roles.length === 0 || roles.includes("employee") || isHrOrAdmin;
+  const isForeignProfile = Boolean(
+    profileEid && currentUser && String(profileEid) !== String(currentUser.eid)
+  );
+
+  useEffect(() => {
+    const loadExternalProfile = async () => {
+      if (!profileEid || !currentUser || !isForeignProfile) {
+        setExternalProfile(null);
+        setExternalProfileError(null);
+        return;
+      }
+
+      setExternalProfileLoading(true);
+      setExternalProfileError(null);
+
+      try {
+        const response = await getProfileByEid(profileEid);
+        if (response.status >= 200 && response.status < 300 && response.data) {
+          setExternalProfile(response.data);
+        } else {
+          setExternalProfile(null);
+          setExternalProfileError(response.message || "Не удалось загрузить профиль сотрудника");
+        }
+      } catch (error) {
+        console.error("Failed to load external profile:", error);
+        setExternalProfile(null);
+        setExternalProfileError("Не удалось загрузить профиль сотрудника");
+      } finally {
+        setExternalProfileLoading(false);
+      }
+    };
+
+    loadExternalProfile();
+  }, [profileEid, currentUser, isForeignProfile]);
+
+  useEffect(() => {
+    const loadExternalAvatar = async () => {
+      if (!isForeignProfile || !externalProfile?.avatar_id) {
+        setExternalAvatarUrl(null);
+        return;
+      }
+
+      const response = await fetchStatic(externalProfile.avatar_id);
+      if (response.status === 200 && response.data) {
+        setExternalAvatarUrl(response.data);
+      } else {
+        setExternalAvatarUrl(null);
+      }
+    };
+
+    loadExternalAvatar();
+  }, [isForeignProfile, externalProfile?.avatar_id]);
+
+  const isHr = roles.includes("hr");
+  const canEditOwnProfileFields = isHr;
+
+  const user = isForeignProfile ? externalProfile : currentUser;
+  const canEditPersonalFields = isForeignProfile ? isHr : canEditOwnProfileFields;
+  const canEditAvatar = !isForeignProfile && canEditPersonalFields;
+  const displayedAvatarUrl = isForeignProfile ? externalAvatarUrl : avatarUrl;
 
   const orgUnitOptions = useMemo(() => {
     const options: { value: number; label: string }[] = [];
@@ -233,6 +312,44 @@ const HomeModule = ({ onNavigate }: HomeModuleProps) => {
     if (now >= start && now <= end) return "active";
     return "planned";
   };
+
+  const openProfileByEid = (eid: number | string) => {
+    navigate(`/profile/${eid}`);
+  };
+
+  const openProfileByName = async (fullName: string) => {
+    try {
+      const response = await suggestEmployees(fullName, 10);
+      if (response.status >= 200 && response.status < 300 && response.data?.suggestions?.length) {
+        const normalized = fullName.trim().toLowerCase();
+        const exact = response.data.suggestions.find(
+          (item) => item.full_name.trim().toLowerCase() === normalized
+        );
+        const target = exact || response.data.suggestions[0];
+        openProfileByEid(target.eid);
+      }
+    } catch (error) {
+      console.error("Не удалось открыть профиль сотрудника:", error);
+    }
+  };
+
+  const structurePeople = useMemo(
+    () => [
+      {
+        id: "manager",
+        full_name: user?.manager_name,
+        position: "Руководитель",
+        department: user?.org_unit,
+      },
+      {
+        id: "hrbp",
+        full_name: user?.hr_name,
+        position: "HR-бизнес-партнер",
+        department: "HR",
+      },
+    ].filter((person): person is { id: string; full_name: string; position: string; department?: string | null } => Boolean(person.full_name)),
+    [user?.manager_name, user?.hr_name, user?.org_unit]
+  );
 
   const renderProfileEditor = () => {
     if (editingField?.section !== "profile" || !editingField.field) {
@@ -407,7 +524,7 @@ const HomeModule = ({ onNavigate }: HomeModuleProps) => {
     }
   };
 
-  if (loading || !currentUser) {
+  if (loading || externalProfileLoading || !currentUser || !user) {
     return (
       <div className="space-y-6 animate-pulse">
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 h-36"></div>
@@ -421,24 +538,29 @@ const HomeModule = ({ onNavigate }: HomeModuleProps) => {
     );
   }
 
-  const user = currentUser;
   const currentVacation = user.vacations && user.vacations.length > 0 ? user.vacations[0] : null;
 
   return (
     <div className="space-y-6">
+      {isForeignProfile && externalProfileError && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-700">
+          {externalProfileError}
+        </div>
+      )}
+
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
         <div className="flex items-start justify-between mb-4">
           <div className="flex items-center gap-4">
             <div 
-              className={`relative w-20 h-20 rounded-full group ${canEditPersonalFields ? "cursor-pointer" : "cursor-default"}`}
-              onClick={canEditPersonalFields ? handleAvatarClick : undefined}
+              className={`relative w-20 h-20 rounded-full group ${canEditAvatar ? "cursor-pointer" : "cursor-default"}`}
+              onClick={canEditAvatar ? handleAvatarClick : undefined}
             >
               <Avatar 
-                avatarUrl={avatarUrl ?? undefined}
-                fullName={currentUser.full_name}
+                avatarUrl={displayedAvatarUrl ?? undefined}
+                fullName={user.full_name}
                 size={20}
               />
-              {canEditPersonalFields && (
+              {canEditAvatar && (
                 <div className="absolute inset-0 bg-black bg-opacity-40 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
                   <Camera className="w-8 h-8 text-white" />
                 </div>
@@ -483,19 +605,19 @@ const HomeModule = ({ onNavigate }: HomeModuleProps) => {
             <ProfileRow
               label="ФИО"
               value={user.full_name}
-              editable={isHrOrAdmin}
+              editable={isHr}
               onEdit={() => startEditing('profile', 'full_name', { full_name: user.full_name })}
             />
             <ProfileRow
               label="Должность"
               value={user.position}
-              editable={isHrOrAdmin}
+              editable={isHr}
               onEdit={() => startEditing('profile', 'position', { position: user.position })}
             />
             <ProfileRow
               label="Подразделение"
               value={user.org_unit}
-              editable={isHrOrAdmin}
+              editable={isHr}
               onEdit={() =>
                 startEditing('profile', 'org_unit', {
                   org_unit: user.org_unit,
@@ -506,7 +628,7 @@ const HomeModule = ({ onNavigate }: HomeModuleProps) => {
             <ProfileRow
               label="Руководитель"
               value={user.manager_name || "Не указан"}
-              editable={isHrOrAdmin}
+              editable={isHr}
               onEdit={() =>
                 startEditing('profile', 'manager_eid', {
                   manager_name: user.manager_name || "",
@@ -517,7 +639,7 @@ const HomeModule = ({ onNavigate }: HomeModuleProps) => {
             <ProfileRow
               label="HR BP"
               value={user.hr_name || "Не указан"}
-              editable={isHrOrAdmin}
+              editable={isHr}
               onEdit={() =>
                 startEditing('profile', 'hrbp_eid', {
                   hr_name: user.hr_name || "",
@@ -549,14 +671,14 @@ const HomeModule = ({ onNavigate }: HomeModuleProps) => {
             <ProfileRow
               label="Рабочий телефон"
               value={user.work_phone}
-              editable={isHrOrAdmin}
+              editable={isHr}
               onEdit={() => startEditing('profile', 'work_phone', { work_phone: user.work_phone })}
             />
             <ProfileRow
               label="Рабочая почта"
               value={user.work_email}
               link={`mailto:${user.work_email}`}
-              editable={isHrOrAdmin}
+              editable={isHr}
               onEdit={() => startEditing('profile', 'work_email', { work_email: user.work_email })}
               isSmall
             />
@@ -572,9 +694,13 @@ const HomeModule = ({ onNavigate }: HomeModuleProps) => {
 
         <InfoCard title="Структура" icon={<Users className="w-5 h-5 text-purple-600" />}>
           <div className="space-y-3">
-            {[{ id: 1, full_name: 'Сидорова Анна Алексеевна', position: 'Руководитель', department: 'Департамент информационных технологий' },
-            { id: 2, full_name: 'Козлова Мария Александровна', position: 'HR-бизнес-партнёр', department: 'HR департмент' }].map((employee) => (
-              <div key={employee.id} className="p-2">
+            {structurePeople.map((employee) => (
+              <button
+                key={employee.id}
+                type="button"
+                onClick={() => openProfileByName(employee.full_name)}
+                className="p-2 w-full text-left hover:bg-purple-50 rounded-lg transition-colors"
+              >
                 <div className="flex justify-between items-center gap-3">
 
                   <Avatar 
@@ -583,12 +709,12 @@ const HomeModule = ({ onNavigate }: HomeModuleProps) => {
                   />
                   <div className="flex-1 min-w-0">
                     <p className="text-sm text-gray-500">{employee.position}</p>
-                    <h3 className="font-semibold text-purple-600">{getCasualName(employee.full_name)}</h3>
+                    <h3 className="font-semibold text-purple-600 hover:underline">{getCasualName(employee.full_name)}</h3>
                     <p className="text-sm text-gray-500">Департамент</p>
-                    <p className="text-sm text-black">{employee.department}</p>
+                    <p className="text-sm text-black">{employee.department || "Не указан"}</p>
                   </div>
                 </div>
-              </div>
+              </button>
             ))}
 
             <button
@@ -720,7 +846,13 @@ const HomeModule = ({ onNavigate }: HomeModuleProps) => {
                     className={`flex items-center justify-between p-3 rounded-lg ${isBirthdayToday(person.birth_date) ? "bg-purple-500" : "bg-purple-50"}`}
                   >
                     <div>
-                      <p className={`font-medium ${isBirthdayToday(person.birth_date) ? "text-white" : "text-gray-900"}`}>{person.full_name}</p>
+                      <button
+                        type="button"
+                        onClick={() => openProfileByEid(person.eid)}
+                        className={`font-medium ${isBirthdayToday(person.birth_date) ? "text-white" : "text-gray-900"} hover:underline`}
+                      >
+                        {person.full_name}
+                      </button>
                       <p className={`text-sm ${isBirthdayToday(person.birth_date) ? "text-white" : "text-gray-600"}`}>{person.org_unit}</p>
                     </div>
                     <div className="text-right">
@@ -988,6 +1120,7 @@ const HomeModule = ({ onNavigate }: HomeModuleProps) => {
           </button>
         </div>
       </Modal>
+      <AlertModal {...alertState} onClose={closeAlert} />
     </div>
   );
 };

@@ -4,7 +4,7 @@ import { deleteRequest, getRequest, patchRequest, postRequest, putRequest } from
 export type OrgUnitType = 'Department' | 'Management' | 'Division' | 'Group' | 'ProjectTeam';
 
 export interface OrgUnitManager {
-    eid: number;
+    eid: string;
     full_name: string;
     position: string;
     manager_avatar_id: number | null;
@@ -52,14 +52,14 @@ export interface OrgUnitChangeLog {
 }
 
 export interface ProfileSearchEmployee {
-  eid: number;
+    eid: string;
   full_name: string;
   position: string;
-  work_email: string;
-  work_phone: string;
-  organization_unit_id: string;
-  organization_unit_name: string;
-  work_band: string;
+    work_email?: string | null;
+    work_phone?: string | null;
+    organization_unit_id?: string | null;
+    organization_unit_name?: string | null;
+    work_band?: string | null;
   score: number;
 }
 
@@ -70,7 +70,7 @@ export interface ProfileSearchResult {
 }
 
 export interface ProfileSuggestion {
-  eid: number;
+    eid: string;
   full_name: string;
   position: string;
   department: string;

@@ -50,8 +50,11 @@ import {
 } from "../../api/сommentsApi";
 import { fetchStatic } from "../../api/filesApi";
 import Avatar from "../../components/common/Avatar";
+import AlertModal from "../../components/common/AlertModal";
+import { useAlert } from "../../hooks/useAlert";
 import {
   getOrgHierarchy,
+  searchHierarchy,
   searchSuggestHierarchy,
   type OrgUnitHierarchy,
   type ProfileSuggestion,
@@ -61,7 +64,17 @@ type LocationState = {
   news?: NewsDetail | NewsListItem;
 };
 
+type MentionContext = "new" | "reply" | "edit";
+
+type MentionState = {
+  context: MentionContext;
+  start: number;
+  end: number;
+  query: string;
+};
+
 const NewsDetailPage = () => {
+  const { alertState, showAlert, closeAlert } = useAlert();
   const { newsId } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
@@ -91,6 +104,10 @@ const NewsDetailPage = () => {
   const [commentLikes, setCommentLikes] = useState<Record<number, boolean>>({});
   const [replyingToCommentId, setReplyingToCommentId] = useState<number | null>(null);
   const [replyContent, setReplyContent] = useState("");
+  const [mentionSuggestions, setMentionSuggestions] = useState<ProfileSuggestion[]>([]);
+  const [mentionLoading, setMentionLoading] = useState(false);
+  const [activeMention, setActiveMention] = useState<MentionState | null>(null);
+  const [activeMentionIndex, setActiveMentionIndex] = useState(0);
   const [refreshComments, setRefreshComments] = useState(0);
   const [downloadingFileId, setDownloadingFileId] = useState<number | null>(null);
   const [acknowledging, setAcknowledging] = useState(false);
@@ -148,6 +165,11 @@ const NewsDetailPage = () => {
 
   const fetchedNewsId = useRef<number | null>(null);
   const isInitialMount = useRef(true);
+  const mentionDebounceRef = useRef<number | null>(null);
+  const mentionRequestRef = useRef(0);
+  const newCommentInputRef = useRef<HTMLInputElement | null>(null);
+  const replyCommentInputRef = useRef<HTMLTextAreaElement | null>(null);
+  const editCommentInputRef = useRef<HTMLTextAreaElement | null>(null);
 
   useEffect(() => {
     if (!parsedId || Number.isNaN(parsedId)) {
@@ -240,6 +262,222 @@ const NewsDetailPage = () => {
     fetchCommentsForNews();
   }, [commentSortBy, parsedId, refreshComments]);
 
+  const closeMentionSuggestions = () => {
+    setMentionSuggestions([]);
+    setMentionLoading(false);
+    setActiveMention(null);
+    setActiveMentionIndex(0);
+  };
+
+  const getTextByContext = (context: MentionContext): string => {
+    if (context === "new") return newComment;
+    if (context === "reply") return replyContent;
+    return editingCommentContent;
+  };
+
+  const setTextByContext = (context: MentionContext, value: string) => {
+    if (context === "new") {
+      setNewComment(value);
+      return;
+    }
+    if (context === "reply") {
+      setReplyContent(value);
+      return;
+    }
+    setEditingCommentContent(value);
+  };
+
+  const getInputRefByContext = (context: MentionContext) => {
+    if (context === "new") return newCommentInputRef;
+    if (context === "reply") return replyCommentInputRef;
+    return editCommentInputRef;
+  };
+
+  const findMentionAtCursor = (value: string, cursorPosition: number) => {
+    if (cursorPosition <= 0) return null;
+
+    const beforeCursor = value.slice(0, cursorPosition);
+    const mentionStart = beforeCursor.lastIndexOf("@");
+    if (mentionStart === -1) return null;
+
+    const beforeMentionChar = mentionStart > 0 ? beforeCursor[mentionStart - 1] : " ";
+    if (beforeMentionChar && /\S/.test(beforeMentionChar)) return null;
+
+    const mentionSlice = beforeCursor.slice(mentionStart + 1);
+    if (!/^[\p{L}\p{N}._\s-]*$/u.test(mentionSlice)) return null;
+
+    return {
+      start: mentionStart,
+      end: cursorPosition,
+      query: mentionSlice.trim(),
+    };
+  };
+
+  const searchMentionSuggestions = async (query: string): Promise<ProfileSuggestion[]> => {
+    const hierarchyResponse = await searchHierarchy(query, 0, 20);
+
+    const employees =
+      hierarchyResponse.status === 200 && hierarchyResponse.data
+        ? hierarchyResponse.data.results.map((item) => ({
+            eid: item.eid,
+            full_name: item.full_name,
+            position: item.position,
+            department: item.organization_unit_name ?? "",
+          }))
+        : [];
+
+    const byEid = new Map<string, ProfileSuggestion>();
+    employees.forEach((item) => {
+      if (!item?.eid || !item.full_name) return;
+      const key = String(item.eid);
+      if (!byEid.has(key)) {
+        byEid.set(key, item);
+      }
+    });
+
+    const normalizedQuery = query.toLowerCase();
+    return Array.from(byEid.values())
+      .sort((a, b) => {
+        const aStarts = a.full_name.toLowerCase().startsWith(normalizedQuery) ? 1 : 0;
+        const bStarts = b.full_name.toLowerCase().startsWith(normalizedQuery) ? 1 : 0;
+        if (aStarts !== bStarts) return bStarts - aStarts;
+        return a.full_name.localeCompare(b.full_name, "ru");
+      })
+      .slice(0, 10);
+  };
+
+  const handleMentionInputChange = (context: MentionContext, value: string, cursorPosition: number) => {
+    const mention = findMentionAtCursor(value, cursorPosition);
+    if (!mention) {
+      if (activeMention?.context === context) closeMentionSuggestions();
+      return;
+    }
+
+    setActiveMention({ context, start: mention.start, end: mention.end, query: mention.query });
+
+    if (mentionDebounceRef.current) {
+      window.clearTimeout(mentionDebounceRef.current);
+    }
+
+    if (mention.query.length < 1) {
+      setMentionSuggestions([]);
+      setMentionLoading(false);
+      setActiveMentionIndex(0);
+      return;
+    }
+
+    const requestId = ++mentionRequestRef.current;
+    setMentionLoading(true);
+    mentionDebounceRef.current = window.setTimeout(async () => {
+      try {
+        const results = await searchMentionSuggestions(mention.query);
+        if (requestId !== mentionRequestRef.current) return;
+        setMentionSuggestions(results);
+        setActiveMentionIndex(0);
+      } catch {
+        if (requestId === mentionRequestRef.current) {
+          setMentionSuggestions([]);
+        }
+      } finally {
+        if (requestId === mentionRequestRef.current) {
+          setMentionLoading(false);
+        }
+      }
+    }, 220);
+  };
+
+  const applyMentionSuggestion = (suggestion: ProfileSuggestion) => {
+    if (!activeMention) return;
+
+    const currentValue = getTextByContext(activeMention.context);
+    const valueBefore = currentValue.slice(0, activeMention.start);
+    const valueAfter = currentValue.slice(activeMention.end);
+    const insertedMention = `@${suggestion.full_name} `;
+    const nextValue = `${valueBefore}${insertedMention}${valueAfter}`;
+    const cursor = valueBefore.length + insertedMention.length;
+
+    setTextByContext(activeMention.context, nextValue);
+    closeMentionSuggestions();
+
+    const inputRef = getInputRefByContext(activeMention.context);
+    requestAnimationFrame(() => {
+      inputRef.current?.focus();
+      inputRef.current?.setSelectionRange(cursor, cursor);
+    });
+  };
+
+  const handleMentionKeyDown = (
+    event: React.KeyboardEvent<HTMLInputElement | HTMLTextAreaElement>,
+    context: MentionContext
+  ) => {
+    if (!activeMention || activeMention.context !== context) return false;
+    if (mentionSuggestions.length === 0) return false;
+
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      setActiveMentionIndex((prev) => (prev + 1) % mentionSuggestions.length);
+      return true;
+    }
+
+    if (event.key === "ArrowUp") {
+      event.preventDefault();
+      setActiveMentionIndex((prev) => (prev - 1 + mentionSuggestions.length) % mentionSuggestions.length);
+      return true;
+    }
+
+    if (event.key === "Enter" || event.key === "Tab") {
+      event.preventDefault();
+      applyMentionSuggestion(mentionSuggestions[activeMentionIndex]);
+      return true;
+    }
+
+    if (event.key === "Escape") {
+      event.preventDefault();
+      closeMentionSuggestions();
+      return true;
+    }
+
+    return false;
+  };
+
+  const renderMentionSuggestions = (context: MentionContext) => {
+    if (!activeMention || activeMention.context !== context) return null;
+    if (!mentionLoading && mentionSuggestions.length === 0) return null;
+
+    return (
+      <div className="absolute z-20 top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-56 overflow-y-auto">
+        {mentionLoading ? (
+          <div className="px-3 py-2 text-sm text-gray-500">Поиск сотрудников...</div>
+        ) : (
+          mentionSuggestions.map((item, index) => (
+            <button
+              key={item.eid}
+              type="button"
+              onMouseDown={(event) => {
+                event.preventDefault();
+                applyMentionSuggestion(item);
+              }}
+              className={`w-full text-left px-3 py-2 transition-colors ${
+                index === activeMentionIndex ? "bg-purple-50" : "hover:bg-gray-50"
+              }`}
+            >
+              <p className="text-sm font-medium text-gray-800">{item.full_name}</p>
+              <p className="text-xs text-gray-500">{item.position} · {item.department}</p>
+            </button>
+          ))
+        )}
+      </div>
+    );
+  };
+
+  useEffect(() => {
+    return () => {
+      if (mentionDebounceRef.current) {
+        window.clearTimeout(mentionDebounceRef.current);
+      }
+    };
+  }, []);
+
   const flattenOrgUnits = (
     nodes: OrgUnitHierarchy[],
     level: number = 0
@@ -316,10 +554,10 @@ const NewsDetailPage = () => {
 
     try {
       await navigator.clipboard.writeText(shareUrl);
-      alert("Ссылка на новость скопирована в буфер обмена!");
+      showAlert("Ссылка на новость скопирована в буфер обмена!", "success");
     } catch (error) {
       console.error("Ошибка копирования ссылки:", error);
-      alert("Не удалось скопировать ссылку");
+      showAlert("Не удалось скопировать ссылку", "error");
     }
   };
 
@@ -337,11 +575,11 @@ const NewsDetailPage = () => {
         document.body.removeChild(link);
       } else {
         console.error("Ошибка скачивания файла:", response.message);
-        alert("Не удалось скачать файл");
+        showAlert("Не удалось скачать файл", "error");
       }
     } catch (error) {
       console.error("Ошибка скачивания файла:", error);
-      alert("Ошибка при скачивании файла");
+      showAlert("Ошибка при скачивании файла", "error");
     } finally {
       setDownloadingFileId(null);
     }
@@ -359,6 +597,7 @@ const NewsDetailPage = () => {
 
       if (response.status === 200) {
         setNewComment("");
+        closeMentionSuggestions();
         setCommentsCount((prev) => prev + 1);
         setRefreshComments((prev) => prev + 1);
       }
@@ -381,6 +620,7 @@ const NewsDetailPage = () => {
       if (response.status === 200) {
         setReplyContent("");
         setReplyingToCommentId(null);
+        closeMentionSuggestions();
         setCommentsCount((prev) => prev + 1);
         setRefreshComments((prev) => prev + 1);
       }
@@ -440,11 +680,13 @@ const NewsDetailPage = () => {
   const handleStartEditComment = (comment: Comment) => {
     setEditingCommentId(comment.id);
     setEditingCommentContent(comment.content);
+    closeMentionSuggestions();
   };
 
   const handleCancelEditComment = () => {
     setEditingCommentId(null);
     setEditingCommentContent("");
+    closeMentionSuggestions();
   };
 
   const handleUpdateComment = async (commentId: number) => {
@@ -544,11 +786,11 @@ const NewsDetailPage = () => {
           fetchedNewsId.current = newsDetail.id;
         }
       } else {
-        alert('Ошибка при сохранении новости');
+        showAlert('Ошибка при сохранении новости', 'error');
       }
     } catch (err) {
       console.error('Ошибка обновления новости:', err);
-      alert('Ошибка при сохранении новости');
+      showAlert('Ошибка при сохранении новости', 'error');
     } finally {
       setSavingEdit(false);
     }
@@ -614,6 +856,10 @@ const NewsDetailPage = () => {
     });
   };
 
+  const openProfile = (eid: string) => {
+    navigate(`/profile/${eid}`);
+  };
+
   const renderComment = (comment: Comment, depth: number = 0) => {
     const isLiked = commentLikes[comment.id] ?? false;
     const canEditComment =
@@ -624,14 +870,26 @@ const NewsDetailPage = () => {
     return (
       <div key={comment.id} className={`${depth > 0 ? "ml-12 mt-4" : "mt-4"}`}>
         <div className="flex gap-3">
-          <Avatar
-            fullName={comment.author.full_name}
-            size={10}
-          />
+          <button
+            type="button"
+            onClick={() => openProfile(String(comment.author.eid))}
+            className="shrink-0"
+          >
+            <Avatar
+              fullName={comment.author.full_name}
+              size={10}
+            />
+          </button>
           <div className="flex-1">
             <div className="bg-gray-50 rounded-lg p-3">
               <div className="flex items-center justify-between mb-1">
-                <p className="font-medium text-sm text-gray-900">{comment.author.full_name}</p>
+                <button
+                  type="button"
+                  onClick={() => openProfile(String(comment.author.eid))}
+                  className="font-medium text-sm text-gray-900 hover:text-purple-600 hover:underline"
+                >
+                  {comment.author.full_name}
+                </button>
                 <div className="flex items-center gap-2">
                   {canEditComment && editingCommentId !== comment.id && (
                     <button
@@ -655,12 +913,26 @@ const NewsDetailPage = () => {
               </div>
               {editingCommentId === comment.id ? (
                 <div className="space-y-2">
-                  <textarea
-                    value={editingCommentContent}
-                    onChange={(event) => setEditingCommentContent(event.target.value)}
-                    rows={3}
-                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-                  />
+                  <div className="relative">
+                    <textarea
+                      ref={editCommentInputRef}
+                      value={editingCommentContent}
+                      onChange={(event) => {
+                        const value = event.target.value;
+                        setEditingCommentContent(value);
+                        handleMentionInputChange("edit", value, event.target.selectionStart ?? value.length);
+                      }}
+                      onKeyDown={(event) => {
+                        handleMentionKeyDown(event, "edit");
+                      }}
+                      onBlur={() => {
+                        window.setTimeout(() => closeMentionSuggestions(), 120);
+                      }}
+                      rows={3}
+                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    />
+                    {renderMentionSuggestions("edit")}
+                  </div>
                   <div className="flex items-center gap-2">
                     <button
                       onClick={() => handleUpdateComment(comment.id)}
@@ -709,6 +981,7 @@ const NewsDetailPage = () => {
                 onClick={() => {
                   setReplyingToCommentId(comment.id);
                   setReplyContent("");
+                  closeMentionSuggestions();
                 }}
                 className="flex items-center gap-1 hover:text-purple-600 transition-colors"
               >
@@ -718,13 +991,27 @@ const NewsDetailPage = () => {
             </div>
             {replyingToCommentId === comment.id && (
               <div className="mt-3 space-y-2">
-                <textarea
-                  value={replyContent}
-                  onChange={(event) => setReplyContent(event.target.value)}
-                  placeholder={`Ответить ${comment.author.full_name}...`}
-                  rows={3}
-                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-                />
+                <div className="relative">
+                  <textarea
+                    ref={replyCommentInputRef}
+                    value={replyContent}
+                    onChange={(event) => {
+                      const value = event.target.value;
+                      setReplyContent(value);
+                      handleMentionInputChange("reply", value, event.target.selectionStart ?? value.length);
+                    }}
+                    onKeyDown={(event) => {
+                      handleMentionKeyDown(event, "reply");
+                    }}
+                    onBlur={() => {
+                      window.setTimeout(() => closeMentionSuggestions(), 120);
+                    }}
+                    placeholder={`Ответить ${comment.author.full_name}...`}
+                    rows={3}
+                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  />
+                  {renderMentionSuggestions("reply")}
+                </div>
                 <div className="flex items-center gap-2">
                   <button
                     onClick={() => handleReplyToComment(comment.id)}
@@ -738,6 +1025,7 @@ const NewsDetailPage = () => {
                     onClick={() => {
                       setReplyingToCommentId(null);
                       setReplyContent("");
+                      closeMentionSuggestions();
                     }}
                     className="px-3 py-1.5 text-sm bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300"
                   >
@@ -1034,19 +1322,33 @@ const NewsDetailPage = () => {
 
           <div className="mb-6 pb-4 border-b border-gray-200">
             <div className="flex gap-3">
-              <input
-                type="text"
-                placeholder="Написать комментарий..."
-                value={newComment}
-                onChange={(event) => setNewComment(event.target.value)}
-                onKeyDown={(event) => {
-                  if (event.key === "Enter" && !event.shiftKey) {
-                    event.preventDefault();
-                    handleCreateComment();
-                  }
-                }}
-                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-              />
+              <div className="relative flex-1">
+                <input
+                  ref={newCommentInputRef}
+                  type="text"
+                  placeholder="Написать комментарий... (@ для упоминания)"
+                  value={newComment}
+                  onChange={(event) => {
+                    const value = event.target.value;
+                    setNewComment(value);
+                    handleMentionInputChange("new", value, event.target.selectionStart ?? value.length);
+                  }}
+                  onKeyDown={(event) => {
+                    if (handleMentionKeyDown(event, "new")) {
+                      return;
+                    }
+                    if (event.key === "Enter" && !event.shiftKey) {
+                      event.preventDefault();
+                      handleCreateComment();
+                    }
+                  }}
+                  onBlur={() => {
+                    window.setTimeout(() => closeMentionSuggestions(), 120);
+                  }}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                />
+                {renderMentionSuggestions("new")}
+              </div>
               <button
                 onClick={handleCreateComment}
                 disabled={!newComment.trim()}
@@ -1427,6 +1729,7 @@ const NewsDetailPage = () => {
           </div>
         </div>
       </Modal>
+      <AlertModal {...alertState} onClose={closeAlert} />
     </div>
   );
 };

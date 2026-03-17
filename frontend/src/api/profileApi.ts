@@ -5,7 +5,7 @@ import type { UserProfile, CanEdit } from '../types/portal';
 export interface ProfileChangeLog {
     id: number;
     profile_id: number;
-    changed_by_eid: number;
+    changed_by_eid: string;
     changed_at: string;
     table_name: string;
     record_id: number | null;
@@ -70,19 +70,37 @@ export interface SuggestResponse {
     suggestions: EmployeeSuggestion[];
 }
 
-export const getProfile = async (_eid?: number | string): Promise<ApiResponse<UserProfile>> => {
+export const getMyProfile = async (): Promise<ApiResponse<UserProfile>> => {
     return await getRequest<UserProfile>(`/api/v1/profile/me`);
+};
+
+export const getProfileByEid = async (eid: number | string): Promise<ApiResponse<UserProfile>> => {
+    return await getRequest<UserProfile>(`/api/v1/profile/${eid}`);
+};
+
+export const getProfile = async (_eid?: number | string): Promise<ApiResponse<UserProfile>> => {
+    void _eid;
+    return await getMyProfile();
 };
 
 export const updateProfile = async (_eid: number | string, profileData: CanEdit): Promise<ApiResponse<UserProfile>> => {
     return await patchRequest<UserProfile>(`/api/v1/profile/me`, profileData);
 };
 
+export const updateProfileByEid = async (
+    eid: number | string,
+    profileData: CanEdit
+): Promise<ApiResponse<UserProfile>> => {
+    return await patchRequest<UserProfile>(`/api/v1/profile/${eid}`, profileData);
+};
+
 export const shareProfile = async (_eid?: number | string): Promise<ApiResponse<string>> => {
+    void _eid;
     return await getRequest<string>(`/api/v1/profile/share`);
 };
 
 export const getProfileEditLog = async (_eid?: number | string): Promise<ApiResponse<ProfileChangeLog[]>> => {
+    void _eid;
     return await getRequest<ProfileChangeLog[]>(`/api/v1/profile/log`);
 };
 

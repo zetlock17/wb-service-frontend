@@ -1,5 +1,6 @@
 import { Download, Search, SlidersVertical, Edit, Trash2, Plus, Users } from "lucide-react";
 import { useState, useCallback, useEffect, useRef } from "react";
+import { useNavigate } from "react-router-dom";
 import { searchHierarchy, searchSuggestHierarchy, type OrgUnitHierarchy, type OrgUnitManager, type ProfileSearchResult, type ProfileSuggestion } from "../../api/orgStructureApi";
 import usePortalStore from "../../store/usePortalStore";
 import {
@@ -113,9 +114,10 @@ interface ExpandedNodes {
 interface EmployeeCardProps {
   manager: OrgUnitManager;
   level: number;
+  onOpenProfile?: (eid: string) => void;
 }
 
-const EmployeeCard = ({ manager, level }: EmployeeCardProps) => {
+const EmployeeCard = ({ manager, level, onOpenProfile }: EmployeeCardProps) => {
   return (
     <div className="flex gap-0">
       <div className="flex flex-col items-center">
@@ -136,9 +138,13 @@ const EmployeeCard = ({ manager, level }: EmployeeCardProps) => {
               fullName={manager.full_name}
               size={6}
             />
-            <h4 className="text-lg text-purple-500 truncate">
+            <button
+              type="button"
+              onClick={() => onOpenProfile?.(manager.eid)}
+              className="text-lg text-purple-500 truncate hover:underline"
+            >
               {manager.full_name}
-            </h4>
+            </button>
           </div>
           <p className="text-base text-gray-600 truncate">{manager.position}</p>
         </div>
@@ -161,6 +167,7 @@ interface DepartmentNodeProps {
   onSetManager?: (unit: OrgUnitHierarchy) => void;
   onMove?: (unit: OrgUnitHierarchy) => void;
   onCreateChild?: (parentId: number) => void;
+  onOpenProfile?: (eid: string) => void;
 }
 
 const DepartmentNode = ({
@@ -175,6 +182,7 @@ const DepartmentNode = ({
   onSetManager,
   onMove,
   onCreateChild,
+  onOpenProfile,
 }: DepartmentNodeProps) => {
   const unitKey = `unit-${unit.id}`;
   const isExpanded = expandedNodes[unitKey] ?? true;
@@ -221,6 +229,7 @@ const DepartmentNode = ({
                 <EmployeeCard
                   manager={unit.manager}
                   level={0}
+                  onOpenProfile={onOpenProfile}
                 />
               )}
             </div>
@@ -284,6 +293,7 @@ const DepartmentNode = ({
                   onSetManager={onSetManager}
                   onMove={onMove}
                   onCreateChild={onCreateChild}
+                  onOpenProfile={onOpenProfile}
                 />
               ))}
             </div>
@@ -295,6 +305,7 @@ const DepartmentNode = ({
 };
 
 const StructureModule = () => {
+  const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [activeSearchQuery, setActiveSearchQuery] = useState<string>("");
   const [expandedNodes, setExpandedNodes] = useState<ExpandedNodes>({});
@@ -450,6 +461,10 @@ const StructureModule = () => {
     fetchOrgStructure();
   }, [fetchOrgStructure]);
 
+  const handleOpenProfile = useCallback((eid: string) => {
+    navigate(`/profile/${eid}`);
+  }, [navigate]);
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -529,7 +544,13 @@ const StructureModule = () => {
                       />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <h3 className="text-xl font-semibold text-purple-600 mb-1">{emp.full_name}</h3>
+                      <button
+                        type="button"
+                        onClick={() => handleOpenProfile(String(emp.eid))}
+                        className="text-xl font-semibold text-purple-600 mb-1 hover:underline text-left"
+                      >
+                        {emp.full_name}
+                      </button>
                       <p className="text-base text-gray-700 mb-3">{emp.position}</p>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
                         <div className="flex items-center gap-2">
@@ -604,6 +625,7 @@ const StructureModule = () => {
                   onSetManager={handleSetManager}
                   onMove={handleMoveUnit}
                   onCreateChild={handleCreateChild}
+                  onOpenProfile={handleOpenProfile}
                 />
               </div>
             ))

@@ -33,7 +33,7 @@ export interface CommentViewResponse {
 }
 
 export interface CommentCreate {
-    author_id: string;
+    author_id?: string;
     news_id: number;
     parent_id?: number | null;
     content: string;
@@ -70,7 +70,8 @@ export const getComments = async (
  * @returns ID созданного комментария
  */
 export const createComment = async (commentData: CommentCreate): Promise<ApiResponse<number>> => {
-    return await postRequest<number>('/api/v1/comments/', commentData);
+    const { author_id: _authorId, ...payload } = commentData;
+    return await postRequest<number>('/api/v1/comments/', payload);
 };
 
 /**
