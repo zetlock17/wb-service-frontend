@@ -251,14 +251,14 @@ export const acknowledgeNews = async (newsId: number): Promise<ApiResponse<any>>
     return await postRequest<any>(`/api/v1/news/${newsId}/acknowledge`, {});
 };
 
-/**
- * Получить статус подтверждений прочтения новости
- * @param newsId - ID новости
- * @returns Статус подтверждений (кто прочитал, кто нет)
- */
-export const getNewsAcknowledgements = async (newsId: number): Promise<ApiResponse<any>> => {
-    return await getRequest<any>(`/api/v1/news/${newsId}/acknowledgements`);
-};
+// /**
+//  * Получить статус подтверждений прочтения новости
+//  * @param newsId - ID новости
+//  * @returns Статус подтверждений (кто прочитал, кто нет)
+//  */
+// export const getNewsAcknowledgements = async (newsId: number): Promise<ApiResponse<any>> => {
+//     return await getRequest<any>(`/api/v1/news/${newsId}/acknowledgements`);
+// };
 
 /**
  * Получить историю изменений новости

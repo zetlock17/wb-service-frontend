@@ -49,6 +49,8 @@ const NewsModule = () => {
   const [appliedTag, setAppliedTag] = useState('');
   const [showFilters, setShowFilters] = useState(false);
   const [activeTab, setActiveTab] = useState<'news' | 'drafts'>('news');
+  const [currentPage, setCurrentPage] = useState(1);
+  const PAGE_SIZE = 10;
   const [draftsList, setDraftsList] = useState<NewsListItem[]>([]);
   const [loadingDrafts, setLoadingDrafts] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
@@ -91,12 +93,18 @@ const NewsModule = () => {
   const isAdmin = roles.includes('admin');
 
   useEffect(() => {
-    fetchNews();
+    setCurrentPage(1);
+    fetchNews(1);
     fetchCategories();
     fetchFollowedCategories();
     if (isNewsEditor) fetchDrafts();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedCategory, sortBy, statusFilter, appliedSearch, appliedTag]);
+
+  useEffect(() => {
+    fetchNews(currentPage);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentPage]);
 
   useEffect(() => {
     if (isNewsEditor && activeTab === 'drafts') {
@@ -132,33 +140,60 @@ const NewsModule = () => {
 
   const fetchDrafts = async () => {
     setLoadingDrafts(true);
+    const params = {
+      status: 'DRAFT', 
+      sort_by: 'newest',
+      page: 1,
+      size: 100,
+    };
+    console.log('📡 fetchDrafts params:', params);
     try {
-      const response = await getNews({ status: 'DRAFT', sort_by: 'newest' });
+      console.log('Отправляю запрос на getNews (drafts) с параметрами:', params);
+      const response = await getNews(params);
+      console.log('✅ Ответ от getNews (drafts):', response);
       if (response.status === 200 && response.data) {
+        console.log('✅ Черновиков загружено:', response.data.length);
         setDraftsList(response.data);
       }
     } catch (error) {
-      console.error('Ошибка загрузки черновиков:', error);
+      console.error('❌ Ошибка загрузки черновиков:', error);
+      console.error('Детали ошибки:', {
+        message: error instanceof Error ? error.message : 'Unknown error',
+        stack: error instanceof Error ? error.stack : null,
+      });
     } finally {
       setLoadingDrafts(false);
     }
   };
 
-  const fetchNews = async () => {
+  const fetchNews = async (pageNum: number = currentPage) => {
     setLoading(true);
+    const params = {
+      category_id: selectedCategory,
+      sort_by: sortBy,
+      status: statusFilter || undefined,
+      search: appliedSearch || undefined,
+      tag: appliedTag || undefined,
+      page: pageNum,
+      size: PAGE_SIZE,
+    };
+    console.log('📡 fetchNews params:', params);
     try {
-      const response = await getNews({
-        category_id: selectedCategory,
-        sort_by: sortBy,
-        status: statusFilter || undefined,
-        search: appliedSearch || undefined,
-        tag: appliedTag || undefined,
-      });
+      console.log('Отправляю запрос на getNews с параметрами:', params);
+      const response = await getNews(params);
+      console.log('✅ Ответ от getNews:', response);
       if (response.status === 200 && response.data) {
+        console.log('✅ Новостей загружено:', response.data.length);
         setNewsList(response.data);
+      } else {
+        console.warn('⚠️ Непредвиденный ответ:', response);
       }
     } catch (error) {
-      console.error('Ошибка загрузки новостей:', error);
+      console.error('❌ Ошибка загрузки новостей:', error);
+      console.error('Детали ошибки:', {
+        message: error instanceof Error ? error.message : 'Unknown error',
+        stack: error instanceof Error ? error.stack : null,
+      });
     } finally {
       setLoading(false);
     }
@@ -878,6 +913,29 @@ const NewsModule = () => {
                 </div>
               </button>
             ))
+          )}
+
+          {/* Пагинация */}
+          {newsList.length > 0 && (
+            <div className="flex items-center justify-between mt-8 pt-6 border-t border-gray-200">
+              <button
+                onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                disabled={currentPage === 1}
+                className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                ← Предыдущая
+              </button>
+              <span className="text-sm text-gray-600">
+                Страница <span className="font-semibold">{currentPage}</span>
+              </span>
+              <button
+                onClick={() => setCurrentPage(prev => prev + 1)}
+                disabled={newsList.length < PAGE_SIZE}
+                className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                Следующая →
+              </button>
+            </div>
           )}
         </div>}
       </div>

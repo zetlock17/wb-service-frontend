@@ -224,11 +224,11 @@ const HomeModule = ({ onNavigate, profileEid }: HomeModuleProps) => {
   }, [isForeignProfile, externalProfile?.avatar_id]);
 
   const isHr = roles.includes("hr");
-  const canEditOwnProfileFields = isHr;
+  const canEditOwnProfileFields = true;
 
   const user = isForeignProfile ? externalProfile : currentUser;
   const canEditPersonalFields = isForeignProfile ? isHr : canEditOwnProfileFields;
-  const canEditAvatar = !isForeignProfile && canEditPersonalFields;
+  const canEditAvatar = !isForeignProfile && isHr;
   const displayedAvatarUrl = isForeignProfile ? externalAvatarUrl : avatarUrl;
 
   const orgUnitOptions = useMemo(() => {
@@ -671,7 +671,7 @@ const HomeModule = ({ onNavigate, profileEid }: HomeModuleProps) => {
             <ProfileRow
               label="Рабочий телефон"
               value={user.work_phone}
-              editable={isHr}
+              editable={canEditPersonalFields}
               onEdit={() => startEditing('profile', 'work_phone', { work_phone: user.work_phone })}
             />
             <ProfileRow
