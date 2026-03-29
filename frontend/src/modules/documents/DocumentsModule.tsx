@@ -1,13 +1,15 @@
-import { ChevronRight, Download, Eye, FileText, Folder, FolderOpen, Plus } from "lucide-react";
+import { ChevronRight, Download, Eye, FileText, Folder, FolderOpen, Plus, Home, Trash2, Edit, Check, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import AlertModal from "../../components/common/AlertModal";
 import Modal from "../../components/common/Modal";
 import {
   createFolder,
   deleteFolder,
+  deleteDocument,
   getDocumentDownloadUrl,
   getDocuments,
   getFoldersTree,
+  updateDocument,
   updateFolder,
   uploadDocument,
   type Document,
@@ -112,6 +114,23 @@ const DocumentsModule = () => {
   const [downloadingId, setDownloadingId] = useState<number | null>(null);
   const [selectedDocument, setSelectedDocument] = useState<Document | null>(null);
   const [recentDocumentIds, setRecentDocumentIds] = useState<number[]>([]);
+  const [readDocumentIds, setReadDocumentIds] = useState<Set<number>>(() => {
+    const saved = localStorage.getItem("readDocuments");
+    return saved ? new Set(JSON.parse(saved)) : new Set();
+  });
+  const [isEditingDocument, setIsEditingDocument] = useState(false);
+  const [editingDocumentData, setEditingDocumentData] = useState<{
+    title: string;
+    description: string;
+    status: Document["status"];
+    curator_id: string | null;
+  }>({
+    title: "",
+    description: "",
+    status: "DRAFT",
+    curator_id: null,
+  });
+  const [documentActionLoading, setDocumentActionLoading] = useState(false);
   const { alertState, showAlert, closeAlert } = useAlert();
   const initialLoadRef = useRef(false);
 
@@ -129,6 +148,36 @@ const DocumentsModule = () => {
 
     return isAdmin || String(selectedDocument.curator_id || "") === currentEid;
   }, [currentEid, isAdmin, selectedDocument]);
+
+  const getFolderPath = useCallback((folderId: number | null): BrowserFolder[] => {
+    const path: BrowserFolder[] = [];
+    let currentId = folderId;
+
+    while (currentId !== null) {
+      const folder = folders.find((f) => f.id === currentId);
+      if (!folder) break;
+      path.unshift(folder);
+      currentId = folder.parent_id;
+    }
+
+    return path;
+  }, [folders]);
+
+  const getFolderContents = useCallback(
+    (folderId: number | null) => {
+      const docs = documents.filter((doc) => doc.folder_id === folderId).length;
+      const subs = folders.filter((folder) => folder.parent_id === folderId).length;
+      return { docs, subs };
+    },
+    [documents, folders]
+  );
+
+  const saveReadDocument = useCallback((docId: number) => {
+    const newReadIds = new Set(readDocumentIds);
+    newReadIds.add(docId);
+    setReadDocumentIds(newReadIds);
+    localStorage.setItem("readDocuments", JSON.stringify(Array.from(newReadIds)));
+  }, [readDocumentIds]);
 
   const fetchFolders = useCallback(async () => {
     const foldersResponse = await getFoldersTree();
@@ -243,19 +292,6 @@ const DocumentsModule = () => {
     return result.filter((folder) => folder.name.toLowerCase().includes(query));
   }, [currentFolderId, folders, searchQuery]);
 
-  const currentFolder = useMemo(
-    () => folders.find((folder) => folder.id === currentFolderId) || null,
-    [currentFolderId, folders]
-  );
-
-  const folderPath = useMemo(() => {
-    if (!currentFolder) {
-      return "Корень";
-    }
-
-    return currentFolder.path;
-  }, [currentFolder]);
-
   const resetUploadForm = useCallback(() => {
     setUploadFile(null);
     setUploadTitle("");
@@ -334,14 +370,6 @@ const DocumentsModule = () => {
 
   const onOpenFolder = async (folderId: number) => {
     await navigateToFolder(folderId);
-  };
-
-  const onGoToParentFolder = async () => {
-    if (!currentFolder) {
-      return;
-    }
-
-    await navigateToFolder(currentFolder.parent_id);
   };
 
   const onCreateFolder = async () => {
@@ -424,6 +452,81 @@ const DocumentsModule = () => {
     }
 
     showAlert(response.message || "Не удалось удалить папку", "error");
+  };
+
+  const onEditDocument = async () => {
+    if (!selectedDocument) {
+      return;
+    }
+
+    setDocumentActionLoading(true);
+    const response = await updateDocument(selectedDocument.id, {
+      title: editingDocumentData.title || undefined,
+      description: editingDocumentData.description || undefined,
+      status: editingDocumentData.status,
+      curator_id: editingDocumentData.curator_id || undefined,
+    });
+    setDocumentActionLoading(false);
+
+    if (response.status >= 200 && response.status < 300) {
+      showAlert("Документ обновлен", "success");
+      setIsEditingDocument(false);
+      setSelectedDocument(response.data);
+      await fetchDocumentsByFolder(currentFolderId);
+      return;
+    }
+
+    showAlert(response.message || "Не удалось обновить документ", "error");
+  };
+
+  const onDeleteDocument = async () => {
+    if (!selectedDocument) {
+      return;
+    }
+
+    const isConfirmed = window.confirm(
+      `Удалить документ "${selectedDocument.title}"? Эта операция необратима.`
+    );
+
+    if (!isConfirmed) {
+      return;
+    }
+
+    setDocumentActionLoading(true);
+    const response = await deleteDocument(selectedDocument.id);
+    setDocumentActionLoading(false);
+
+    if (response.status >= 200 && response.status < 300) {
+      showAlert("Документ удален", "success");
+      setSelectedDocument(null);
+      await fetchDocumentsByFolder(currentFolderId);
+      return;
+    }
+
+    showAlert(response.message || "Не удалось удалить документ", "error");
+  };
+
+  const onMarkAsRead = () => {
+    if (!selectedDocument) {
+      return;
+    }
+
+    saveReadDocument(selectedDocument.id);
+    showAlert("Документ отмечен как прочитанный", "success");
+  };
+
+  const onStartEditingDocument = () => {
+    if (!selectedDocument) {
+      return;
+    }
+
+    setEditingDocumentData({
+      title: selectedDocument.title,
+      description: selectedDocument.description || "",
+      status: selectedDocument.status,
+      curator_id: selectedDocument.curator_id,
+    });
+    setIsEditingDocument(true);
   };
 
   if (loading) {
@@ -626,18 +729,35 @@ const DocumentsModule = () => {
             </div>
           )}
 
-          <div className="flex items-center justify-between mb-3 px-1">
-            <div className="text-sm text-gray-600">
-              Текущая папка: <span className="font-medium text-gray-900">{folderPath}</span>
-            </div>
-            {currentFolder && (
+          {/* Красивая навигация по папкам */}
+          <div className="mb-4 px-1 py-3 bg-gray-50 rounded-lg">
+            <div className="flex items-center gap-2 flex-wrap">
               <button
-                onClick={() => void onGoToParentFolder()}
-                className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg hover:bg-gray-50"
+                onClick={() => void navigateToFolder(null)}
+                className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-sm transition-colors ${
+                  currentFolderId === null
+                    ? "bg-purple-600 text-white"
+                    : "bg-white text-gray-700 border border-gray-200 hover:bg-gray-100"
+                }`}
               >
-                Назад к родителю
+                <Home className="w-4 h-4" />
+                Корень
               </button>
-            )}
+              {getFolderPath(currentFolderId).map((folder) => (
+                <div key={folder.id} className="flex items-center gap-2">
+                  <ChevronRight className="w-4 h-4 text-gray-400" />
+                  <button
+                    onClick={() => void navigateToFolder(folder.id)}
+                    className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-sm transition-colors bg-white text-gray-700 border border-gray-200 hover:bg-gray-100"
+                    title={`ID: ${folder.id}`}
+                  >
+                    <Folder className="w-4 h-4" />
+                    <span>{folder.name}</span>
+                    <span className="text-xs text-gray-500 ml-1">#{folder.id}</span>
+                  </button>
+                </div>
+              ))}
+            </div>
           </div>
 
         <div className="space-y-3">
@@ -645,24 +765,46 @@ const DocumentsModule = () => {
             <p className="text-sm text-gray-500 px-1">Загружаем документы выбранной папки...</p>
           )}
 
-            {childFolders.map((folder) => (
-              <button
-                key={`folder-${folder.id}`}
-                onClick={() => void onOpenFolder(folder.id)}
-                className="w-full border border-blue-200 bg-blue-50/50 rounded-lg p-4 hover:shadow-md transition-shadow text-left"
-              >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3 min-w-0">
-                    <FolderOpen className="w-5 h-5 text-blue-700 shrink-0" />
-                    <div className="min-w-0">
-                      <h3 className="font-semibold text-gray-900 truncate">{folder.name}</h3>
-                      <p className="text-sm text-gray-600 truncate">{folder.path}</p>
+            {childFolders.map((folder) => {
+              const { docs, subs } = getFolderContents(folder.id);
+              return (
+                <button
+                  key={`folder-${folder.id}`}
+                  onClick={() => void onOpenFolder(folder.id)}
+                  className="w-full border border-blue-200 bg-blue-50/50 rounded-lg p-4 hover:shadow-md transition-shadow text-left"
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3 min-w-0 flex-1">
+                      <FolderOpen className="w-5 h-5 text-blue-700 shrink-0" />
+                      <div className="min-w-0 flex-1">
+                        <h3 className="font-semibold text-gray-900 truncate">{folder.name}</h3>
+                        <div className="flex items-center gap-4 text-xs text-gray-600 mt-1">
+                          {(docs > 0 || subs > 0) ? (
+                            <>
+                              {docs > 0 && (
+                                <span className="flex items-center gap-1 bg-white px-2 py-1 rounded">
+                                  <FileText className="w-3 h-3" />
+                                  {docs} {docs === 1 ? "документ" : "документов"}
+                                </span>
+                              )}
+                              {subs > 0 && (
+                                <span className="flex items-center gap-1 bg-white px-2 py-1 rounded">
+                                  <Folder className="w-3 h-3" />
+                                  {subs} {subs === 1 ? "папка" : "папок"}
+                                </span>
+                              )}
+                            </>
+                          ) : (
+                            <span className="text-gray-400 italic">Папка пуста</span>
+                          )}
+                        </div>
+                      </div>
                     </div>
+                    <ChevronRight className="w-5 h-5 text-gray-400 shrink-0" />
                   </div>
-                  <ChevronRight className="w-5 h-5 text-gray-400" />
-                </div>
-              </button>
-            ))}
+                </button>
+              );
+            })}
 
           {filteredDocuments.map((doc) => (
             <button
@@ -787,68 +929,184 @@ const DocumentsModule = () => {
         </div>
       </Modal>
 
-      <Modal isOpen={Boolean(selectedDocument)} title={selectedDocument?.title ?? ""} onClose={() => setSelectedDocument(null)}>
+      <Modal isOpen={Boolean(selectedDocument)} title={selectedDocument?.title ?? ""} onClose={() => {
+        setSelectedDocument(null);
+        setIsEditingDocument(false);
+      }}>
         {selectedDocument && (
           <div className="space-y-4">
-            <div className="flex flex-wrap items-center gap-4 text-sm text-gray-600">
-              <span
-                className={`px-3 py-1 rounded-full ${statusBadgeClasses[selectedDocument.status]}`}
-              >
-                {statusLabels[selectedDocument.status]}
-              </span>
-              <span>{selectedDocument.type}</span>
-              <span>Версия {selectedDocument.current_version}</span>
-              <span>{formatDate(selectedDocument.updated_at || selectedDocument.created_at)}</span>
-            </div>
-            <div>
-              <h3 className="font-semibold text-gray-900 mb-1">Автор</h3>
-              <p className="text-gray-600">{selectedDocument.author_id}</p>
-            </div>
-            <div>
-              <h3 className="font-semibold text-gray-900 mb-1">Описание</h3>
-              <p className="text-gray-600">{selectedDocument.description || "Описание не заполнено"}</p>
-            </div>
-            <div className="flex flex-wrap gap-3">
-              <button
-                onClick={() => onDownloadDocument(selectedDocument.id)}
-                disabled={downloadingId === selectedDocument.id}
-                className="flex-1 min-w-44 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-60 flex items-center justify-center gap-2"
-              >
-                <Download className="w-4 h-4" />
-                {downloadingId === selectedDocument.id ? "Получение ссылки..." : "Скачать"}
-              </button>
-              <button className="flex-1 min-w-44 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50">
-                {selectedDocument.original_filename}
-              </button>
-              <button className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50">
-                {selectedDocument.mime_type}
-              </button>
-            </div>
-            {canManageSelectedDocument && (
-              <div className="pt-2 flex flex-wrap gap-3">
-                <button
-                  onClick={onUploadClick}
-                  className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700"
-                >
-                  Загрузить новую версию
-                </button>
-                <button className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50">
-                  Редактировать карточку
-                </button>
-              </div>
-            )}
+            {!isEditingDocument ? (
+              <>
+                <div className="flex flex-wrap items-center gap-4 text-sm text-gray-600">
+                  <span className={`px-3 py-1 rounded-full ${statusBadgeClasses[selectedDocument.status]}`}>
+                    {statusLabels[selectedDocument.status]}
+                  </span>
+                  <span>{selectedDocument.type}</span>
+                  <span>Версия {selectedDocument.current_version}</span>
+                  <span>{formatDate(selectedDocument.updated_at || selectedDocument.created_at)}</span>
+                  {readDocumentIds.has(selectedDocument.id) && (
+                    <span className="px-2 py-1 bg-green-100 text-green-700 rounded text-xs font-medium flex items-center gap-1">
+                      <Check className="w-3 h-3" />
+                      Прочитано
+                    </span>
+                  )}
+                </div>
+                <div>
+                  <h3 className="font-semibold text-gray-900 mb-1">Автор</h3>
+                  <p className="text-gray-600">{selectedDocument.author_id}</p>
+                </div>
+                {selectedDocument.curator_id && (
+                  <div>
+                    <h3 className="font-semibold text-gray-900 mb-1">Куратор</h3>
+                    <p className="text-gray-600">{selectedDocument.curator_id}</p>
+                  </div>
+                )}
+                <div>
+                  <h3 className="font-semibold text-gray-900 mb-1">Описание</h3>
+                  <p className="text-gray-600">{selectedDocument.description || "Описание не заполнено"}</p>
+                </div>
+                <div className="flex flex-wrap gap-3">
+                  <button
+                    onClick={() => onDownloadDocument(selectedDocument.id)}
+                    disabled={downloadingId === selectedDocument.id}
+                    className="flex-1 min-w-44 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-60 flex items-center justify-center gap-2"
+                  >
+                    <Download className="w-4 h-4" />
+                    {downloadingId === selectedDocument.id ? "Получение ссылки..." : "Скачать"}
+                  </button>
+                  <button className="flex-1 min-w-44 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 text-xs truncate" title={selectedDocument.original_filename}>
+                    📄 {selectedDocument.original_filename}
+                  </button>
+                  <button className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 text-xs">
+                    {selectedDocument.mime_type}
+                  </button>
+                </div>
 
-            <div className="pt-2 border-t border-gray-200">
-              <h3 className="font-semibold text-gray-900 mb-2">Требует ознакомления</h3>
-              <button className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50">
-                Отметить как прочитанный
-              </button>
-            </div>
+                <div className="pt-2 border-t border-gray-200">
+                  <h3 className="font-semibold text-gray-900 mb-2">Статус бумаги</h3>
+                  <button
+                    onClick={onMarkAsRead}
+                    disabled={readDocumentIds.has(selectedDocument.id)}
+                    className={`w-full px-4 py-2 rounded-lg transition-colors flex items-center justify-center gap-2 ${
+                      readDocumentIds.has(selectedDocument.id)
+                        ? "bg-green-100 text-green-700 cursor-default"
+                        : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                    }`}
+                  >
+                    <Check className="w-4 h-4" />
+                    {readDocumentIds.has(selectedDocument.id) ? "Вы отметили как прочитанный" : "Отметить как прочитанный"}
+                  </button>
+                </div>
 
-            {canManageSelectedDocument && (
-              <div className="pt-2 border-t border-gray-200">
-                <h3 className="font-semibold text-gray-900 mb-2">Панель ознакомления</h3>
-                <p className="text-sm text-gray-600">Доступно администратору и куратору документа: прогресс по сотрудникам появится после подключения API ознакомления.</p>
+                {canManageSelectedDocument && (
+                  <>
+                    <div className="pt-2 border-t border-gray-200 flex flex-wrap gap-3">
+                      <button
+                        onClick={onStartEditingDocument}
+                        className="flex-1 min-w-32 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center justify-center gap-2"
+                      >
+                        <Edit className="w-4 h-4" />
+                        Редактировать
+                      </button>
+                      <button
+                        onClick={onDeleteDocument}
+                        disabled={documentActionLoading}
+                        className="flex-1 min-w-32 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-60 flex items-center justify-center gap-2"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                        Удалить
+                      </button>
+                    </div>
+
+                    <div className="pt-2 border-t border-gray-200">
+                      <h3 className="font-semibold text-gray-900 mb-2">Панель ознакомления</h3>
+                      <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm text-gray-600">
+                        <p>Это мета-документ требует ознакомления от сотрудников. Панель управления появится после подключения API ознакомления.</p>
+                        <p className="mt-2 text-xs text-gray-500">Контакт: администратор системы</p>
+                      </div>
+                    </div>
+                  </>
+                )}
+              </>
+            ) : (
+              <div className="space-y-4">
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                  <p className="text-sm text-blue-900">Редактирование документа</p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Название</label>
+                  <input
+                    type="text"
+                    value={editingDocumentData.title}
+                    onChange={(e) =>
+                      setEditingDocumentData({ ...editingDocumentData, title: e.target.value })
+                    }
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Описание</label>
+                  <textarea
+                    value={editingDocumentData.description}
+                    onChange={(e) =>
+                      setEditingDocumentData({ ...editingDocumentData, description: e.target.value })
+                    }
+                    rows={4}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Статус</label>
+                  <select
+                    value={editingDocumentData.status}
+                    onChange={(e) =>
+                      setEditingDocumentData({
+                        ...editingDocumentData,
+                        status: e.target.value as Document["status"],
+                      })
+                    }
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  >
+                    <option value="DRAFT">Черновик</option>
+                    <option value="PUBLISHED">Актуален</option>
+                    <option value="ARCHIVED">Архивный</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Куратор</label>
+                  <input
+                    type="text"
+                    value={editingDocumentData.curator_id || ""}
+                    onChange={(e) =>
+                      setEditingDocumentData({ ...editingDocumentData, curator_id: e.target.value || null })
+                    }
+                    placeholder="EID куратора"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  />
+                </div>
+
+                <div className="flex gap-2 pt-2">
+                  <button
+                    onClick={onEditDocument}
+                    disabled={documentActionLoading}
+                    className="flex-1 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-60 flex items-center justify-center gap-2"
+                  >
+                    <Check className="w-4 h-4" />
+                    {documentActionLoading ? "Сохранение..." : "Сохранить"}
+                  </button>
+                  <button
+                    onClick={() => setIsEditingDocument(false)}
+                    disabled={documentActionLoading}
+                    className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 disabled:opacity-60 flex items-center justify-center gap-2"
+                  >
+                    <X className="w-4 h-4" />
+                    Отмена
+                  </button>
+                </div>
               </div>
             )}
           </div>
