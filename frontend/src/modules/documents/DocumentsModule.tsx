@@ -1,4 +1,4 @@
-import { ChevronRight, Download, Eye, FileText, Folder, FolderOpen, Plus, Home, Trash2, Edit, Check, X } from "lucide-react";
+import { ChevronRight, Download, Eye, FileText, Folder, FolderOpen, Plus, Home, Trash2, Edit, Check, X, CalendarClock } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import AlertModal from "../../components/common/AlertModal";
 import Modal from "../../components/common/Modal";
@@ -15,6 +15,7 @@ import {
   type Document,
   type FolderTree,
 } from "../../api/documentsApi";
+import { getProfilesList } from "../../api/profileApi";
 import { useAlert } from "../../hooks/useAlert";
 import usePortalStore from "../../store/usePortalStore";
 
@@ -28,6 +29,17 @@ const statusBadgeClasses: Record<Document["status"], string> = {
   DRAFT: "bg-amber-100 text-amber-700",
   PUBLISHED: "bg-green-100 text-green-700",
   ARCHIVED: "bg-gray-100 text-gray-700",
+};
+
+const documentTypeLabels: Record<string, string> = {
+  regulation: "Регламент",
+  policy: "Политика",
+  instruction: "Инструкция",
+  order: "Приказ",
+  procedure: "Процедура",
+  standard: "Стандарт",
+  memo: "Памятка",
+  guide: "Руководство",
 };
 
 const extractDownloadUrl = (value: unknown): string | null => {
@@ -61,12 +73,221 @@ const formatDate = (value: string | null): string => {
   return date.toLocaleDateString("ru-RU");
 };
 
+const formatDateTime = (value: string | null): string => {
+  if (!value) {
+    return "-";
+  }
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return "-";
+  }
+
+  return date.toLocaleString("ru-RU", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+};
+
+const formatDocumentType = (value: string): string => {
+  const normalized = value.trim().toLowerCase();
+  return documentTypeLabels[normalized] || value;
+};
+
 interface BrowserFolder {
   id: number;
   name: string;
   path: string;
   parent_id: number | null;
 }
+
+interface FolderPickerModalProps {
+  isOpen: boolean;
+  title: string;
+  folders: BrowserFolder[];
+  initialValue: number | null;
+  rootLabel: string;
+  onClose: () => void;
+  onConfirm: (value: number | null) => void;
+}
+
+const FolderPickerModal = ({
+  isOpen,
+  title,
+  folders,
+  initialValue,
+  rootLabel,
+  onClose,
+  onConfirm,
+}: FolderPickerModalProps) => {
+  const [activeFolderId, setActiveFolderId] = useState<number | null>(initialValue);
+  const [selectedFolderId, setSelectedFolderId] = useState<number | null>(initialValue);
+
+  const foldersById = useMemo(() => new Map(folders.map((folder) => [folder.id, folder])), [folders]);
+
+  const childrenByParent = useMemo(() => {
+    const map = new Map<number | null, BrowserFolder[]>();
+
+    for (const folder of folders) {
+      const current = map.get(folder.parent_id) || [];
+      current.push(folder);
+      map.set(folder.parent_id, current);
+    }
+
+    for (const [key, list] of map) {
+      map.set(
+        key,
+        [...list].sort((a, b) => a.name.localeCompare(b.name, "ru-RU"))
+      );
+    }
+
+    return map;
+  }, [folders]);
+
+  const getFolderPath = useCallback((folderId: number | null) => {
+    if (folderId === null) {
+      return [] as BrowserFolder[];
+    }
+
+    const path: BrowserFolder[] = [];
+    let currentId: number | null = folderId;
+
+    while (currentId !== null) {
+      const folder = foldersById.get(currentId);
+      if (!folder) {
+        break;
+      }
+
+      path.unshift(folder);
+      currentId = folder.parent_id;
+    }
+
+    return path;
+  }, [foldersById]);
+
+  const activePath = useMemo(() => getFolderPath(activeFolderId), [activeFolderId, getFolderPath]);
+  const activeChildren = useMemo(() => childrenByParent.get(activeFolderId) || [], [activeFolderId, childrenByParent]);
+  const selectedFolderName =
+    selectedFolderId === null ? rootLabel : foldersById.get(selectedFolderId)?.name || rootLabel;
+
+  return (
+    <Modal isOpen={isOpen} title={title} onClose={onClose} widthClass="max-w-3xl">
+      <div className="space-y-4">
+        <div className="rounded-lg border border-purple-200 bg-purple-50 px-4 py-3 text-sm text-purple-900">
+          Выбрано: <span className="font-semibold">{selectedFolderName}</span>
+        </div>
+
+        <div className="rounded-lg border border-gray-200 bg-gray-50 p-3">
+          <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">Текущая папка</div>
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setActiveFolderId(null)}
+              className={`flex items-center gap-1 rounded-lg border px-3 py-1.5 text-sm ${
+                activeFolderId === null
+                  ? "border-purple-600 bg-purple-600 text-white"
+                  : "border-gray-300 bg-white text-gray-700 hover:bg-gray-100"
+              }`}
+            >
+              <Home className="h-4 w-4" />
+              {rootLabel}
+            </button>
+            {activePath.map((folder) => (
+              <div key={`breadcrumb-${folder.id}`} className="flex items-center gap-2">
+                <ChevronRight className="h-4 w-4 text-gray-400" />
+                <button
+                  type="button"
+                  onClick={() => setActiveFolderId(folder.id)}
+                  className={`rounded-lg border px-3 py-1.5 text-sm ${
+                    activeFolderId === folder.id
+                      ? "border-purple-600 bg-purple-600 text-white"
+                      : "border-gray-300 bg-white text-gray-700 hover:bg-gray-100"
+                  }`}
+                >
+                  {folder.name}
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="rounded-lg border border-gray-200">
+          <div className="border-b border-gray-200 px-4 py-3">
+            <button
+              type="button"
+              onClick={() => setSelectedFolderId(activeFolderId)}
+              className="rounded-lg border border-purple-300 bg-purple-50 px-3 py-1.5 text-sm font-medium text-purple-900 hover:bg-purple-100"
+            >
+              Выбрать текущую папку
+            </button>
+          </div>
+
+          <div className="max-h-80 overflow-y-auto px-2 py-2">
+            {!activeChildren.length ? (
+              <p className="px-2 py-4 text-sm text-gray-500">В этой папке нет подпапок</p>
+            ) : (
+              <div className="space-y-2">
+                {activeChildren.map((folder) => {
+                  const isSelected = selectedFolderId === folder.id;
+
+                  return (
+                    <div
+                      key={`picker-folder-${folder.id}`}
+                      className={`flex items-center justify-between gap-2 rounded-lg border px-3 py-2 ${
+                        isSelected ? "border-purple-500 bg-purple-50" : "border-gray-200 bg-white"
+                      }`}
+                    >
+                      <div className="min-w-0">
+                        <p className="truncate font-medium text-gray-900">{folder.name}</p>
+                        <p className="truncate text-xs text-gray-500">{folder.path}</p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setSelectedFolderId(folder.id)}
+                          className="rounded-md border border-gray-300 px-2 py-1 text-xs text-gray-700 hover:bg-gray-100"
+                        >
+                          Выбрать
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setActiveFolderId(folder.id)}
+                          className="rounded-md bg-purple-600 px-2 py-1 text-xs text-white hover:bg-purple-700"
+                        >
+                          Открыть
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="flex justify-end gap-2 pt-1">
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-lg border border-gray-300 px-4 py-2 text-gray-700 hover:bg-gray-50"
+          >
+            Отмена
+          </button>
+          <button
+            type="button"
+            onClick={() => onConfirm(selectedFolderId)}
+            className="rounded-lg bg-purple-600 px-4 py-2 text-white hover:bg-purple-700"
+          >
+            Применить
+          </button>
+        </div>
+      </div>
+    </Modal>
+  );
+};
 
 const flattenFolderTree = (nodes: FolderTree[], parentId: number | null = null): BrowserFolder[] => {
   const result: BrowserFolder[] = [];
@@ -97,20 +318,24 @@ const DocumentsModule = () => {
   const [documentFilter, setDocumentFilter] = useState("all");
   const [currentFolderId, setCurrentFolderId] = useState<number | null>(null);
   const [documents, setDocuments] = useState<Document[]>([]);
+  const [profilesMap, setProfilesMap] = useState<Record<string, string>>({});
   const [folders, setFolders] = useState<BrowserFolder[]>([]);
-  const [folderManagerId, setFolderManagerId] = useState("all");
+  const [folderManagerId, setFolderManagerId] = useState<number | null>(null);
   const [newFolderName, setNewFolderName] = useState("");
-  const [newFolderParentId, setNewFolderParentId] = useState("root");
+  const [newFolderParentId, setNewFolderParentId] = useState<number | null>(null);
   const [renameFolderName, setRenameFolderName] = useState("");
   const [folderActionLoading, setFolderActionLoading] = useState(false);
   const [loading, setLoading] = useState(true);
   const [documentsLoading, setDocumentsLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
+  const [activeFolderPicker, setActiveFolderPicker] = useState<
+    "current" | "new-parent" | "manage" | "upload" | null
+  >(null);
   const [uploadFile, setUploadFile] = useState<File | null>(null);
   const [uploadTitle, setUploadTitle] = useState("");
   const [uploadDescription, setUploadDescription] = useState("");
-  const [uploadFolderId, setUploadFolderId] = useState("none");
+  const [uploadFolderId, setUploadFolderId] = useState<number | null>(null);
   const [downloadingId, setDownloadingId] = useState<number | null>(null);
   const [selectedDocument, setSelectedDocument] = useState<Document | null>(null);
   const [recentDocumentIds, setRecentDocumentIds] = useState<number[]>([]);
@@ -163,6 +388,82 @@ const DocumentsModule = () => {
     return path;
   }, [folders]);
 
+  const getFolderDisplayName = useCallback(
+    (folderId: number | null, rootLabel: string) => {
+      if (folderId === null) {
+        return rootLabel;
+      }
+
+      return folders.find((item) => item.id === folderId)?.name || rootLabel;
+    },
+    [folders]
+  );
+
+  const folderPickerConfig = useMemo(() => {
+    if (activeFolderPicker === null) {
+      return null;
+    }
+
+    if (activeFolderPicker === "current") {
+      return {
+        title: "Выбор текущей папки",
+        rootLabel: "Корень",
+        initialValue: currentFolderId,
+      };
+    }
+
+    if (activeFolderPicker === "new-parent") {
+      return {
+        title: "Выбор родительской папки",
+        rootLabel: "Корень",
+        initialValue: newFolderParentId,
+      };
+    }
+
+    if (activeFolderPicker === "manage") {
+      return {
+        title: "Выбор папки для управления",
+        rootLabel: "Не выбрано",
+        initialValue: folderManagerId,
+      };
+    }
+
+    return {
+      title: "Выбор папки для документа",
+      rootLabel: "Без папки",
+      initialValue: uploadFolderId,
+    };
+  }, [activeFolderPicker, currentFolderId, folderManagerId, newFolderParentId, uploadFolderId]);
+
+  const onFolderPickerConfirm = async (value: number | null) => {
+    if (!activeFolderPicker) {
+      return;
+    }
+
+    const pickerType = activeFolderPicker;
+    setActiveFolderPicker(null);
+
+    if (pickerType === "current") {
+      setCurrentFolderId(value);
+      await fetchDocumentsByFolder(value);
+      return;
+    }
+
+    if (pickerType === "new-parent") {
+      setNewFolderParentId(value);
+      return;
+    }
+
+    if (pickerType === "manage") {
+      setFolderManagerId(value);
+      const folder = folders.find((item) => item.id === value);
+      setRenameFolderName(folder?.name || "");
+      return;
+    }
+
+    setUploadFolderId(value);
+  };
+
   const getFolderContents = useCallback(
     (folderId: number | null) => {
       const docs = documents.filter((doc) => doc.folder_id === folderId).length;
@@ -186,9 +487,15 @@ const DocumentsModule = () => {
       const flatFolders = flattenFolderTree(foldersResponse.data || []);
       setFolders(flatFolders);
       setFolderManagerId((prev) =>
-        prev !== "all" && !flatFolders.some((folder) => String(folder.id) === prev) ? "all" : prev
+        prev !== null && !flatFolders.some((folder) => folder.id === prev) ? null : prev
       );
       setCurrentFolderId((prev) =>
+        prev !== null && !flatFolders.some((folder) => folder.id === prev) ? null : prev
+      );
+      setNewFolderParentId((prev) =>
+        prev !== null && !flatFolders.some((folder) => folder.id === prev) ? null : prev
+      );
+      setUploadFolderId((prev) =>
         prev !== null && !flatFolders.some((folder) => folder.id === prev) ? null : prev
       );
       return true;
@@ -197,6 +504,48 @@ const DocumentsModule = () => {
     showAlert(foldersResponse.message || "Не удалось загрузить папки", "error");
     return false;
   }, [showAlert]);
+
+  const fetchProfilesMap = useCallback(async () => {
+    const pageSize = 100;
+    const maxPages = 100;
+    const profiles: Array<{ eid: string; full_name: string }> = [];
+
+    for (let page = 1; page <= maxPages; page += 1) {
+      const profilesResponse = await getProfilesList({ page, size: pageSize });
+
+      if (profilesResponse.status < 200 || profilesResponse.status >= 300) {
+        break;
+      }
+
+      const currentPage = profilesResponse.data || [];
+      profiles.push(...currentPage);
+
+      if (currentPage.length < pageSize) {
+        break;
+      }
+    }
+
+    const map = profiles.reduce<Record<string, string>>((acc, profile) => {
+      const key = String(profile.eid);
+      if (key) {
+        acc[key] = profile.full_name;
+      }
+      return acc;
+    }, {});
+
+    setProfilesMap(map);
+  }, []);
+
+  const getPersonDisplayName = useCallback(
+    (eid: string | null | undefined) => {
+      if (!eid) {
+        return "-";
+      }
+
+      return profilesMap[String(eid)] || String(eid);
+    },
+    [profilesMap]
+  );
 
   const fetchDocumentsByFolder = useCallback(
     async (folderId: number | null) => {
@@ -226,14 +575,14 @@ const DocumentsModule = () => {
   useEffect(() => {
     const initialize = async () => {
       setLoading(true);
-      await fetchFolders();
+      await Promise.all([fetchFolders(), fetchProfilesMap()]);
       initialLoadRef.current = true;
       await fetchDocumentsByFolder(null);
       setLoading(false);
     };
 
     void initialize();
-  }, [fetchDocumentsByFolder, fetchFolders]);
+  }, [fetchDocumentsByFolder, fetchFolders, fetchProfilesMap]);
 
   const navigateToFolder = useCallback(
     async (folderId: number | null) => {
@@ -296,7 +645,7 @@ const DocumentsModule = () => {
     setUploadFile(null);
     setUploadTitle("");
     setUploadDescription("");
-    setUploadFolderId("none");
+    setUploadFolderId(null);
   }, []);
 
   const onUploadClick = () => {
@@ -307,7 +656,7 @@ const DocumentsModule = () => {
 
     resetUploadForm();
     if (currentFolderId !== null) {
-      setUploadFolderId(String(currentFolderId));
+      setUploadFolderId(currentFolderId);
     }
     setIsUploadModalOpen(true);
   };
@@ -320,7 +669,7 @@ const DocumentsModule = () => {
 
     const title = uploadTitle.trim() || uploadFile.name;
     const description = uploadDescription.trim();
-    const folderId = uploadFolderId === "none" ? null : Number(uploadFolderId);
+    const folderId = uploadFolderId;
 
     setUploading(true);
     const response = await uploadDocument(uploadFile, {
@@ -382,7 +731,7 @@ const DocumentsModule = () => {
     setFolderActionLoading(true);
     const response = await createFolder({
       name,
-      parent_id: newFolderParentId === "root" ? null : Number(newFolderParentId),
+      parent_id: newFolderParentId,
     });
     setFolderActionLoading(false);
 
@@ -398,7 +747,7 @@ const DocumentsModule = () => {
   };
 
   const onRenameFolder = async () => {
-    if (folderManagerId === "all") {
+    if (folderManagerId === null) {
       showAlert("Выберите папку для переименования", "warning");
       return;
     }
@@ -410,7 +759,7 @@ const DocumentsModule = () => {
     }
 
     setFolderActionLoading(true);
-    const response = await updateFolder(Number(folderManagerId), { name });
+    const response = await updateFolder(folderManagerId, { name });
     setFolderActionLoading(false);
 
     if (response.status >= 200 && response.status < 300) {
@@ -424,12 +773,12 @@ const DocumentsModule = () => {
   };
 
   const onDeleteFolder = async () => {
-    if (folderManagerId === "all") {
+    if (folderManagerId === null) {
       showAlert("Выберите папку для удаления", "warning");
       return;
     }
 
-    const folder = folders.find((item) => String(item.id) === folderManagerId);
+    const folder = folders.find((item) => item.id === folderManagerId);
     const isConfirmed = window.confirm(
       `Удалить папку "${folder?.name || "Без названия"}"? Эта операция необратима.`
     );
@@ -439,12 +788,12 @@ const DocumentsModule = () => {
     }
 
     setFolderActionLoading(true);
-    const response = await deleteFolder(Number(folderManagerId));
+    const response = await deleteFolder(folderManagerId);
     setFolderActionLoading(false);
 
     if (response.status >= 200 && response.status < 300) {
       showAlert("Папка удалена", "success");
-      setFolderManagerId("all");
+      setFolderManagerId(null);
       setRenameFolderName("");
       await fetchFolders();
       await fetchDocumentsByFolder(currentFolderId);
@@ -598,21 +947,16 @@ const DocumentsModule = () => {
             onChange={(event) => setSearchQuery(event.target.value)}
             className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
           />
-          <select
-            value={currentFolderId === null ? "root" : String(currentFolderId)}
-            onChange={(event) => {
-              const value = event.target.value;
-              void navigateToFolder(value === "root" ? null : Number(value));
-            }}
-            className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+          <button
+            type="button"
+            onClick={() => setActiveFolderPicker("current")}
+            className="min-w-72 rounded-lg border border-gray-300 bg-white px-4 py-2 text-left text-gray-700 hover:bg-gray-50"
           >
-            <option value="root">Корень</option>
-            {folders.map((folder) => (
-              <option key={folder.id} value={String(folder.id)}>
-                {folder.path}
-              </option>
-            ))}
-          </select>
+            <span className="block text-xs text-gray-500">Текущая папка</span>
+            <span className="block truncate font-medium text-gray-900">
+              {getFolderDisplayName(currentFolderId, "Корень")}
+            </span>
+          </button>
           <select
             value={documentFilter}
             onChange={(event) => setDocumentFilter(event.target.value)}
@@ -646,18 +990,16 @@ const DocumentsModule = () => {
                 </div>
                 <div>
                   <label className="block text-xs text-gray-600 mb-1">Родитель</label>
-                  <select
-                    value={newFolderParentId}
-                    onChange={(event) => setNewFolderParentId(event.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  <button
+                    type="button"
+                    onClick={() => setActiveFolderPicker("new-parent")}
+                    className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-left hover:bg-gray-50"
                   >
-                    <option value="root">Корень</option>
-                    {folders.map((folder) => (
-                      <option key={folder.id} value={String(folder.id)}>
-                        {folder.path}
-                      </option>
-                    ))}
-                  </select>
+                    <span className="block text-xs text-gray-500">Родительская папка</span>
+                    <span className="block truncate text-sm font-medium text-gray-900">
+                      {getFolderDisplayName(newFolderParentId, "Корень")}
+                    </span>
+                  </button>
                 </div>
               </div>
 
@@ -674,29 +1016,16 @@ const DocumentsModule = () => {
               <div className="border-t border-gray-200 pt-4 grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
                 <div>
                   <label className="block text-xs text-gray-600 mb-1">Выберите папку</label>
-                  <select
-                    value={folderManagerId}
-                    onChange={(event) => {
-                      const selectedId = event.target.value;
-                      setFolderManagerId(selectedId);
-
-                      if (selectedId === "all") {
-                        setRenameFolderName("");
-                        return;
-                      }
-
-                      const folder = folders.find((item) => String(item.id) === selectedId);
-                      setRenameFolderName(folder?.name || "");
-                    }}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  <button
+                    type="button"
+                    onClick={() => setActiveFolderPicker("manage")}
+                    className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-left hover:bg-gray-50"
                   >
-                    <option value="all">Не выбрано</option>
-                    {folders.map((folder) => (
-                      <option key={folder.id} value={String(folder.id)}>
-                        {folder.path}
-                      </option>
-                    ))}
-                  </select>
+                    <span className="block text-xs text-gray-500">Папка для управления</span>
+                    <span className="block truncate text-sm font-medium text-gray-900">
+                      {getFolderDisplayName(folderManagerId, "Не выбрано")}
+                    </span>
+                  </button>
                 </div>
                 <div className="md:col-span-2">
                   <label className="block text-xs text-gray-600 mb-1">Новое название</label>
@@ -749,11 +1078,10 @@ const DocumentsModule = () => {
                   <button
                     onClick={() => void navigateToFolder(folder.id)}
                     className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-sm transition-colors bg-white text-gray-700 border border-gray-200 hover:bg-gray-100"
-                    title={`ID: ${folder.id}`}
+                    title={folder.path}
                   >
                     <Folder className="w-4 h-4" />
                     <span>{folder.name}</span>
-                    <span className="text-xs text-gray-500 ml-1">#{folder.id}</span>
                   </button>
                 </div>
               ))}
@@ -825,14 +1153,17 @@ const DocumentsModule = () => {
                   <div className="flex flex-wrap items-center gap-4 text-sm text-gray-600">
                     <span className="flex items-center gap-1">
                       <FileText className="w-4 h-4" />
-                      {doc.type}
+                      Тип: {formatDocumentType(doc.type)}
                     </span>
                     <span className="flex items-center gap-1">
                       <Folder className="w-4 h-4" />
                       {folders.find((item) => item.id === doc.folder_id)?.name || "Без папки"}
                     </span>
-                    <span>{formatDate(doc.updated_at || doc.created_at)}</span>
-                    <span>{doc.author_id}</span>
+                    <span className="flex items-center gap-1">
+                      <CalendarClock className="w-4 h-4" />
+                      Выкладка: {formatDateTime(doc.created_at)}
+                    </span>
+                    <span>{getPersonDisplayName(doc.author_id)}</span>
                     <span>v{doc.current_version}</span>
                     <span className="flex items-center gap-1">
                       <Eye className="w-4 h-4" />
@@ -894,18 +1225,16 @@ const DocumentsModule = () => {
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Папка</label>
-            <select
-              value={uploadFolderId}
-              onChange={(event) => setUploadFolderId(event.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+            <button
+              type="button"
+              onClick={() => setActiveFolderPicker("upload")}
+              className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-left hover:bg-gray-50"
             >
-              <option value="none">Без папки</option>
-              {folders.map((folder) => (
-                <option key={folder.id} value={String(folder.id)}>
-                  {folder.path}
-                </option>
-              ))}
-            </select>
+              <span className="block text-xs text-gray-500">Папка для загрузки</span>
+              <span className="block truncate text-sm font-medium text-gray-900">
+                {getFolderDisplayName(uploadFolderId, "Без папки")}
+              </span>
+            </button>
           </div>
 
           <div className="flex justify-end gap-2 pt-2">
@@ -929,6 +1258,20 @@ const DocumentsModule = () => {
         </div>
       </Modal>
 
+      {folderPickerConfig && (
+        <FolderPickerModal
+          isOpen={activeFolderPicker !== null}
+          title={folderPickerConfig.title}
+          folders={folders}
+          initialValue={folderPickerConfig.initialValue}
+          rootLabel={folderPickerConfig.rootLabel}
+          onClose={() => setActiveFolderPicker(null)}
+          onConfirm={(value) => {
+            void onFolderPickerConfirm(value);
+          }}
+        />
+      )}
+
       <Modal isOpen={Boolean(selectedDocument)} title={selectedDocument?.title ?? ""} onClose={() => {
         setSelectedDocument(null);
         setIsEditingDocument(false);
@@ -941,7 +1284,7 @@ const DocumentsModule = () => {
                   <span className={`px-3 py-1 rounded-full ${statusBadgeClasses[selectedDocument.status]}`}>
                     {statusLabels[selectedDocument.status]}
                   </span>
-                  <span>{selectedDocument.type}</span>
+                  <span>Тип: {formatDocumentType(selectedDocument.type)}</span>
                   <span>Версия {selectedDocument.current_version}</span>
                   <span>{formatDate(selectedDocument.updated_at || selectedDocument.created_at)}</span>
                   {readDocumentIds.has(selectedDocument.id) && (
@@ -953,17 +1296,21 @@ const DocumentsModule = () => {
                 </div>
                 <div>
                   <h3 className="font-semibold text-gray-900 mb-1">Автор</h3>
-                  <p className="text-gray-600">{selectedDocument.author_id}</p>
+                  <p className="text-gray-600">{getPersonDisplayName(selectedDocument.author_id)}</p>
                 </div>
                 {selectedDocument.curator_id && (
                   <div>
                     <h3 className="font-semibold text-gray-900 mb-1">Куратор</h3>
-                    <p className="text-gray-600">{selectedDocument.curator_id}</p>
+                    <p className="text-gray-600">{getPersonDisplayName(selectedDocument.curator_id)}</p>
                   </div>
                 )}
                 <div>
                   <h3 className="font-semibold text-gray-900 mb-1">Описание</h3>
                   <p className="text-gray-600">{selectedDocument.description || "Описание не заполнено"}</p>
+                </div>
+                <div>
+                  <h3 className="font-semibold text-gray-900 mb-1">Дата и время выкладки</h3>
+                  <p className="text-gray-600">{formatDateTime(selectedDocument.created_at)}</p>
                 </div>
                 <div className="flex flex-wrap gap-3">
                   <button
