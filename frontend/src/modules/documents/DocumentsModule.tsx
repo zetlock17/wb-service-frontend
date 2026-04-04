@@ -1,4 +1,4 @@
-import { ChevronRight, Download, Eye, FileText, Folder, FolderOpen, Plus, Home, Trash2, Edit, Check, X, CalendarClock } from "lucide-react";
+import { ChevronRight, Download, Eye, FileText, Folder, FolderOpen, Plus, Home, Trash2, Edit, Check, X, CalendarClock, Search, Files, UserRound, Clock3, FolderTree as FolderTreeIcon, Sparkles } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import AlertModal from "../../components/common/AlertModal";
 import Modal from "../../components/common/Modal";
@@ -641,6 +641,47 @@ const DocumentsModule = () => {
     return result.filter((folder) => folder.name.toLowerCase().includes(query));
   }, [currentFolderId, folders, searchQuery]);
 
+  const tabItems = useMemo(
+    () => [
+      { id: "all" as const, label: "Все документы", icon: Files },
+      { id: "mine" as const, label: "Мои", icon: UserRound },
+      { id: "recent" as const, label: "Недавние", icon: Clock3 },
+    ],
+    []
+  );
+
+  const overviewStats = useMemo(() => {
+    const docsInCurrentFolder = documents.filter((doc) => (doc.folder_id ?? null) === currentFolderId);
+    const unreadCount = docsInCurrentFolder.filter((doc) => !readDocumentIds.has(doc.id)).length;
+
+    return [
+      {
+        label: "Документов",
+        value: docsInCurrentFolder.length,
+        hint: "в выбранной папке",
+        icon: FileText,
+      },
+      {
+        label: "Подпапок",
+        value: childFolders.length,
+        hint: "на текущем уровне",
+        icon: FolderTreeIcon,
+      },
+      {
+        label: "Не прочитано",
+        value: unreadCount,
+        hint: "требуют внимания",
+        icon: Eye,
+      },
+      {
+        label: "Недавние",
+        value: recentDocumentIds.length,
+        hint: "история просмотра",
+        icon: Clock3,
+      },
+    ];
+  }, [childFolders.length, currentFolderId, documents, readDocumentIds, recentDocumentIds.length]);
+
   const resetUploadForm = useCallback(() => {
     setUploadFile(null);
     setUploadTitle("");
@@ -880,18 +921,21 @@ const DocumentsModule = () => {
 
   if (loading) {
     return (
-      <div className="space-y-6 animate-pulse">
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-          <div className="h-8 bg-gray-200 rounded w-1/3 mb-6"></div>
-          <div className="flex gap-4 mb-6">
-            <div className="h-10 bg-gray-200 rounded flex-1"></div>
-            <div className="h-10 bg-gray-200 rounded w-48"></div>
-          </div>
-          <div className="space-y-3">
-            <div className="h-20 bg-gray-200 rounded"></div>
-            <div className="h-20 bg-gray-200 rounded"></div>
-            <div className="h-20 bg-gray-200 rounded"></div>
-          </div>
+      <div className="animate-pulse rounded-3xl border border-purple-100 bg-linear-to-br from-white via-purple-50/50 to-blue-50/40 p-6 md:p-8">
+        <div className="mb-6 flex flex-wrap items-center gap-3">
+          <div className="h-10 w-64 rounded-xl bg-purple-100"></div>
+          <div className="h-10 w-40 rounded-xl bg-purple-100"></div>
+        </div>
+        <div className="mb-6 grid grid-cols-2 gap-3 md:grid-cols-4">
+          <div className="h-24 rounded-2xl bg-white"></div>
+          <div className="h-24 rounded-2xl bg-white"></div>
+          <div className="h-24 rounded-2xl bg-white"></div>
+          <div className="h-24 rounded-2xl bg-white"></div>
+        </div>
+        <div className="space-y-3">
+          <div className="h-20 rounded-2xl bg-white"></div>
+          <div className="h-20 rounded-2xl bg-white"></div>
+          <div className="h-20 rounded-2xl bg-white"></div>
         </div>
       </div>
     );
@@ -899,104 +943,129 @@ const DocumentsModule = () => {
 
   return (
     <div className="space-y-6">
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-2xl font-bold text-gray-900">Управление документами</h2>
-          {canManageDocuments && (
+      <div className="overflow-hidden rounded-3xl border border-purple-100 bg-linear-to-br from-white via-purple-50/60 to-blue-50/40 shadow-sm">
+        <div className="border-b border-purple-100/80 bg-white/70 p-6 backdrop-blur md:p-8">
+          <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-purple-200 bg-white px-3 py-1 text-xs font-medium text-purple-700">
+                <Sparkles className="h-3.5 w-3.5" />
+                Центр знаний компании
+              </div>
+              <h2 className="text-2xl font-bold text-gray-900 md:text-3xl">Управление документами</h2>
+              <p className="mt-2 text-sm text-gray-600">Быстрый поиск, понятная структура папок и удобная работа с версиями.</p>
+            </div>
+            {canManageDocuments && (
+              <button
+                onClick={onUploadClick}
+                disabled={uploading || folderActionLoading}
+                className="inline-flex items-center gap-2 rounded-xl bg-purple-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-purple-700 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                <Plus className="h-4 w-4" />
+                {uploading ? "Загрузка..." : "Добавить документ"}
+              </button>
+            )}
+          </div>
+
+          <div className="mb-6 grid grid-cols-2 gap-3 md:grid-cols-4">
+            {overviewStats.map((item) => {
+              const Icon = item.icon;
+              return (
+                <div key={item.label} className="rounded-2xl border border-purple-100 bg-white p-4 shadow-sm">
+                  <div className="mb-2 inline-flex rounded-lg bg-purple-50 p-2 text-purple-700">
+                    <Icon className="h-4 w-4" />
+                  </div>
+                  <p className="text-2xl font-bold text-gray-900">{item.value}</p>
+                  <p className="text-sm font-medium text-gray-700">{item.label}</p>
+                  <p className="text-xs text-gray-500">{item.hint}</p>
+                </div>
+              );
+            })}
+          </div>
+
+          <div className="mb-4 flex flex-wrap gap-2">
+            {tabItems.map((tab) => {
+              const Icon = tab.icon;
+              const isActive = activeTab === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-sm font-medium transition ${
+                    isActive
+                      ? "border-purple-600 bg-purple-600 text-white shadow-sm"
+                      : "border-purple-100 bg-white text-gray-700 hover:border-purple-200 hover:bg-purple-50"
+                  }`}
+                >
+                  <Icon className="h-4 w-4" />
+                  {tab.label}
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="grid grid-cols-1 gap-3 lg:grid-cols-[1fr_auto_auto]">
+            <label className="relative block">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Поиск по названию, содержимому..."
+                value={searchQuery}
+                onChange={(event) => setSearchQuery(event.target.value)}
+                className="w-full rounded-xl border border-purple-100 bg-white py-2.5 pl-10 pr-4 text-sm text-gray-900 outline-none transition placeholder:text-gray-400 focus:border-purple-400 focus:ring-2 focus:ring-purple-200"
+              />
+            </label>
             <button
-              onClick={onUploadClick}
-              disabled={uploading || folderActionLoading}
-              className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-60 flex items-center gap-2"
+              type="button"
+              onClick={() => setActiveFolderPicker("current")}
+              className="rounded-xl border border-purple-100 bg-white px-4 py-2.5 text-left transition hover:bg-purple-50"
             >
-              <Plus className="w-4 h-4" />
-              {uploading ? "Загрузка..." : "Добавить документ"}
+              <span className="block text-xs text-gray-500">Текущая папка</span>
+              <span className="block max-w-64 truncate text-sm font-semibold text-gray-900">
+                {getFolderDisplayName(currentFolderId, "Корень")}
+              </span>
             </button>
-          )}
-        </div>
-        <div className="flex flex-wrap gap-2 mb-4">
-          <button
-            onClick={() => setActiveTab("all")}
-            className={`px-3 py-1.5 text-sm rounded-lg border ${
-              activeTab === "all" ? "bg-purple-600 text-white border-purple-600" : "bg-white text-gray-700 border-gray-300"
-            }`}
-          >
-            Все документы
-          </button>
-          <button
-            onClick={() => setActiveTab("mine")}
-            className={`px-3 py-1.5 text-sm rounded-lg border ${
-              activeTab === "mine" ? "bg-purple-600 text-white border-purple-600" : "bg-white text-gray-700 border-gray-300"
-            }`}
-          >
-            Мои документы
-          </button>
-          <button
-            onClick={() => setActiveTab("recent")}
-            className={`px-3 py-1.5 text-sm rounded-lg border ${
-              activeTab === "recent" ? "bg-purple-600 text-white border-purple-600" : "bg-white text-gray-700 border-gray-300"
-            }`}
-          >
-            Недавно просмотренные
-          </button>
-        </div>
-        <div className="flex items-center gap-4 mb-6">
-          <input
-            type="text"
-            placeholder="Поиск по названию, содержимому..."
-            value={searchQuery}
-            onChange={(event) => setSearchQuery(event.target.value)}
-            className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-          />
-          <button
-            type="button"
-            onClick={() => setActiveFolderPicker("current")}
-            className="min-w-72 rounded-lg border border-gray-300 bg-white px-4 py-2 text-left text-gray-700 hover:bg-gray-50"
-          >
-            <span className="block text-xs text-gray-500">Текущая папка</span>
-            <span className="block truncate font-medium text-gray-900">
-              {getFolderDisplayName(currentFolderId, "Корень")}
-            </span>
-          </button>
-          <select
-            value={documentFilter}
-            onChange={(event) => setDocumentFilter(event.target.value)}
-            className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-          >
-            <option value="all">Все типы</option>
-            {types
-              .filter((type) => type !== "all")
-              .map((type) => (
-                <option key={type} value={type}>
-                  {type}
-                </option>
-              ))}
-          </select>
+            <select
+              value={documentFilter}
+              onChange={(event) => setDocumentFilter(event.target.value)}
+              className="rounded-xl border border-purple-100 bg-white px-4 py-2.5 text-sm text-gray-700 outline-none transition focus:border-purple-400 focus:ring-2 focus:ring-purple-200"
+            >
+              <option value="all">Все типы</option>
+              {types
+                .filter((type) => type !== "all")
+                .map((type) => (
+                  <option key={type} value={type}>
+                    {formatDocumentType(type)}
+                  </option>
+                ))}
+            </select>
+          </div>
         </div>
 
+        <div className="p-6 md:p-8">
           {canManageDocuments && (
-            <div className="mb-6 rounded-lg border border-gray-200 bg-gray-50 p-4 space-y-4">
-              <h3 className="text-sm font-semibold text-gray-900">Работа с папками</h3>
+            <div className="mb-6 space-y-4 rounded-2xl border border-purple-100 bg-white p-5">
+              <h3 className="text-sm font-semibold uppercase tracking-wide text-gray-600">Работа с папками</h3>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
+              <div className="grid grid-cols-1 items-end gap-3 md:grid-cols-3">
                 <div className="md:col-span-2">
-                  <label className="block text-xs text-gray-600 mb-1">Новая папка</label>
+                  <label className="mb-1 block text-xs font-medium text-gray-600">Новая папка</label>
                   <input
                     type="text"
                     value={newFolderName}
                     onChange={(event) => setNewFolderName(event.target.value)}
                     placeholder="Введите название папки"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    className="w-full rounded-xl border border-purple-100 px-3 py-2.5 text-sm outline-none transition focus:border-purple-400 focus:ring-2 focus:ring-purple-200"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs text-gray-600 mb-1">Родитель</label>
+                  <label className="mb-1 block text-xs font-medium text-gray-600">Родитель</label>
                   <button
                     type="button"
                     onClick={() => setActiveFolderPicker("new-parent")}
-                    className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-left hover:bg-gray-50"
+                    className="w-full rounded-xl border border-purple-100 bg-white px-3 py-2.5 text-left transition hover:bg-purple-50"
                   >
                     <span className="block text-xs text-gray-500">Родительская папка</span>
-                    <span className="block truncate text-sm font-medium text-gray-900">
+                    <span className="block truncate text-sm font-semibold text-gray-900">
                       {getFolderDisplayName(newFolderParentId, "Корень")}
                     </span>
                   </button>
@@ -1007,34 +1076,34 @@ const DocumentsModule = () => {
                 <button
                   onClick={onCreateFolder}
                   disabled={folderActionLoading}
-                  className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-60"
+                  className="rounded-xl bg-purple-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-purple-700 disabled:opacity-60"
                 >
                   Создать папку
                 </button>
               </div>
 
-              <div className="border-t border-gray-200 pt-4 grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
+              <div className="grid grid-cols-1 items-end gap-3 border-t border-purple-100 pt-4 md:grid-cols-3">
                 <div>
-                  <label className="block text-xs text-gray-600 mb-1">Выберите папку</label>
+                  <label className="mb-1 block text-xs font-medium text-gray-600">Выберите папку</label>
                   <button
                     type="button"
                     onClick={() => setActiveFolderPicker("manage")}
-                    className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-left hover:bg-gray-50"
+                    className="w-full rounded-xl border border-purple-100 bg-white px-3 py-2.5 text-left transition hover:bg-purple-50"
                   >
                     <span className="block text-xs text-gray-500">Папка для управления</span>
-                    <span className="block truncate text-sm font-medium text-gray-900">
+                    <span className="block truncate text-sm font-semibold text-gray-900">
                       {getFolderDisplayName(folderManagerId, "Не выбрано")}
                     </span>
                   </button>
                 </div>
                 <div className="md:col-span-2">
-                  <label className="block text-xs text-gray-600 mb-1">Новое название</label>
+                  <label className="mb-1 block text-xs font-medium text-gray-600">Новое название</label>
                   <input
                     type="text"
                     value={renameFolderName}
                     onChange={(event) => setRenameFolderName(event.target.value)}
                     placeholder="Введите новое название"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    className="w-full rounded-xl border border-purple-100 px-3 py-2.5 text-sm outline-none transition focus:border-purple-400 focus:ring-2 focus:ring-purple-200"
                   />
                 </div>
               </div>
@@ -1043,14 +1112,14 @@ const DocumentsModule = () => {
                 <button
                   onClick={onRenameFolder}
                   disabled={folderActionLoading}
-                  className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 disabled:opacity-60"
+                  className="rounded-xl border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 transition hover:bg-gray-50 disabled:opacity-60"
                 >
                   Переименовать
                 </button>
                 <button
                   onClick={onDeleteFolder}
                   disabled={folderActionLoading}
-                  className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-60"
+                  className="rounded-xl bg-red-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-red-700 disabled:opacity-60"
                 >
                   Удалить
                 </button>
@@ -1058,29 +1127,28 @@ const DocumentsModule = () => {
             </div>
           )}
 
-          {/* Красивая навигация по папкам */}
-          <div className="mb-4 px-1 py-3 bg-gray-50 rounded-lg">
-            <div className="flex items-center gap-2 flex-wrap">
+          <div className="mb-5 rounded-2xl border border-purple-100 bg-white p-3">
+            <div className="flex flex-wrap items-center gap-2">
               <button
                 onClick={() => void navigateToFolder(null)}
-                className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-sm transition-colors ${
+                className={`inline-flex items-center gap-1 rounded-lg px-3 py-1.5 text-sm transition ${
                   currentFolderId === null
                     ? "bg-purple-600 text-white"
-                    : "bg-white text-gray-700 border border-gray-200 hover:bg-gray-100"
+                    : "border border-purple-100 bg-white text-gray-700 hover:bg-purple-50"
                 }`}
               >
-                <Home className="w-4 h-4" />
+                <Home className="h-4 w-4" />
                 Корень
               </button>
               {getFolderPath(currentFolderId).map((folder) => (
                 <div key={folder.id} className="flex items-center gap-2">
-                  <ChevronRight className="w-4 h-4 text-gray-400" />
+                  <ChevronRight className="h-4 w-4 text-gray-400" />
                   <button
                     onClick={() => void navigateToFolder(folder.id)}
-                    className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-sm transition-colors bg-white text-gray-700 border border-gray-200 hover:bg-gray-100"
+                    className="inline-flex items-center gap-1 rounded-lg border border-purple-100 bg-white px-3 py-1.5 text-sm text-gray-700 transition hover:bg-purple-50"
                     title={folder.path}
                   >
-                    <Folder className="w-4 h-4" />
+                    <Folder className="h-4 w-4" />
                     <span>{folder.name}</span>
                   </button>
                 </div>
@@ -1088,10 +1156,10 @@ const DocumentsModule = () => {
             </div>
           </div>
 
-        <div className="space-y-3">
-          {documentsLoading && (
-            <p className="text-sm text-gray-500 px-1">Загружаем документы выбранной папки...</p>
-          )}
+          <div className="space-y-3">
+            {documentsLoading && (
+              <p className="px-1 text-sm text-gray-500">Загружаем документы выбранной папки...</p>
+            )}
 
             {childFolders.map((folder) => {
               const { docs, subs } = getFolderContents(folder.id);
@@ -1099,85 +1167,80 @@ const DocumentsModule = () => {
                 <button
                   key={`folder-${folder.id}`}
                   onClick={() => void onOpenFolder(folder.id)}
-                  className="w-full border border-blue-200 bg-blue-50/50 rounded-lg p-4 hover:shadow-md transition-shadow text-left"
+                  className="group w-full rounded-2xl border border-blue-200 bg-linear-to-r from-blue-50/70 to-indigo-50/40 p-4 text-left transition hover:-translate-y-0.5 hover:shadow-md"
                 >
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3 min-w-0 flex-1">
-                      <FolderOpen className="w-5 h-5 text-blue-700 shrink-0" />
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex min-w-0 flex-1 items-center gap-3">
+                      <span className="rounded-lg bg-white p-2 text-blue-700 shadow-sm">
+                        <FolderOpen className="h-5 w-5" />
+                      </span>
                       <div className="min-w-0 flex-1">
-                        <h3 className="font-semibold text-gray-900 truncate">{folder.name}</h3>
-                        <div className="flex items-center gap-4 text-xs text-gray-600 mt-1">
-                          {(docs > 0 || subs > 0) ? (
-                            <>
-                              {docs > 0 && (
-                                <span className="flex items-center gap-1 bg-white px-2 py-1 rounded">
-                                  <FileText className="w-3 h-3" />
-                                  {docs} {docs === 1 ? "документ" : "документов"}
-                                </span>
-                              )}
-                              {subs > 0 && (
-                                <span className="flex items-center gap-1 bg-white px-2 py-1 rounded">
-                                  <Folder className="w-3 h-3" />
-                                  {subs} {subs === 1 ? "папка" : "папок"}
-                                </span>
-                              )}
-                            </>
-                          ) : (
-                            <span className="text-gray-400 italic">Папка пуста</span>
+                        <h3 className="truncate font-semibold text-gray-900">{folder.name}</h3>
+                        <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-gray-600">
+                          {docs > 0 && (
+                            <span className="inline-flex items-center gap-1 rounded-full bg-white px-2 py-1">
+                              <FileText className="h-3 w-3" />
+                              {docs} {docs === 1 ? "документ" : "документов"}
+                            </span>
                           )}
+                          {subs > 0 && (
+                            <span className="inline-flex items-center gap-1 rounded-full bg-white px-2 py-1">
+                              <Folder className="h-3 w-3" />
+                              {subs} {subs === 1 ? "папка" : "папок"}
+                            </span>
+                          )}
+                          {docs === 0 && subs === 0 && <span className="italic text-gray-400">Папка пуста</span>}
                         </div>
                       </div>
                     </div>
-                    <ChevronRight className="w-5 h-5 text-gray-400 shrink-0" />
+                    <ChevronRight className="h-5 w-5 shrink-0 text-blue-500 transition group-hover:translate-x-0.5" />
                   </div>
                 </button>
               );
             })}
 
-          {filteredDocuments.map((doc) => (
-            <button
-              key={doc.id}
-              onClick={() => onSelectDocument(doc)}
-              className="w-full border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow text-left"
-            >
-              <div className="flex items-center justify-between">
-                <div className="flex-1">
-                  <div className="flex items-center gap-3 mb-2">
-                    <h3 className="font-semibold text-gray-900">{doc.title}</h3>
-                    <span
-                      className={`px-2 py-1 text-xs rounded-full ${statusBadgeClasses[doc.status]}`}
-                    >
-                      {statusLabels[doc.status]}
-                    </span>
+            {filteredDocuments.map((doc) => (
+              <button
+                key={doc.id}
+                onClick={() => onSelectDocument(doc)}
+                className="group w-full rounded-2xl border border-purple-100 bg-white p-4 text-left transition hover:-translate-y-0.5 hover:shadow-md"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0 flex-1">
+                    <div className="mb-2 flex flex-wrap items-center gap-2">
+                      <h3 className="truncate text-base font-semibold text-gray-900">{doc.title}</h3>
+                      <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${statusBadgeClasses[doc.status]}`}>
+                        {statusLabels[doc.status]}
+                      </span>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-3 text-sm text-gray-600">
+                      <span className="inline-flex items-center gap-1">
+                        <FileText className="h-4 w-4" />
+                        {formatDocumentType(doc.type)}
+                      </span>
+                      <span className="inline-flex items-center gap-1">
+                        <Folder className="h-4 w-4" />
+                        {folders.find((item) => item.id === doc.folder_id)?.name || "Без папки"}
+                      </span>
+                      <span className="inline-flex items-center gap-1">
+                        <CalendarClock className="h-4 w-4" />
+                        {formatDateTime(doc.created_at)}
+                      </span>
+                      <span>{getPersonDisplayName(doc.author_id)}</span>
+                      <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-700">v{doc.current_version}</span>
+                    </div>
                   </div>
-                  <div className="flex flex-wrap items-center gap-4 text-sm text-gray-600">
-                    <span className="flex items-center gap-1">
-                      <FileText className="w-4 h-4" />
-                      Тип: {formatDocumentType(doc.type)}
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <Folder className="w-4 h-4" />
-                      {folders.find((item) => item.id === doc.folder_id)?.name || "Без папки"}
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <CalendarClock className="w-4 h-4" />
-                      Выкладка: {formatDateTime(doc.created_at)}
-                    </span>
-                    <span>{getPersonDisplayName(doc.author_id)}</span>
-                    <span>v{doc.current_version}</span>
-                    <span className="flex items-center gap-1">
-                      <Eye className="w-4 h-4" />
-                      -
-                    </span>
-                  </div>
+                  <ChevronRight className="h-5 w-5 shrink-0 text-gray-400 transition group-hover:translate-x-0.5 group-hover:text-purple-500" />
                 </div>
-                <ChevronRight className="w-5 h-5 text-gray-400" />
+              </button>
+            ))}
+
+            {!filteredDocuments.length && !childFolders.length && (
+              <div className="rounded-2xl border border-dashed border-purple-200 bg-white p-8 text-center">
+                <p className="text-gray-600">В текущей папке пока нет ни документов, ни вложенных папок</p>
               </div>
-            </button>
-          ))}
-          {!filteredDocuments.length && !childFolders.length && (
-            <p className="text-center text-gray-500 py-8">В текущей папке пока нет ни документов, ни вложенных папок</p>
-          )}
+            )}
+          </div>
         </div>
       </div>
 
