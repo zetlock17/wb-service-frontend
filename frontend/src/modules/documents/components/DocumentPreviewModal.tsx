@@ -249,35 +249,38 @@ const DocumentPreviewModal = ({ document, onClose }: DocumentPreviewModalProps) 
         {document && previewType === "pdf" && pdfMode === "pdfjs" && (
           <>
             <div className="flex flex-wrap items-center gap-2 rounded-xl border border-purple-100 bg-purple-50 p-3">
-              <button
-                type="button"
-                onClick={() => setPdfPage((prev) => Math.max(prev - 1, 1))}
-                disabled={!pdfDocument || pdfPage <= 1}
-                className="inline-flex items-center gap-1 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                <ChevronLeft className="h-4 w-4" />
-                Назад
-              </button>
+              <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
+                <button
+                  type="button"
+                  onClick={() => setPdfPage((prev) => Math.max(prev - 1, 1))}
+                  disabled={!pdfDocument || pdfPage <= 1}
+                  className="inline-flex items-center justify-center gap-1 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                  Назад
+                </button>
+                
+                <span className="rounded-lg bg-white px-3 py-1.5 text-center text-sm text-gray-700">
+                  Страница {pdfPage} из {pdfDocument?.numPages || 0}
+                </span>
 
-              <span className="rounded-lg bg-white px-3 py-1.5 text-sm text-gray-700">
-                Страница {pdfPage} из {pdfDocument?.numPages || 0}
-              </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!pdfDocument) {
+                      return;
+                    }
 
-              <button
-                type="button"
-                onClick={() => {
-                  if (!pdfDocument) {
-                    return;
-                  }
+                    setPdfPage((prev) => Math.min(prev + 1, pdfDocument.numPages));
+                  }}
+                  disabled={!pdfDocument || pdfPage >= (pdfDocument?.numPages || 1)}
+                  className="inline-flex items-center justify-center gap-1 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  Вперед
+                  <ChevronRight className="h-4 w-4" />
+                </button>
 
-                  setPdfPage((prev) => Math.min(prev + 1, pdfDocument.numPages));
-                }}
-                disabled={!pdfDocument || pdfPage >= (pdfDocument?.numPages || 1)}
-                className="inline-flex items-center gap-1 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                Вперед
-                <ChevronRight className="h-4 w-4" />
-              </button>
+              </div>
 
               <div className="ml-auto flex items-center gap-2">
                 <button
@@ -300,7 +303,7 @@ const DocumentPreviewModal = ({ document, onClose }: DocumentPreviewModalProps) 
 
             <div className="max-h-[70vh] overflow-auto rounded-xl border border-gray-200 bg-gray-50 p-3">
               {!pdfDocument && !previewError && (
-                <p className="py-8 text-center text-sm text-gray-500">Загружаем PDF...</p>
+                <p className="py-8 text-center text-sm text-gray-500">Загрузка...</p>
               )}
               {!previewError && <canvas ref={pdfCanvasRef} className="mx-auto max-w-full rounded-lg bg-white shadow-sm" />}
               {isPdfRendering && <p className="pt-3 text-center text-xs text-gray-500">Обновление страницы...</p>}
@@ -345,13 +348,13 @@ const DocumentPreviewModal = ({ document, onClose }: DocumentPreviewModalProps) 
                 className="mx-auto h-auto max-h-[70vh] w-auto max-w-full rounded-lg object-contain"
               />
             ) : (
-              <p className="py-8 text-center text-sm text-gray-500">Загружаем изображение...</p>
+              <p className="py-8 text-center text-sm text-gray-500">Загрузка...</p>
             )}
           </div>
         )}
 
         {isUrlLoading && !previewUrl && !previewError && (
-          <p className="py-8 text-center text-sm text-gray-500">Загружаем документ...</p>
+          <p className="py-8 text-center text-sm text-gray-500">Загрузка...</p>
         )}
       </div>
     </Modal>
