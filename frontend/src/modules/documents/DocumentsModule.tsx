@@ -15,6 +15,7 @@ import {
   type Document,
   type FolderTree,
 } from "../../api/documentsApi";
+import DocumentPreviewModal from "./components/DocumentPreviewModal";
 import { getProfilesList } from "../../api/profileApi";
 import { useAlert } from "../../hooks/useAlert";
 import usePortalStore from "../../store/usePortalStore";
@@ -338,6 +339,7 @@ const DocumentsModule = () => {
   const [uploadFolderId, setUploadFolderId] = useState<number | null>(null);
   const [downloadingId, setDownloadingId] = useState<number | null>(null);
   const [selectedDocument, setSelectedDocument] = useState<Document | null>(null);
+  const [previewDocument, setPreviewDocument] = useState<Document | null>(null);
   const [recentDocumentIds, setRecentDocumentIds] = useState<number[]>([]);
   const [readDocumentIds, setReadDocumentIds] = useState<Set<number>>(() => {
     const saved = localStorage.getItem("readDocuments");
@@ -748,6 +750,14 @@ const DocumentsModule = () => {
     }
 
     window.open(url, "_blank", "noopener,noreferrer");
+  };
+
+  const closePreview = useCallback(() => {
+    setPreviewDocument(null);
+  }, []);
+
+  const onOpenPreview = (doc: Document) => {
+    setPreviewDocument(doc);
   };
 
   const onSelectDocument = (doc: Document) => {
@@ -1384,6 +1394,13 @@ const DocumentsModule = () => {
                     <Download className="w-4 h-4" />
                     {downloadingId === selectedDocument.id ? "Получение ссылки..." : "Скачать"}
                   </button>
+                  <button
+                    onClick={() => onOpenPreview(selectedDocument)}
+                    className="flex-1 min-w-44 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 text-xs truncate flex items-center justify-center gap-2"
+                  >
+                    <Eye className="w-4 h-4" />
+                    Предпросмотр
+                  </button>
                   <button className="flex-1 min-w-44 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 text-xs truncate" title={selectedDocument.original_filename}>
                     📄 {selectedDocument.original_filename}
                   </button>
@@ -1522,6 +1539,8 @@ const DocumentsModule = () => {
           </div>
         )}
       </Modal>
+
+      <DocumentPreviewModal document={previewDocument} onClose={closePreview} />
 
       <AlertModal {...alertState} onClose={closeAlert} />
     </div>
