@@ -21,25 +21,46 @@ import usePortalStore from "../../store/usePortalStore";
 
 const statusLabels: Record<Document["status"], string> = {
   DRAFT: "Черновик",
+  ACTIVE: "Актуален",
   PUBLISHED: "Актуален",
   ARCHIVED: "Архивный",
 };
 
 const statusBadgeClasses: Record<Document["status"], string> = {
   DRAFT: "bg-amber-100 text-amber-700",
+  ACTIVE: "bg-green-100 text-green-700",
   PUBLISHED: "bg-green-100 text-green-700",
   ARCHIVED: "bg-gray-100 text-gray-700",
 };
 
+const documentTypeOptions = [
+  { value: "REGULATION", label: "Регламент" },
+  { value: "ORDER", label: "Приказ" },
+  { value: "INSTRUCTION", label: "Указание" },
+  { value: "CB_LETTER", label: "Письмо ЦБ" },
+  { value: "MANUAL", label: "Инструкция" },
+] as const;
+
+const documentTypeValues = new Set<string>(documentTypeOptions.map((option) => option.value));
+
+const documentTypeAliases: Record<string, (typeof documentTypeOptions)[number]["value"]> = {
+  regulation: "REGULATION",
+  reglement: "REGULATION",
+  order: "ORDER",
+  instruction: "INSTRUCTION",
+  directive: "INSTRUCTION",
+  cb_letter: "CB_LETTER",
+  cbletter: "CB_LETTER",
+  manual: "MANUAL",
+  handbook: "MANUAL",
+};
+
 const documentTypeLabels: Record<string, string> = {
-  regulation: "Регламент",
-  policy: "Политика",
-  instruction: "Инструкция",
-  order: "Приказ",
-  procedure: "Процедура",
-  standard: "Стандарт",
-  memo: "Памятка",
-  guide: "Руководство",
+  REGULATION: "Регламент",
+  ORDER: "Приказ",
+  INSTRUCTION: "Указание",
+  CB_LETTER: "Письмо ЦБ",
+  MANUAL: "Инструкция",
 };
 
 const extractDownloadUrl = (value: unknown): string | null => {
@@ -93,8 +114,26 @@ const formatDateTime = (value: string | null): string => {
 };
 
 const formatDocumentType = (value: string): string => {
+  const normalizedValue = normalizeDocumentType(value);
+  if (normalizedValue) {
+    return documentTypeLabels[normalizedValue];
+  }
+
   const normalized = value.trim().toLowerCase();
   return documentTypeLabels[normalized] || value;
+};
+
+const normalizeDocumentType = (value: string | null | undefined): (typeof documentTypeOptions)[number]["value"] | null => {
+  if (!value) {
+    return null;
+  }
+
+  if (documentTypeValues.has(value)) {
+    return value as (typeof documentTypeOptions)[number]["value"];
+  }
+
+  const normalized = value.trim().toLowerCase();
+  return documentTypeAliases[normalized] || null;
 };
 
 interface BrowserFolder {
@@ -335,6 +374,7 @@ const DocumentsModule = () => {
   const [uploadFile, setUploadFile] = useState<File | null>(null);
   const [uploadTitle, setUploadTitle] = useState("");
   const [uploadDescription, setUploadDescription] = useState("");
+  const [uploadType, setUploadType] = useState<string>("");
   const [uploadFolderId, setUploadFolderId] = useState<number | null>(null);
   const [downloadingId, setDownloadingId] = useState<number | null>(null);
   const [selectedDocument, setSelectedDocument] = useState<Document | null>(null);
@@ -346,11 +386,13 @@ const DocumentsModule = () => {
   const [isEditingDocument, setIsEditingDocument] = useState(false);
   const [editingDocumentData, setEditingDocumentData] = useState<{
     title: string;
+    type: string;
     description: string;
     status: Document["status"];
     curator_id: string | null;
   }>({
     title: "",
+    type: "REGULATION",
     description: "",
     status: "DRAFT",
     curator_id: null,
@@ -592,7 +634,7 @@ const DocumentsModule = () => {
     [fetchDocumentsByFolder]
   );
 
-  const types = useMemo(() => ["all", ...new Set(documents.map((doc) => doc.type))], [documents]);
+  const types = useMemo(() => ["all", ...documentTypeOptions.map((option) => option.value)], []);
 
   const filteredDocuments = useMemo(() => {
     let result = documents;
@@ -614,7 +656,7 @@ const DocumentsModule = () => {
     result = result.filter((doc) => (doc.folder_id ?? null) === currentFolderId);
 
     if (documentFilter !== "all") {
-      result = result.filter((doc) => doc.type === documentFilter);
+      result = result.filter((doc) => normalizeDocumentType(doc.type) === documentFilter);
     }
 
     if (searchQuery.trim()) {
@@ -686,6 +728,7 @@ const DocumentsModule = () => {
     setUploadFile(null);
     setUploadTitle("");
     setUploadDescription("");
+    setUploadType("");
     setUploadFolderId(null);
   }, []);
 
@@ -708,6 +751,11 @@ const DocumentsModule = () => {
       return;
     }
 
+    if (!uploadType) {
+      showAlert("Выберите тип документа", "warning");
+      return;
+    }
+
     const title = uploadTitle.trim() || uploadFile.name;
     const description = uploadDescription.trim();
     const folderId = uploadFolderId;
@@ -715,6 +763,7 @@ const DocumentsModule = () => {
     setUploading(true);
     const response = await uploadDocument(uploadFile, {
       title,
+      type: uploadType,
       description: description || undefined,
       folder_id: folderId,
     });
@@ -852,6 +901,7 @@ const DocumentsModule = () => {
     setDocumentActionLoading(true);
     const response = await updateDocument(selectedDocument.id, {
       title: editingDocumentData.title || undefined,
+      type: editingDocumentData.type || undefined,
       description: editingDocumentData.description || undefined,
       status: editingDocumentData.status,
       curator_id: editingDocumentData.curator_id || undefined,
@@ -912,6 +962,7 @@ const DocumentsModule = () => {
 
     setEditingDocumentData({
       title: selectedDocument.title,
+      type: normalizeDocumentType(selectedDocument.type) || "REGULATION",
       description: selectedDocument.description || "",
       status: selectedDocument.status,
       curator_id: selectedDocument.curator_id,
@@ -1287,6 +1338,24 @@ const DocumentsModule = () => {
           </div>
 
           <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Тип документа *</label>
+            <select
+              value={uploadType}
+              onChange={(event) => setUploadType(event.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+            >
+              <option value="" disabled>
+                Выберите тип документа
+              </option>
+              {documentTypeOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Папка</label>
             <button
               type="button"
@@ -1466,6 +1535,26 @@ const DocumentsModule = () => {
                     rows={4}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
                   />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Тип документа *</label>
+                  <select
+                    value={editingDocumentData.type}
+                    onChange={(e) =>
+                      setEditingDocumentData({
+                        ...editingDocumentData,
+                        type: e.target.value,
+                      })
+                    }
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  >
+                    {documentTypeOptions.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
                 </div>
 
                 <div>

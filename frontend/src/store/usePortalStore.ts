@@ -13,7 +13,11 @@ import {
 } from "../data/mockData";
 import { getProfile, updateProfile } from "../api/profileApi";
 import { getBirthdays } from "../api/birthdaysApi";
-// import { getNotifications, markAllNotificationsAsRead, markNotificationAsRead } from "../api/notificationsApi";
+import {
+  getNotifications,
+  markAllNotificationsAsRead,
+  markNotificationAsRead,
+} from "../api/notificationsApi";
 import { 
   getOrgHierarchy, 
   moveOrgUnit,
@@ -88,6 +92,38 @@ interface PortalState {
   setRoles: (roles: string[]) => void;
 }
 
+const mapNotificationType = (eventType: string): NotificationItem["type"] => {
+  if (eventType.startsWith("DOCUMENT_")) {
+    return "document";
+  }
+  if (eventType.startsWith("COMMENT_")) {
+    return "comment";
+  }
+  if (eventType.startsWith("NEWS_")) {
+    return "news";
+  }
+  if (eventType.startsWith("BIRTHDAY_")) {
+    return "birthday";
+  }
+
+  return "event";
+};
+
+const formatNotificationTime = (value: string): string => {
+  const parsedDate = new Date(value);
+
+  if (Number.isNaN(parsedDate.getTime())) {
+    return value;
+  }
+
+  return parsedDate.toLocaleString("ru-RU", {
+    day: "2-digit",
+    month: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+};
+
 const usePortalStore = create<PortalState>((set) => ({
   departments: [],
   ideas: [],
@@ -142,8 +178,7 @@ const usePortalStore = create<PortalState>((set) => ({
         loading: false,
       });
 
-      // Временно отключено: уведомления не загружаем.
-      // await usePortalStore.getState().fetchNotifications();
+      await usePortalStore.getState().fetchNotifications();
     } catch (error) {
       console.error("Failed to fetch data:", error);
       set({ error: "Failed to fetch data", loading: false });
@@ -228,18 +263,54 @@ const usePortalStore = create<PortalState>((set) => ({
   },
 
   fetchNotifications: async () => {
-    // Временно отключено: уведомления не запрашиваются.
-    set({ notifications: [] });
+    try {
+      const response = await getNotifications({ page: 1, size: 50 });
+
+      if (response.status >= 200 && response.status < 300) {
+        const mappedNotifications: NotificationItem[] = response.data.notifications.map((notification) => ({
+          id: notification.id,
+          type: mapNotificationType(notification.event_type),
+          text: notification.message,
+          time: formatNotificationTime(notification.created_at),
+          unread: !notification.is_read,
+        }));
+
+        set({ notifications: mappedNotifications });
+        return;
+      }
+
+      set({ notifications: [] });
+    } catch (error) {
+      console.error("Failed to fetch notifications:", error);
+      set({ notifications: [] });
+    }
   },
 
-  markNotificationAsReadAsync: async () => {
-    // Временно отключено: уведомления не обрабатываются.
-    return;
+  markNotificationAsReadAsync: async (notificationId: number) => {
+    try {
+      await markNotificationAsRead(notificationId);
+      set((state) => ({
+        notifications: state.notifications.map((notification) =>
+          notification.id === notificationId ? { ...notification, unread: false } : notification
+        ),
+      }));
+    } catch (error) {
+      console.error("Failed to mark notification as read:", error);
+    }
   },
 
   markAllNotificationsAsReadAsync: async () => {
-    // Временно отключено: уведомления не обрабатываются.
-    return;
+    try {
+      await markAllNotificationsAsRead();
+      set((state) => ({
+        notifications: state.notifications.map((notification) => ({
+          ...notification,
+          unread: false,
+        })),
+      }));
+    } catch (error) {
+      console.error("Failed to mark all notifications as read:", error);
+    }
   },
   
   fetchOrgStructure: async () => {

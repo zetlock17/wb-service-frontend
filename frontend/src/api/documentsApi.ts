@@ -1,9 +1,9 @@
 import axios from 'axios';
 import type { ApiResponse } from './api';
-import { deleteRequest, getRequest, patchRequest, postRequest } from './api';
+import { deleteRequest, getRequest, patchRequest, postRequest, putRequest } from './api';
 import { getAccessToken } from '../utils/authTokens';
 
-export type DocumentStatus = 'DRAFT' | 'PUBLISHED' | 'ARCHIVED';
+export type DocumentStatus = 'DRAFT' | 'ACTIVE' | 'ARCHIVED' | 'PUBLISHED';
 
 export interface Folder {
     id: number;
@@ -33,6 +33,7 @@ export interface FolderUpdate {
 
 export interface DocumentsFilters {
     folder_id?: number | null;
+    show_archived?: boolean;
     page?: number;
     size?: number;
 }
@@ -57,6 +58,7 @@ export interface Document {
 
 export interface DocumentUpdate {
     title?: string | null;
+    type?: string | null;
     folder_id?: number | null;
     status?: DocumentStatus | null;
     description?: string | null;
@@ -66,8 +68,33 @@ export interface DocumentUpdate {
 export interface DocumentUploadPayload {
     folder_id?: number | null;
     title?: string | null;
+    type?: string | null;
     description?: string | null;
     curator_id?: string | null;
+}
+
+export interface DocumentArchivePayload {
+    comment: string;
+}
+
+export interface DocumentVersion {
+    id: number;
+    document_id: number;
+    version_major: number;
+    version_minor: number;
+    version_number?: string;
+    original_filename: string;
+    file_size: number;
+    mime_type: string;
+    uploaded_by: string;
+    upload_comment: string | null;
+    is_current: boolean;
+    created_at: string | null;
+}
+
+export interface DocumentVersionUploadPayload {
+    upload_comment?: string | null;
+    bump_major?: boolean;
 }
 
 export const getFolders = async (parentId?: number | null): Promise<ApiResponse<Folder[]>> => {
@@ -97,9 +124,10 @@ export const deleteFolder = async (folderId: number): Promise<ApiResponse<any>> 
 };
 
 export const getDocuments = async (filters?: DocumentsFilters): Promise<ApiResponse<Document[]>> => {
-    const params: Record<string, number | null> = {};
+    const params: Record<string, number | boolean | null> = {};
 
     if (filters?.folder_id !== undefined) params.folder_id = filters.folder_id;
+    if (filters?.show_archived !== undefined) params.show_archived = filters.show_archived;
     if (filters?.page !== undefined) params.page = filters.page;
     if (filters?.size !== undefined) params.size = filters.size;
 
@@ -122,6 +150,43 @@ export const getDocumentDownloadUrl = async (docId: number): Promise<ApiResponse
     return await getRequest<Record<string, unknown>>(`/api/v1/documents/${docId}/download`);
 };
 
+export const archiveDocument = async (
+    docId: number,
+    payload: DocumentArchivePayload
+): Promise<ApiResponse<Document>> => {
+    return await putRequest<Document>(`/api/v1/documents/${docId}/archive`, payload);
+};
+
+export const restoreDocument = async (docId: number): Promise<ApiResponse<Document>> => {
+    return await putRequest<Document>(`/api/v1/documents/${docId}/restore`);
+};
+
+export const getDocumentVersions = async (docId: number): Promise<ApiResponse<DocumentVersion[]>> => {
+    return await getRequest<DocumentVersion[]>(`/api/v1/documents/${docId}/versions`);
+};
+
+export const getDocumentVersionDownloadUrl = async (
+    docId: number,
+    versionId: number
+): Promise<ApiResponse<Record<string, unknown>>> => {
+    return await getRequest<Record<string, unknown>>(`/api/v1/documents/${docId}/versions/${versionId}/download`);
+};
+
+export const setCurrentDocumentVersion = async (
+    docId: number,
+    versionId: number
+): Promise<ApiResponse<DocumentVersion>> => {
+    return await patchRequest<DocumentVersion>(`/api/v1/documents/${docId}/versions/${versionId}/set-current`);
+};
+
+export const deleteDocumentVersion = async (
+    docId: number,
+    versionId: number,
+    reason: string
+): Promise<ApiResponse<any>> => {
+    return await deleteRequest<any>(`/api/v1/documents/${docId}/versions/${versionId}`, { reason });
+};
+
 export const uploadDocument = async (
     file: File,
     payload?: DocumentUploadPayload
@@ -134,6 +199,9 @@ export const uploadDocument = async (
     }
     if (payload?.title !== undefined && payload.title !== null) {
         formData.append('title', payload.title);
+    }
+    if (payload?.type !== undefined && payload.type !== null) {
+        formData.append('type', payload.type);
     }
     if (payload?.description !== undefined && payload.description !== null) {
         formData.append('description', payload.description);
@@ -160,6 +228,50 @@ export const uploadDocument = async (
     } catch (error: any) {
         return {
             data: 0,
+            status: error.response?.status || 500,
+            message: error.response?.data?.message || error.message,
+        };
+    }
+};
+
+export const uploadDocumentVersion = async (
+    docId: number,
+    file: File,
+    payload?: DocumentVersionUploadPayload
+): Promise<ApiResponse<DocumentVersion>> => {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    if (payload?.upload_comment !== undefined && payload.upload_comment !== null) {
+        formData.append('upload_comment', payload.upload_comment);
+    }
+
+    if (payload?.bump_major !== undefined) {
+        formData.append('bump_major', String(payload.bump_major));
+    }
+
+    const baseURL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+    const token = getAccessToken();
+
+    try {
+        const response = await axios.post<DocumentVersion>(
+            `${baseURL}/api/v1/documents/${docId}/versions`,
+            formData,
+            {
+                headers: {
+                    'Content-Type': 'multipart/form-data',
+                    Authorization: token ? `Bearer ${token}` : '',
+                },
+            }
+        );
+
+        return {
+            data: response.data,
+            status: response.status,
+        };
+    } catch (error: any) {
+        return {
+            data: {} as DocumentVersion,
             status: error.response?.status || 500,
             message: error.response?.data?.message || error.message,
         };
