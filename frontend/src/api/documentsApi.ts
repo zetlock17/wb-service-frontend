@@ -97,6 +97,17 @@ export interface DocumentVersionUploadPayload {
     bump_major?: boolean;
 }
 
+export interface UploadProgressOptions {
+    onProgress?: (progress: number) => void;
+}
+
+export interface BlobDownloadResponse {
+    data: Blob;
+    status: number;
+    filename?: string;
+    message?: string;
+}
+
 export const getFolders = async (parentId?: number | null): Promise<ApiResponse<Folder[]>> => {
     const params = parentId === undefined ? undefined : { parent_id: parentId };
     return await getRequest<Folder[]>('/api/v1/folders/', params);
@@ -189,7 +200,8 @@ export const deleteDocumentVersion = async (
 
 export const uploadDocument = async (
     file: File,
-    payload?: DocumentUploadPayload
+    payload?: DocumentUploadPayload,
+    options?: UploadProgressOptions
 ): Promise<ApiResponse<number>> => {
     const formData = new FormData();
     formData.append('file', file);
@@ -219,6 +231,13 @@ export const uploadDocument = async (
                 'Content-Type': 'multipart/form-data',
                 Authorization: token ? `Bearer ${token}` : '',
             },
+            onUploadProgress: (event) => {
+                if (!options?.onProgress || !event.total) {
+                    return;
+                }
+                const percent = Math.min(100, Math.round((event.loaded / event.total) * 100));
+                options.onProgress(percent);
+            },
         });
 
         return {
@@ -237,7 +256,8 @@ export const uploadDocument = async (
 export const uploadDocumentVersion = async (
     docId: number,
     file: File,
-    payload?: DocumentVersionUploadPayload
+    payload?: DocumentVersionUploadPayload,
+    options?: UploadProgressOptions
 ): Promise<ApiResponse<DocumentVersion>> => {
     const formData = new FormData();
     formData.append('file', file);
@@ -262,6 +282,13 @@ export const uploadDocumentVersion = async (
                     'Content-Type': 'multipart/form-data',
                     Authorization: token ? `Bearer ${token}` : '',
                 },
+                onUploadProgress: (event) => {
+                    if (!options?.onProgress || !event.total) {
+                        return;
+                    }
+                    const percent = Math.min(100, Math.round((event.loaded / event.total) * 100));
+                    options.onProgress(percent);
+                },
             }
         );
 
@@ -272,6 +299,82 @@ export const uploadDocumentVersion = async (
     } catch (error: any) {
         return {
             data: {} as DocumentVersion,
+            status: error.response?.status || 500,
+            message: error.response?.data?.message || error.message,
+        };
+    }
+};
+
+const parseFilename = (contentDisposition?: string): string | undefined => {
+    if (!contentDisposition) {
+        return undefined;
+    }
+
+    const utfMatch = contentDisposition.match(/filename\*=UTF-8''([^;]+)/i);
+    if (utfMatch?.[1]) {
+        return decodeURIComponent(utfMatch[1]);
+    }
+
+    const asciiMatch = contentDisposition.match(/filename="?([^";]+)"?/i);
+    if (asciiMatch?.[1]) {
+        return asciiMatch[1];
+    }
+
+    return undefined;
+};
+
+export const downloadDocumentFile = async (docId: number): Promise<BlobDownloadResponse> => {
+    const baseURL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+    const token = getAccessToken();
+
+    try {
+        const response = await axios.get<Blob>(`${baseURL}/api/v1/documents/${docId}/download`, {
+            responseType: 'blob',
+            headers: {
+                Authorization: token ? `Bearer ${token}` : '',
+            },
+        });
+
+        return {
+            data: response.data,
+            status: response.status,
+            filename: parseFilename(response.headers['content-disposition']),
+        };
+    } catch (error: any) {
+        return {
+            data: new Blob(),
+            status: error.response?.status || 500,
+            message: error.response?.data?.message || error.message,
+        };
+    }
+};
+
+export const downloadDocumentVersionFile = async (
+    docId: number,
+    versionId: number
+): Promise<BlobDownloadResponse> => {
+    const baseURL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+    const token = getAccessToken();
+
+    try {
+        const response = await axios.get<Blob>(
+            `${baseURL}/api/v1/documents/${docId}/versions/${versionId}/download`,
+            {
+                responseType: 'blob',
+                headers: {
+                    Authorization: token ? `Bearer ${token}` : '',
+                },
+            }
+        );
+
+        return {
+            data: response.data,
+            status: response.status,
+            filename: parseFilename(response.headers['content-disposition']),
+        };
+    } catch (error: any) {
+        return {
+            data: new Blob(),
             status: error.response?.status || 500,
             message: error.response?.data?.message || error.message,
         };

@@ -1,36 +1,44 @@
-import { ChevronRight, Download, Eye, FileText, Folder, FolderOpen, Plus, Home, Trash2, Edit, Check, X, CalendarClock, Search, Files, UserRound, Clock3, FolderTree as FolderTreeIcon, Sparkles } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { ChevronRight, Download, Eye, FileText, Folder, FolderOpen, Plus, Home, Trash2, Edit, Check, X, CalendarClock, Search, Files, UserRound, Clock3, FolderTree as FolderTreeIcon, Sparkles, UploadCloud } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
 import AlertModal from "../../components/common/AlertModal";
 import Modal from "../../components/common/Modal";
 import {
   createFolder,
   deleteFolder,
   deleteDocument,
+  archiveDocument,
+  restoreDocument,
   getDocumentDownloadUrl,
+  downloadDocumentFile,
+  downloadDocumentVersionFile,
   getDocuments,
+  getDocumentVersionDownloadUrl,
+  getDocumentVersions,
   getFoldersTree,
+  uploadDocumentVersion,
   updateDocument,
   updateFolder,
   uploadDocument,
   type Document,
+  type DocumentVersion,
   type FolderTree,
 } from "../../api/documentsApi";
-import { getProfilesList } from "../../api/profileApi";
+import { getProfileByEid } from "../../api/profileApi";
 import { useAlert } from "../../hooks/useAlert";
 import usePortalStore from "../../store/usePortalStore";
 
 const statusLabels: Record<Document["status"], string> = {
   DRAFT: "Черновик",
-  ACTIVE: "Актуален",
-  PUBLISHED: "Актуален",
+  ACTIVE: "Действующий",
+  PUBLISHED: "Действующий",
   ARCHIVED: "Архивный",
 };
 
 const statusBadgeClasses: Record<Document["status"], string> = {
-  DRAFT: "bg-amber-100 text-amber-700",
+  DRAFT: "bg-gray-100 text-gray-700",
   ACTIVE: "bg-green-100 text-green-700",
   PUBLISHED: "bg-green-100 text-green-700",
-  ARCHIVED: "bg-gray-100 text-gray-700",
+  ARCHIVED: "bg-red-100 text-red-700",
 };
 
 const documentTypeOptions = [
@@ -62,6 +70,16 @@ const documentTypeLabels: Record<string, string> = {
   CB_LETTER: "Письмо ЦБ",
   MANUAL: "Инструкция",
 };
+
+const MAX_UPLOAD_SIZE = 50 * 1024 * 1024;
+const allowedExtensions = new Set(["docx", "pdf", "xlsx", "jpg", "jpeg", "png"]);
+const allowedMimeTypes = new Set([
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "application/pdf",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  "image/jpeg",
+  "image/png",
+]);
 
 const extractDownloadUrl = (value: unknown): string | null => {
   if (!value || typeof value !== "object") {
@@ -134,6 +152,60 @@ const normalizeDocumentType = (value: string | null | undefined): (typeof docume
 
   const normalized = value.trim().toLowerCase();
   return documentTypeAliases[normalized] || null;
+};
+
+const getFileExtension = (fileName: string): string => {
+  const parts = fileName.split(".");
+  if (parts.length < 2) {
+    return "";
+  }
+  return parts.pop()?.toLowerCase() || "";
+};
+
+const isAllowedFile = (file: File): boolean => {
+  if (file.size > MAX_UPLOAD_SIZE) {
+    return false;
+  }
+
+  const extension = getFileExtension(file.name);
+  if (extension && allowedExtensions.has(extension)) {
+    return true;
+  }
+
+  if (file.type && allowedMimeTypes.has(file.type)) {
+    return true;
+  }
+
+  return false;
+};
+
+const saveBlobFile = (blob: Blob, filename: string) => {
+  const url = window.URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  window.URL.revokeObjectURL(url);
+};
+
+const extractFilenameFromDisposition = (contentDisposition: string | null): string | null => {
+  if (!contentDisposition) {
+    return null;
+  }
+
+  const utfMatch = contentDisposition.match(/filename\*=UTF-8''([^;]+)/i);
+  if (utfMatch?.[1]) {
+    return decodeURIComponent(utfMatch[1]);
+  }
+
+  const asciiMatch = contentDisposition.match(/filename="?([^";]+)"?/i);
+  if (asciiMatch?.[1]) {
+    return asciiMatch[1];
+  }
+
+  return null;
 };
 
 interface BrowserFolder {
@@ -355,6 +427,7 @@ const DocumentsModule = () => {
   const [activeTab, setActiveTab] = useState<"all" | "mine" | "recent">("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [documentFilter, setDocumentFilter] = useState("all");
+  const [showArchived, setShowArchived] = useState(false);
   const [currentFolderId, setCurrentFolderId] = useState<number | null>(null);
   const [documents, setDocuments] = useState<Document[]>([]);
   const [profilesMap, setProfilesMap] = useState<Record<string, string>>({});
@@ -376,8 +449,15 @@ const DocumentsModule = () => {
   const [uploadDescription, setUploadDescription] = useState("");
   const [uploadType, setUploadType] = useState<string>("");
   const [uploadFolderId, setUploadFolderId] = useState<number | null>(null);
+  const [uploadProgress, setUploadProgress] = useState<number | null>(null);
   const [downloadingId, setDownloadingId] = useState<number | null>(null);
   const [selectedDocument, setSelectedDocument] = useState<Document | null>(null);
+  const [documentVersions, setDocumentVersions] = useState<DocumentVersion[]>([]);
+  const [versionsLoading, setVersionsLoading] = useState(false);
+  const [uploadVersionFile, setUploadVersionFile] = useState<File | null>(null);
+  const [uploadVersionComment, setUploadVersionComment] = useState("");
+  const [uploadVersionMajor, setUploadVersionMajor] = useState(false);
+  const [uploadVersionProgress, setUploadVersionProgress] = useState<number | null>(null);
   const [recentDocumentIds, setRecentDocumentIds] = useState<number[]>([]);
   const [readDocumentIds, setReadDocumentIds] = useState<Set<number>>(() => {
     const saved = localStorage.getItem("readDocuments");
@@ -547,36 +627,39 @@ const DocumentsModule = () => {
     return false;
   }, [showAlert]);
 
-  const fetchProfilesMap = useCallback(async () => {
-    const pageSize = 100;
-    const maxPages = 100;
-    const profiles: Array<{ eid: string; full_name: string }> = [];
+  const fetchProfilesByEids = useCallback(
+    async (eids: Array<string | null | undefined>) => {
+      const uniqueEids = Array.from(
+        new Set(
+          eids
+            .filter((eid): eid is string => Boolean(eid))
+            .map((eid) => String(eid))
+        )
+      );
 
-    for (let page = 1; page <= maxPages; page += 1) {
-      const profilesResponse = await getProfilesList({ page, size: pageSize });
-
-      if (profilesResponse.status < 200 || profilesResponse.status >= 300) {
-        break;
+      const missing = uniqueEids.filter((eid) => !profilesMap[eid]);
+      if (!missing.length) {
+        return;
       }
 
-      const currentPage = profilesResponse.data || [];
-      profiles.push(...currentPage);
+      const responses = await Promise.all(missing.map((eid) => getProfileByEid(eid)));
+      const nextEntries: Record<string, string> = {};
 
-      if (currentPage.length < pageSize) {
-        break;
+      responses.forEach((response, index) => {
+        if (response.status >= 200 && response.status < 300 && response.data) {
+          const eid = String(response.data.eid ?? missing[index]);
+          if (eid) {
+            nextEntries[eid] = response.data.full_name || eid;
+          }
+        }
+      });
+
+      if (Object.keys(nextEntries).length) {
+        setProfilesMap((prev) => ({ ...prev, ...nextEntries }));
       }
-    }
-
-    const map = profiles.reduce<Record<string, string>>((acc, profile) => {
-      const key = String(profile.eid);
-      if (key) {
-        acc[key] = profile.full_name;
-      }
-      return acc;
-    }, {});
-
-    setProfilesMap(map);
-  }, []);
+    },
+    [profilesMap]
+  );
 
   const getPersonDisplayName = useCallback(
     (eid: string | null | undefined) => {
@@ -598,33 +681,67 @@ const DocumentsModule = () => {
       setDocumentsLoading(true);
       const docsResponse = await getDocuments({
         folder_id: folderId,
+        show_archived: showArchived,
         page: 1,
         size: 100,
       });
       setDocumentsLoading(false);
 
       if (docsResponse.status >= 200 && docsResponse.status < 300) {
-        setDocuments(docsResponse.data || []);
+        const nextDocuments = docsResponse.data || [];
+        setDocuments(nextDocuments);
+        void fetchProfilesByEids(
+          nextDocuments.flatMap((doc) => [doc.author_id, doc.curator_id])
+        );
         return;
       }
 
       setDocuments([]);
       showAlert(docsResponse.message || "Не удалось загрузить документы", "error");
     },
-    [showAlert]
+    [fetchProfilesByEids, showAlert, showArchived]
+  );
+
+  const fetchDocumentVersions = useCallback(
+    async (docId: number) => {
+      setVersionsLoading(true);
+      const response = await getDocumentVersions(docId);
+      setVersionsLoading(false);
+
+      if (response.status >= 200 && response.status < 300) {
+        const versions = response.data || [];
+        const sorted = [...versions].sort((a, b) => b.id - a.id);
+        setDocumentVersions(sorted);
+        void fetchProfilesByEids(sorted.map((version) => version.uploaded_by));
+        return;
+      }
+
+      setDocumentVersions([]);
+      showAlert(response.message || "Не удалось загрузить историю версий", "error");
+    },
+    [fetchProfilesByEids, showAlert]
   );
 
   useEffect(() => {
     const initialize = async () => {
       setLoading(true);
-      await Promise.all([fetchFolders(), fetchProfilesMap()]);
+      await fetchFolders();
       initialLoadRef.current = true;
       await fetchDocumentsByFolder(null);
       setLoading(false);
     };
 
     void initialize();
-  }, [fetchDocumentsByFolder, fetchFolders, fetchProfilesMap]);
+  }, [fetchDocumentsByFolder, fetchFolders]);
+
+  useEffect(() => {
+    if (!initialLoadRef.current) {
+      return;
+    }
+
+    void fetchDocumentsByFolder(currentFolderId);
+  }, [fetchDocumentsByFolder, showArchived]);
+
 
   const navigateToFolder = useCallback(
     async (folderId: number | null) => {
@@ -655,6 +772,10 @@ const DocumentsModule = () => {
 
     result = result.filter((doc) => (doc.folder_id ?? null) === currentFolderId);
 
+    if (!showArchived) {
+      result = result.filter((doc) => doc.status !== "ARCHIVED");
+    }
+
     if (documentFilter !== "all") {
       result = result.filter((doc) => normalizeDocumentType(doc.type) === documentFilter);
     }
@@ -670,7 +791,7 @@ const DocumentsModule = () => {
     }
 
     return result;
-  }, [activeTab, currentFolderId, currentUser?.eid, documentFilter, documents, recentDocumentIds, searchQuery]);
+  }, [activeTab, currentFolderId, currentUser?.eid, documentFilter, documents, recentDocumentIds, searchQuery, showArchived]);
 
   const childFolders = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
@@ -730,7 +851,25 @@ const DocumentsModule = () => {
     setUploadDescription("");
     setUploadType("");
     setUploadFolderId(null);
+    setUploadProgress(null);
   }, []);
+
+  const validateFileForUpload = useCallback(
+    (file: File) => {
+      if (file.size > MAX_UPLOAD_SIZE) {
+        showAlert("Файл больше 50 МБ. Загрузите документ меньшего размера.", "warning");
+        return false;
+      }
+
+      if (!isAllowedFile(file)) {
+        showAlert("Разрешены только DOCX, PDF, XLSX, JPG и PNG файлы.", "warning");
+        return false;
+      }
+
+      return true;
+    },
+    [showAlert]
+  );
 
   const onUploadClick = () => {
     if (!canManageDocuments) {
@@ -745,9 +884,45 @@ const DocumentsModule = () => {
     setIsUploadModalOpen(true);
   };
 
+  const onUploadFileChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0] || null;
+    if (!file) {
+      setUploadFile(null);
+      return;
+    }
+
+    if (!validateFileForUpload(file)) {
+      event.target.value = "";
+      setUploadFile(null);
+      return;
+    }
+
+    setUploadFile(file);
+  };
+
+  const onUploadVersionFileChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0] || null;
+    if (!file) {
+      setUploadVersionFile(null);
+      return;
+    }
+
+    if (!validateFileForUpload(file)) {
+      event.target.value = "";
+      setUploadVersionFile(null);
+      return;
+    }
+
+    setUploadVersionFile(file);
+  };
+
   const onUploadSubmit = async () => {
     if (!uploadFile) {
       showAlert("Выберите файл для загрузки", "warning");
+      return;
+    }
+
+    if (!validateFileForUpload(uploadFile)) {
       return;
     }
 
@@ -761,12 +936,19 @@ const DocumentsModule = () => {
     const folderId = uploadFolderId;
 
     setUploading(true);
-    const response = await uploadDocument(uploadFile, {
-      title,
-      type: uploadType,
-      description: description || undefined,
-      folder_id: folderId,
-    });
+    setUploadProgress(0);
+    const response = await uploadDocument(
+      uploadFile,
+      {
+        title,
+        type: uploadType,
+        description: description || undefined,
+        folder_id: folderId,
+      },
+      {
+        onProgress: (progress) => setUploadProgress(progress),
+      }
+    );
     setUploading(false);
 
     if (response.status >= 200 && response.status < 300) {
@@ -776,35 +958,128 @@ const DocumentsModule = () => {
       await fetchDocumentsByFolder(currentFolderId);
       return;
     }
-
+    setUploadProgress(null);
     showAlert(response.message || "Не удалось загрузить документ", "error");
   };
 
   const onDownloadDocument = async (docId: number) => {
     setDownloadingId(docId);
-    const response = await getDocumentDownloadUrl(docId);
-    setDownloadingId(null);
+    try {
+      const response = await getDocumentDownloadUrl(docId);
+      const url = response.status >= 200 && response.status < 300 ? extractDownloadUrl(response.data) : null;
 
-    if (response.status < 200 || response.status >= 300) {
-      showAlert(response.message || "Не удалось получить ссылку на скачивание", "error");
-      return;
+      if (url) {
+        const fileResponse = await fetch(url);
+        if (!fileResponse.ok) {
+          throw new Error("Не удалось скачать файл по ссылке");
+        }
+        const blob = await fileResponse.blob();
+        const filenameFromHeader = extractFilenameFromDisposition(fileResponse.headers.get("content-disposition"));
+        const filename = filenameFromHeader || selectedDocument?.original_filename || "document";
+        saveBlobFile(blob, filename);
+        return;
+      }
+
+      const blobResponse = await downloadDocumentFile(docId);
+      if (blobResponse.status < 200 || blobResponse.status >= 300) {
+        throw new Error(blobResponse.message || "Не удалось скачать документ");
+      }
+      const filename = blobResponse.filename || selectedDocument?.original_filename || "document";
+      saveBlobFile(blobResponse.data, filename);
+    } catch (error: any) {
+      showAlert(error?.message || "Не удалось скачать документ", "error");
+    } finally {
+      setDownloadingId(null);
     }
-
-    const url = extractDownloadUrl(response.data);
-    if (!url) {
-      showAlert("Ссылка на скачивание не найдена в ответе API", "error");
-      return;
-    }
-
-    window.open(url, "_blank", "noopener,noreferrer");
   };
 
   const onSelectDocument = (doc: Document) => {
     setSelectedDocument(doc);
+    setUploadVersionFile(null);
+    setUploadVersionComment("");
+    setUploadVersionMajor(false);
+    void fetchDocumentVersions(doc.id);
+    void fetchProfilesByEids([doc.author_id, doc.curator_id]);
     setRecentDocumentIds((prev) => {
       const withoutCurrent = prev.filter((id) => id !== doc.id);
       return [doc.id, ...withoutCurrent].slice(0, 20);
     });
+  };
+
+  const onDownloadVersion = async (docId: number, versionId: number) => {
+    setDownloadingId(versionId);
+    try {
+      const response = await getDocumentVersionDownloadUrl(docId, versionId);
+      const url = response.status >= 200 && response.status < 300 ? extractDownloadUrl(response.data) : null;
+
+      if (url) {
+        const fileResponse = await fetch(url);
+        if (!fileResponse.ok) {
+          throw new Error("Не удалось скачать файл по ссылке");
+        }
+        const blob = await fileResponse.blob();
+        const filenameFromHeader = extractFilenameFromDisposition(fileResponse.headers.get("content-disposition"));
+        const version = documentVersions.find((item) => item.id === versionId);
+        const filename = filenameFromHeader || version?.original_filename || "document-version";
+        saveBlobFile(blob, filename);
+        return;
+      }
+
+      const blobResponse = await downloadDocumentVersionFile(docId, versionId);
+      if (blobResponse.status < 200 || blobResponse.status >= 300) {
+        throw new Error(blobResponse.message || "Не удалось скачать версию");
+      }
+      const version = documentVersions.find((item) => item.id === versionId);
+      const filename = blobResponse.filename || version?.original_filename || "document-version";
+      saveBlobFile(blobResponse.data, filename);
+    } catch (error: any) {
+      showAlert(error?.message || "Не удалось скачать версию", "error");
+    } finally {
+      setDownloadingId(null);
+    }
+  };
+
+  const onUploadNewVersion = async () => {
+    if (!selectedDocument) {
+      return;
+    }
+
+    if (!uploadVersionFile) {
+      showAlert("Выберите файл для загрузки версии", "warning");
+      return;
+    }
+
+    if (!validateFileForUpload(uploadVersionFile)) {
+      return;
+    }
+
+    setUploading(true);
+    setUploadVersionProgress(0);
+    const response = await uploadDocumentVersion(
+      selectedDocument.id,
+      uploadVersionFile,
+      {
+        upload_comment: uploadVersionComment.trim() || undefined,
+        bump_major: uploadVersionMajor,
+      },
+      {
+        onProgress: (progress) => setUploadVersionProgress(progress),
+      }
+    );
+    setUploading(false);
+
+    if (response.status >= 200 && response.status < 300) {
+      showAlert("Новая версия загружена", "success");
+      setUploadVersionFile(null);
+      setUploadVersionComment("");
+      setUploadVersionMajor(false);
+      setUploadVersionProgress(null);
+      await fetchDocumentsByFolder(currentFolderId);
+      await fetchDocumentVersions(selectedDocument.id);
+      return;
+    }
+    setUploadVersionProgress(null);
+    showAlert(response.message || "Не удалось загрузить новую версию", "error");
   };
 
   const onOpenFolder = async (folderId: number) => {
@@ -912,11 +1187,60 @@ const DocumentsModule = () => {
       showAlert("Документ обновлен", "success");
       setIsEditingDocument(false);
       setSelectedDocument(response.data);
+      void fetchProfilesByEids([response.data.author_id, response.data.curator_id]);
       await fetchDocumentsByFolder(currentFolderId);
       return;
     }
 
     showAlert(response.message || "Не удалось обновить документ", "error");
+  };
+
+  const onArchiveDocument = async () => {
+    if (!selectedDocument) {
+      return;
+    }
+
+    const isConfirmed = window.confirm(
+      `Архивировать документ "${selectedDocument.title}"?`
+    );
+
+    if (!isConfirmed) {
+      return;
+    }
+
+    setDocumentActionLoading(true);
+    const response = await archiveDocument(selectedDocument.id, {
+      comment: "Переведен в архив",
+    });
+    setDocumentActionLoading(false);
+
+    if (response.status >= 200 && response.status < 300) {
+      showAlert("Документ архивирован", "success");
+      setSelectedDocument(response.data);
+      await fetchDocumentsByFolder(currentFolderId);
+      return;
+    }
+
+    showAlert(response.message || "Не удалось архивировать документ", "error");
+  };
+
+  const onRestoreDocument = async () => {
+    if (!selectedDocument) {
+      return;
+    }
+
+    setDocumentActionLoading(true);
+    const response = await restoreDocument(selectedDocument.id);
+    setDocumentActionLoading(false);
+
+    if (response.status >= 200 && response.status < 300) {
+      showAlert("Документ восстановлен", "success");
+      setSelectedDocument(response.data);
+      await fetchDocumentsByFolder(currentFolderId);
+      return;
+    }
+
+    showAlert(response.message || "Не удалось восстановить документ", "error");
   };
 
   const onDeleteDocument = async () => {
@@ -964,7 +1288,7 @@ const DocumentsModule = () => {
       title: selectedDocument.title,
       type: normalizeDocumentType(selectedDocument.type) || "REGULATION",
       description: selectedDocument.description || "",
-      status: selectedDocument.status,
+      status: selectedDocument.status === "PUBLISHED" ? "ACTIVE" : selectedDocument.status,
       curator_id: selectedDocument.curator_id,
     });
     setIsEditingDocument(true);
@@ -1054,7 +1378,7 @@ const DocumentsModule = () => {
             })}
           </div>
 
-          <div className="grid grid-cols-1 gap-3 lg:grid-cols-[1fr_auto_auto]">
+          <div className="grid grid-cols-1 gap-3 lg:grid-cols-[1fr_auto_auto_auto]">
             <label className="relative block">
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
               <input
@@ -1075,6 +1399,15 @@ const DocumentsModule = () => {
                 {getFolderDisplayName(currentFolderId, "Корень")}
               </span>
             </button>
+            <label className="flex items-center gap-2 rounded-xl border border-purple-100 bg-white px-3 py-2.5 text-sm text-gray-700 transition hover:bg-purple-50">
+              <input
+                type="checkbox"
+                checked={showArchived}
+                onChange={(event) => setShowArchived(event.target.checked)}
+                className="h-4 w-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500"
+              />
+              Показать архив
+            </label>
             <select
               value={documentFilter}
               onChange={(event) => setDocumentFilter(event.target.value)}
@@ -1309,10 +1642,22 @@ const DocumentsModule = () => {
             <label className="block text-sm font-medium text-gray-700 mb-1">Файл</label>
             <input
               type="file"
-              onChange={(event) => setUploadFile(event.target.files?.[0] || null)}
+              onChange={onUploadFileChange}
+              accept=".docx,.pdf,.xlsx,.jpg,.jpeg,.png"
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
             />
             {uploadFile && <p className="text-xs text-gray-500 mt-1">Выбрано: {uploadFile.name}</p>}
+            {uploading && uploadProgress !== null && (
+              <div className="mt-2">
+                <div className="h-2 w-full rounded-full bg-gray-200">
+                  <div
+                    className="h-2 rounded-full bg-purple-600 transition-all"
+                    style={{ width: `${uploadProgress}%` }}
+                  ></div>
+                </div>
+                <p className="mt-1 text-xs text-gray-500">Загрузка: {uploadProgress}%</p>
+              </div>
+            )}
           </div>
 
           <div>
@@ -1407,6 +1752,7 @@ const DocumentsModule = () => {
       <Modal isOpen={Boolean(selectedDocument)} title={selectedDocument?.title ?? ""} onClose={() => {
         setSelectedDocument(null);
         setIsEditingDocument(false);
+        setDocumentVersions([]);
       }}>
         {selectedDocument && (
           <div className="space-y-4">
@@ -1487,6 +1833,25 @@ const DocumentsModule = () => {
                         <Edit className="w-4 h-4" />
                         Редактировать
                       </button>
+                      {selectedDocument.status === "ARCHIVED" ? (
+                        <button
+                          onClick={onRestoreDocument}
+                          disabled={documentActionLoading}
+                          className="flex-1 min-w-32 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-60 flex items-center justify-center gap-2"
+                        >
+                          <Check className="w-4 h-4" />
+                          Восстановить
+                        </button>
+                      ) : (
+                        <button
+                          onClick={onArchiveDocument}
+                          disabled={documentActionLoading}
+                          className="flex-1 min-w-32 px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 disabled:opacity-60 flex items-center justify-center gap-2"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                          Архивировать
+                        </button>
+                      )}
                       <button
                         onClick={onDeleteDocument}
                         disabled={documentActionLoading}
@@ -1495,6 +1860,62 @@ const DocumentsModule = () => {
                         <Trash2 className="w-4 h-4" />
                         Удалить
                       </button>
+                    </div>
+
+                    <div className="pt-2 border-t border-gray-200">
+                      <h3 className="font-semibold text-gray-900 mb-2">Новая версия</h3>
+                      <div className="space-y-3 rounded-lg border border-gray-200 bg-gray-50 p-3">
+                        <div>
+                          <label className="block text-xs font-medium text-gray-600 mb-1">Файл версии</label>
+                          <input
+                            type="file"
+                            onChange={onUploadVersionFileChange}
+                            accept=".docx,.pdf,.xlsx,.jpg,.jpeg,.png"
+                            className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
+                          />
+                          {uploadVersionFile && (
+                            <p className="text-xs text-gray-500 mt-1">Выбрано: {uploadVersionFile.name}</p>
+                          )}
+                          {uploading && uploadVersionProgress !== null && (
+                            <div className="mt-2">
+                              <div className="h-2 w-full rounded-full bg-gray-200">
+                                <div
+                                  className="h-2 rounded-full bg-purple-600 transition-all"
+                                  style={{ width: `${uploadVersionProgress}%` }}
+                                ></div>
+                              </div>
+                              <p className="mt-1 text-xs text-gray-500">Загрузка: {uploadVersionProgress}%</p>
+                            </div>
+                          )}
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-600 mb-1">Комментарий</label>
+                          <input
+                            type="text"
+                            value={uploadVersionComment}
+                            onChange={(event) => setUploadVersionComment(event.target.value)}
+                            placeholder="Кратко опишите изменения"
+                            className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
+                          />
+                        </div>
+                        <label className="flex items-center gap-2 text-sm text-gray-600">
+                          <input
+                            type="checkbox"
+                            checked={uploadVersionMajor}
+                            onChange={(event) => setUploadVersionMajor(event.target.checked)}
+                            className="h-4 w-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500"
+                          />
+                          Мажорное обновление (увеличить старшую версию)
+                        </label>
+                        <button
+                          onClick={onUploadNewVersion}
+                          disabled={uploading}
+                          className="inline-flex items-center justify-center gap-2 rounded-lg bg-purple-600 px-4 py-2 text-sm font-medium text-white hover:bg-purple-700 disabled:opacity-60"
+                        >
+                          <UploadCloud className="h-4 w-4" />
+                          {uploading ? "Загрузка..." : "Загрузить новую версию"}
+                        </button>
+                      </div>
                     </div>
 
                     <div className="pt-2 border-t border-gray-200">
@@ -1570,7 +1991,7 @@ const DocumentsModule = () => {
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
                   >
                     <option value="DRAFT">Черновик</option>
-                    <option value="PUBLISHED">Актуален</option>
+                    <option value="ACTIVE">Действующий</option>
                     <option value="ARCHIVED">Архивный</option>
                   </select>
                 </div>
@@ -1608,6 +2029,53 @@ const DocumentsModule = () => {
                 </div>
               </div>
             )}
+
+            <div className="pt-2 border-t border-gray-200">
+              <h3 className="font-semibold text-gray-900 mb-2">История версий</h3>
+              {versionsLoading ? (
+                <p className="text-sm text-gray-500">Загрузка истории...</p>
+              ) : documentVersions.length ? (
+                <div className="space-y-2">
+                  {documentVersions.map((version) => {
+                    const versionLabel = version.version_number || `${version.version_major}.${version.version_minor}`;
+                    const isCurrent = version.is_current;
+                    return (
+                      <div
+                        key={`version-${version.id}`}
+                        className={`rounded-lg border p-3 ${isCurrent ? "border-green-200 bg-green-50" : "border-gray-200 bg-white"}`}
+                      >
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <div className="min-w-0">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="text-sm font-semibold text-gray-900">Версия {versionLabel}</span>
+                              {isCurrent && (
+                                <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">
+                                  Актуальная
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-xs text-gray-600">
+                              {getPersonDisplayName(version.uploaded_by)} · {formatDateTime(version.created_at)}
+                            </p>
+                            <p className="text-xs text-gray-500">{version.upload_comment || "Комментарий не указан"}</p>
+                          </div>
+                          <button
+                            onClick={() => onDownloadVersion(selectedDocument.id, version.id)}
+                            disabled={downloadingId === version.id}
+                            className="inline-flex items-center gap-2 rounded-md border border-gray-300 px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-50 disabled:opacity-60"
+                          >
+                            <Download className="h-3.5 w-3.5" />
+                            {downloadingId === version.id ? "Готовим..." : "Скачать"}
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <p className="text-sm text-gray-500">История версий пока отсутствует.</p>
+              )}
+            </div>
           </div>
         )}
       </Modal>
