@@ -107,7 +107,68 @@ export interface BlobDownloadResponse {
     filename?: string;
     message?: string;
 }
+export interface DocumentSearchFilters {
+    q?: string | null;
+    doc_type?: string | null;
+    status?: DocumentStatus | null;
+    author_id?: string | null;
+    curator_id?: string | null;
+    date_from?: string | null; 
+    date_to?: string | null; 
+    show_archived?: boolean;
+    from_?: number;
+    size?: number;
+}
 
+export const searchDocuments = async (
+    filters: DocumentSearchFilters
+): Promise<ApiResponse<Document[]>> => {
+    const params: Record<string, any> = {};
+
+    if (filters.q) params.q = filters.q;
+    if (filters.doc_type) params.doc_type = filters.doc_type;
+    if (filters.status) params.status = filters.status;
+    if (filters.author_id) params.author_id = filters.author_id;
+    if (filters.curator_id) params.curator_id = filters.curator_id;
+    if (filters.date_from) params.date_from = filters.date_from;
+    if (filters.date_to) params.date_to = filters.date_to;
+    if (filters.show_archived !== undefined) params.show_archived = filters.show_archived;
+    if (filters.from_ !== undefined) params.from_ = filters.from_;
+    if (filters.size !== undefined) params.size = filters.size;
+
+    const response = await getRequest<{ total: number, results: any[] }>(
+        '/api/v1/documents/search',
+        Object.keys(params).length ? params : undefined
+    );
+
+    if (response.status >= 200 && response.status < 300 && response.data) {
+        const results = response.data.results || [];
+        const mappedDocs: Document[] = results.map((hit: any) => ({
+            id: hit.doc_id,
+            folder_id: hit.folder_id,
+            title: hit.title || "Без названия",
+            type: hit.type || "REGULATION",
+            status: hit.status || "DRAFT",
+            description: null,
+            author_id: hit.author_id,
+            curator_id: hit.curator_id || null,
+            current_version: 1,
+            s3_key: "",
+            original_filename: hit.title || "document",
+            file_size: 0,
+            mime_type: "application/octet-stream",
+            created_at: hit.created_at || null,
+            updated_at: hit.updated_at || null,
+        }));
+
+        return {
+            ...response,
+            data: mappedDocs,
+        } as unknown as ApiResponse<Document[]>;
+    }
+
+    return response as unknown as ApiResponse<Document[]>;
+};
 export const getFolders = async (parentId?: number | null): Promise<ApiResponse<Folder[]>> => {
     const params = parentId === undefined ? undefined : { parent_id: parentId };
     return await getRequest<Folder[]>('/api/v1/folders/', params);

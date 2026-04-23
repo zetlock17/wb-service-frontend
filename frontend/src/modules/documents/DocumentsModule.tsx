@@ -8,6 +8,7 @@ import {
   deleteDocument,
   archiveDocument,
   restoreDocument,
+  searchDocuments,
   getDocumentDownloadUrl,
   downloadDocumentFile,
   downloadDocumentVersionFile,
@@ -429,6 +430,14 @@ const DocumentsModule = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [documentFilter, setDocumentFilter] = useState("all");
   const [showArchived, setShowArchived] = useState(false);
+  const [isAdvancedSearchOpen, setIsAdvancedSearchOpen] = useState(false);
+  const [searchStatus, setSearchStatus] = useState<Document["status"] | "all">("all");
+  const [searchAuthorId, setSearchAuthorId] = useState("");
+  const [searchCuratorId, setSearchCuratorId] = useState("");
+  const [searchDateFrom, setSearchDateFrom] = useState("");
+  const [searchDateTo, setSearchDateTo] = useState("");
+  const [searchResults, setSearchResults] = useState<Document[] | null>(null);
+  const [isSearching, setIsSearching] = useState(false);
   const [currentFolderId, setCurrentFolderId] = useState<number | null>(null);
   const [documents, setDocuments] = useState<Document[]>([]);
   const [profilesMap, setProfilesMap] = useState<Record<string, string>>({});
@@ -755,8 +764,64 @@ const DocumentsModule = () => {
 
   const types = useMemo(() => ["all", ...documentTypeOptions.map((option) => option.value)], []);
 
+  const executeSearch = useCallback(async () => {
+    const hasSearchFilters =
+      searchQuery.trim() ||
+      documentFilter !== "all" ||
+      searchStatus !== "all" ||
+      searchAuthorId.trim() ||
+      searchCuratorId.trim() ||
+      searchDateFrom ||
+      searchDateTo;
+
+    if (!hasSearchFilters) {
+      setSearchResults(null);
+      return;
+    }
+
+    setIsSearching(true);
+    const response = await searchDocuments({
+      q: searchQuery.trim() || null,
+      doc_type: documentFilter !== "all" ? documentFilter : null,
+      status: searchStatus !== "all" ? (searchStatus as Document["status"]) : null,
+      author_id: searchAuthorId.trim() || null,
+      curator_id: searchCuratorId.trim() || null,
+      date_from: searchDateFrom || null,
+      date_to: searchDateTo || null,
+      show_archived: showArchived,
+      size: 100,
+    });
+    setIsSearching(false);
+
+    if (response.status >= 200 && response.status < 300) {
+      const results = response.data || [];
+      setSearchResults(results);
+      void fetchProfilesByEids(results.flatMap((doc) => [doc.author_id, doc.curator_id]));
+    } else {
+      showAlert(response.message || "Ошибка при поиске документов", "error");
+    }
+  }, [
+    searchQuery,
+    documentFilter,
+    searchStatus,
+    searchAuthorId,
+    searchCuratorId,
+    searchDateFrom,
+    searchDateTo,
+    showArchived,
+    fetchProfilesByEids,
+    showAlert,
+  ]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      void executeSearch();
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [executeSearch]);
+
   const filteredDocuments = useMemo(() => {
-    let result = documents;
+    let result = searchResults !== null ? searchResults : documents;
 
     if (activeTab === "mine") {
       const currentEid = String(currentUser?.eid || "");
@@ -772,30 +837,36 @@ const DocumentsModule = () => {
       );
     }
 
-    result = result.filter((doc) => (doc.folder_id ?? null) === currentFolderId);
+    if (searchResults === null) {
+      result = result.filter((doc) => (doc.folder_id ?? null) === currentFolderId);
 
-    if (!showArchived) {
-      result = result.filter((doc) => doc.status !== "ARCHIVED");
-    }
+      if (!showArchived) {
+        result = result.filter((doc) => doc.status !== "ARCHIVED");
+      }
 
-    if (documentFilter !== "all") {
-      result = result.filter((doc) => normalizeDocumentType(doc.type) === documentFilter);
-    }
+      if (documentFilter !== "all") {
+        result = result.filter((doc) => normalizeDocumentType(doc.type) === documentFilter);
+      }
 
-    if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase();
-      result = result.filter(
-        (doc) =>
-          doc.title.toLowerCase().includes(query) ||
-          doc.original_filename.toLowerCase().includes(query) ||
-          (doc.description || "").toLowerCase().includes(query)
-      );
+      if (searchQuery.trim()) {
+        const query = searchQuery.toLowerCase();
+        result = result.filter(
+          (doc) =>
+            doc.title.toLowerCase().includes(query) ||
+            doc.original_filename.toLowerCase().includes(query) ||
+            (doc.description || "").toLowerCase().includes(query)
+        );
+      }
     }
 
     return result;
-  }, [activeTab, currentFolderId, currentUser?.eid, documentFilter, documents, recentDocumentIds, searchQuery, showArchived]);
+  }, [activeTab, currentFolderId, currentUser?.eid, documentFilter, documents, recentDocumentIds, searchQuery, searchResults, showArchived]);
 
   const childFolders = useMemo(() => {
+    if (searchResults !== null) {
+      return [];
+    }
+
     const query = searchQuery.trim().toLowerCase();
     const result = folders.filter((folder) => folder.parent_id === currentFolderId);
 
@@ -804,7 +875,7 @@ const DocumentsModule = () => {
     }
 
     return result.filter((folder) => folder.name.toLowerCase().includes(query));
-  }, [currentFolderId, folders, searchQuery]);
+  }, [currentFolderId, folders, searchQuery, searchResults]);
 
   const tabItems = useMemo(
     () => [
@@ -1432,7 +1503,74 @@ const DocumentsModule = () => {
                   </option>
                 ))}
             </select>
+            <button
+              type="button"
+              onClick={() => setIsAdvancedSearchOpen(!isAdvancedSearchOpen)}
+              className={`rounded-xl border px-4 py-2.5 text-sm transition ${
+                isAdvancedSearchOpen || searchStatus !== "all" || searchAuthorId || searchCuratorId || searchDateFrom || searchDateTo
+                  ? "border-purple-600 bg-purple-50 text-purple-700"
+                  : "border-purple-100 bg-white text-gray-700 hover:bg-purple-50"
+              }`}
+            >
+              Параметры
+            </button>
           </div>
+
+          {isAdvancedSearchOpen && (
+            <div className="mt-4 grid grid-cols-1 gap-4 rounded-xl border border-purple-100 bg-purple-50/50 p-4 md:grid-cols-2 lg:grid-cols-4">
+              <div>
+                <label className="mb-1 block text-xs font-medium text-gray-600">Статус</label>
+                <select
+                  value={searchStatus}
+                  onChange={(e) => setSearchStatus(e.target.value as any)}
+                  className="w-full rounded-lg border border-purple-100 bg-white px-3 py-2 text-sm outline-none focus:border-purple-400 focus:ring-2 focus:ring-purple-200"
+                >
+                  <option value="all">Любой</option>
+                  <option value="DRAFT">Черновик</option>
+                  <option value="ACTIVE">Действующий</option>
+                  <option value="ARCHIVED">Архивный</option>
+                </select>
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium text-gray-600">Автор (EID)</label>
+                <input
+                  type="text"
+                  value={searchAuthorId}
+                  onChange={(e) => setSearchAuthorId(e.target.value)}
+                  placeholder="Введите EID"
+                  className="w-full rounded-lg border border-purple-100 bg-white px-3 py-2 text-sm outline-none focus:border-purple-400 focus:ring-2 focus:ring-purple-200"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium text-gray-600">Куратор (EID)</label>
+                <input
+                  type="text"
+                  value={searchCuratorId}
+                  onChange={(e) => setSearchCuratorId(e.target.value)}
+                  placeholder="Введите EID"
+                  className="w-full rounded-lg border border-purple-100 bg-white px-3 py-2 text-sm outline-none focus:border-purple-400 focus:ring-2 focus:ring-purple-200"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium text-gray-600">Период загрузки</label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="date"
+                    value={searchDateFrom}
+                    onChange={(e) => setSearchDateFrom(e.target.value)}
+                    className="w-full rounded-lg border border-purple-100 bg-white px-2 py-2 text-sm outline-none focus:border-purple-400 focus:ring-2 focus:ring-purple-200"
+                  />
+                  <span className="text-gray-400">-</span>
+                  <input
+                    type="date"
+                    value={searchDateTo}
+                    onChange={(e) => setSearchDateTo(e.target.value)}
+                    className="w-full rounded-lg border border-purple-100 bg-white px-2 py-2 text-sm outline-none focus:border-purple-400 focus:ring-2 focus:ring-purple-200"
+                  />
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="p-6 md:p-8">
@@ -1551,11 +1689,14 @@ const DocumentsModule = () => {
           </div>
 
           <div className="space-y-3">
-            {documentsLoading && (
+            {isSearching && (
+              <p className="px-1 text-sm font-medium text-purple-600 animate-pulse">Выполняется поиск документов...</p>
+            )}
+            {documentsLoading && !isSearching && (
               <p className="px-1 text-sm text-gray-500">Загружаем документы выбранной папки...</p>
             )}
 
-            {childFolders.map((folder) => {
+            {!isSearching && childFolders.map((folder) => {
               const { docs, subs } = getFolderContents(folder.id);
               return (
                 <button
