@@ -1,4 +1,4 @@
-import { ChevronRight, Download, Eye, FileText, Folder, FolderOpen, Plus, Home, Trash2, Edit, Check, X, CalendarClock, Search, Files, UserRound, Clock3, FolderTree as FolderTreeIcon, Sparkles, UploadCloud } from "lucide-react";
+import { ChevronRight, Download, Eye, FileText, Folder, FolderOpen, Plus, Home, Trash2, Edit, Check, X, CalendarClock, Search, Files, UserRound, Clock3, FolderTree as FolderTreeIcon, Sparkles, UploadCloud, Archive } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
 import AlertModal from "../../components/common/AlertModal";
 import Modal from "../../components/common/Modal";
@@ -426,7 +426,7 @@ const DocumentsModule = () => {
   const isAdmin = roles.includes("admin");
   const currentEid = String(currentUser?.eid || "");
 
-  const [activeTab, setActiveTab] = useState<"all" | "mine" | "recent">("all");
+  const [activeTab, setActiveTab] = useState<"all" | "mine" | "recent" | "archive">("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [documentFilter, setDocumentFilter] = useState("all");
   const [showArchived, setShowArchived] = useState(false);
@@ -772,7 +772,8 @@ const DocumentsModule = () => {
       searchAuthorId.trim() ||
       searchCuratorId.trim() ||
       searchDateFrom ||
-      searchDateTo;
+      searchDateTo ||
+      activeTab === "archive";
 
     if (!hasSearchFilters) {
       setSearchResults(null);
@@ -783,12 +784,12 @@ const DocumentsModule = () => {
     const response = await searchDocuments({
       q: searchQuery.trim() || null,
       doc_type: documentFilter !== "all" ? documentFilter : null,
-      status: searchStatus !== "all" ? (searchStatus as Document["status"]) : null,
+      status: activeTab === "archive" ? "ARCHIVED" : (searchStatus !== "all" ? (searchStatus as Document["status"]) : null),
       author_id: searchAuthorId.trim() || null,
       curator_id: searchCuratorId.trim() || null,
       date_from: searchDateFrom || null,
       date_to: searchDateTo || null,
-      show_archived: showArchived,
+      show_archived: showArchived || activeTab === "archive",
       size: 100,
     });
     setIsSearching(false);
@@ -809,6 +810,7 @@ const DocumentsModule = () => {
     searchDateFrom,
     searchDateTo,
     showArchived,
+    activeTab,
     fetchProfilesByEids,
     showAlert,
   ]);
@@ -837,10 +839,14 @@ const DocumentsModule = () => {
       );
     }
 
+    if (activeTab === "archive") {
+      result = result.filter((doc) => doc.status === "ARCHIVED");
+    }
+
     if (searchResults === null) {
       result = result.filter((doc) => (doc.folder_id ?? null) === currentFolderId);
 
-      if (!showArchived) {
+      if (!showArchived && activeTab !== "archive") {
         result = result.filter((doc) => doc.status !== "ARCHIVED");
       }
 
@@ -882,6 +888,7 @@ const DocumentsModule = () => {
       { id: "all" as const, label: "Все документы", icon: Files },
       { id: "mine" as const, label: "Мои", icon: UserRound },
       { id: "recent" as const, label: "Недавние", icon: Clock3 },
+      { id: "archive" as const, label: "Архив", icon: Archive },
     ],
     []
   );
