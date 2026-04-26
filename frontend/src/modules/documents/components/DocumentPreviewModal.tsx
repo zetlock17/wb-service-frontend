@@ -4,29 +4,12 @@ import { GlobalWorkerOptions, getDocument, type PDFDocumentProxy, type RenderTas
 import pdfWorkerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
 import { getDocumentDownloadUrl, type Document } from "../../../api/documentsApi";
 import Modal from "../../../components/common/Modal";
+import { extractDownloadUrl } from "../utils";
 
 type PreviewType = "pdf" | "image";
 type PdfMode = "pdfjs" | "native";
 
 const imageMimeTypes = new Set(["image/jpeg", "image/png"]);
-
-const extractDownloadUrl = (value: unknown): string | null => {
-  if (!value || typeof value !== "object") {
-    return null;
-  }
-
-  const data = value as Record<string, unknown>;
-  const candidates = ["url", "download_url", "downloadUrl", "link", "signed_url"];
-
-  for (const key of candidates) {
-    const candidate = data[key];
-    if (typeof candidate === "string" && candidate) {
-      return candidate;
-    }
-  }
-
-  return null;
-};
 
 const getPreviewType = (doc: Document): PreviewType => {
   const mimeType = doc.mime_type.toLowerCase();
