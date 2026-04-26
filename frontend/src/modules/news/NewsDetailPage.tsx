@@ -22,12 +22,13 @@ import {
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import usePortalStore from "../../store/usePortalStore";
 import {
   addLikeToNews,
   acknowledgeNews,
   getCategories,
-  getNewsAcknowledgements,
   getNewsById,
   removeLikeFromNews,
   updateNews,
@@ -111,13 +112,6 @@ const NewsDetailPage = () => {
   const [refreshComments, setRefreshComments] = useState(0);
   const [downloadingFileId, setDownloadingFileId] = useState<number | null>(null);
   const [acknowledging, setAcknowledging] = useState(false);
-  const [acknowledgementsData, setAcknowledgementsData] = useState<{
-    acknowledged: { eid: string; full_name: string; acknowledged_at: string }[];
-    not_acknowledged: { eid: string; full_name: string }[];
-    total: number;
-    acknowledged_count: number;
-  } | null>(null);
-  const [showAckDetails, setShowAckDetails] = useState(false);
 
   // Edit modal state
   const [showEditModal, setShowEditModal] = useState(false);
@@ -199,10 +193,6 @@ const NewsDetailPage = () => {
         if (response.status === 200 && response.data) {
           setNewsDetail(response.data);
           fetchedNewsId.current = parsedId;
-          // Загружаем подтверждения если нужно
-          if (response.data.mandatory_ack && (isAdmin || isNewsEditor)) {
-            fetchAcknowledgements(parsedId);
-          }
         }
       } catch (error) {
         console.error("Ошибка загрузки новости:", error);
@@ -214,14 +204,6 @@ const NewsDetailPage = () => {
     fetchNewsDetail();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [parsedId]);
-
-  // Fetch acknowledgements when newsDetail loads (covers case when loaded from location.state)
-  useEffect(() => {
-    if (newsDetail?.mandatory_ack && (isAdmin || isNewsEditor) && !acknowledgementsData) {
-      fetchAcknowledgements(newsDetail.id);
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [newsDetail?.id, newsDetail?.mandatory_ack]);
 
   useEffect(() => {
     if (!parsedId || Number.isNaN(parsedId)) {
@@ -678,6 +660,10 @@ const NewsDetailPage = () => {
   };
 
   const handleStartEditComment = (comment: Comment) => {
+    const canEditComment =
+      isAdmin || String(currentUser?.eid) === String(comment.author.eid);
+    if (!canEditComment) return;
+
     setEditingCommentId(comment.id);
     setEditingCommentContent(comment.content);
     closeMentionSuggestions();
@@ -690,6 +676,13 @@ const NewsDetailPage = () => {
   };
 
   const handleUpdateComment = async (commentId: number) => {
+    if (!currentUser) return;
+
+    const comment = findCommentById(comments, commentId);
+    const canEditComment =
+      isAdmin || String(currentUser.eid) === String(comment?.author.eid);
+    if (!canEditComment) return;
+
     const content = editingCommentContent.trim();
     if (!content) return;
 
@@ -796,17 +789,6 @@ const NewsDetailPage = () => {
     }
   };
 
-  const fetchAcknowledgements = async (newsId: number) => {
-    try {
-      const response = await getNewsAcknowledgements(newsId);
-      if (response.status === 200 && response.data) {
-        setAcknowledgementsData(response.data);
-      }
-    } catch (error) {
-      console.error("Ошибка загрузки подтверждений:", error);
-    }
-  };
-
   const handleAcknowledge = async () => {
     if (!newsDetail || acknowledging) return;
     setAcknowledging(true);
@@ -816,9 +798,6 @@ const NewsDetailPage = () => {
         setNewsDetail((prev) =>
           prev ? { ...prev, is_acknowledged: true, must_acknowledge: false } : prev
         );
-        if (isAdmin || isNewsEditor) {
-          await fetchAcknowledgements(newsDetail.id);
-        }
       }
     } catch (error) {
       console.error("Ошибка подтверждения прочтения:", error);
@@ -863,7 +842,7 @@ const NewsDetailPage = () => {
   const renderComment = (comment: Comment, depth: number = 0) => {
     const isLiked = commentLikes[comment.id] ?? false;
     const canEditComment =
-      isNewsEditor || isAdmin || String(currentUser?.eid) === String(comment.author.eid);
+      isAdmin || String(currentUser?.eid) === String(comment.author.eid);
     const canDeleteComment =
       isNewsEditor || isAdmin || String(currentUser?.eid) === String(comment.author.eid);
 
@@ -873,7 +852,7 @@ const NewsDetailPage = () => {
           <button
             type="button"
             onClick={() => openProfile(String(comment.author.eid))}
-            className="shrink-0"
+            className="shrink-0 self-start"
           >
             <Avatar
               fullName={comment.author.full_name}
@@ -1148,8 +1127,51 @@ const NewsDetailPage = () => {
               </div>
             )}
 
-            <div className="prose max-w-none">
-              <p className="text-gray-700 leading-relaxed whitespace-pre-wrap">{newsDetail.content}</p>
+            <div className="max-w-none text-gray-700 leading-relaxed">
+              <ReactMarkdown
+                remarkPlugins={[remarkGfm]}
+                components={{
+                  p: ({ children }) => <p className="mb-4 last:mb-0">{children}</p>,
+                  h1: ({ children }) => <h1 className="text-2xl font-bold text-gray-900 mb-4">{children}</h1>,
+                  h2: ({ children }) => <h2 className="text-xl font-semibold text-gray-900 mb-3">{children}</h2>,
+                  h3: ({ children }) => <h3 className="text-lg font-semibold text-gray-900 mb-2">{children}</h3>,
+                  ul: ({ children }) => <ul className="list-disc pl-6 mb-4 space-y-1">{children}</ul>,
+                  ol: ({ children }) => <ol className="list-decimal pl-6 mb-4 space-y-1">{children}</ol>,
+                  li: ({ children }) => <li>{children}</li>,
+                  blockquote: ({ children }) => (
+                    <blockquote className="border-l-4 border-gray-300 pl-4 italic text-gray-600 mb-4">
+                      {children}
+                    </blockquote>
+                  ),
+                  code: ({ children }) => (
+                    <code className="px-1.5 py-0.5 bg-gray-100 rounded text-sm text-gray-800">{children}</code>
+                  ),
+                  pre: ({ children }) => (
+                    <pre className="mb-4 p-3 bg-gray-100 rounded-lg overflow-x-auto text-sm">{children}</pre>
+                  ),
+                  a: ({ href, children }) => (
+                    <a
+                      href={href}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-purple-600 hover:text-purple-700 hover:underline"
+                    >
+                      {children}
+                    </a>
+                  ),
+                  table: ({ children }) => (
+                    <div className="mb-4 overflow-x-auto">
+                      <table className="min-w-full border border-gray-300 text-sm">{children}</table>
+                    </div>
+                  ),
+                  th: ({ children }) => (
+                    <th className="border border-gray-300 px-3 py-2 bg-gray-50 text-left font-medium text-gray-700">{children}</th>
+                  ),
+                  td: ({ children }) => <td className="border border-gray-300 px-3 py-2">{children}</td>,
+                }}
+              >
+                {newsDetail.content}
+              </ReactMarkdown>
             </div>
 
             {newsDetail.file_ids && newsDetail.file_ids.length > 0 && (
@@ -1255,51 +1277,6 @@ const NewsDetailPage = () => {
                     </button>
                   )}
                 </div>
-
-                {/* Статистика подтверждений для редакторов/администраторов */}
-                {(isAdmin || isNewsEditor) && acknowledgementsData && (
-                  <div className="mt-4 pt-4 border-t border-orange-200">
-                    <button
-                      onClick={() => setShowAckDetails(prev => !prev)}
-                      className="flex items-center gap-2 text-sm font-medium text-orange-800 hover:text-orange-900"
-                    >
-                      <CheckCircle2 className="w-4 h-4" />
-                      Подтверждений: {acknowledgementsData.acknowledged_count} / {acknowledgementsData.total}
-                      <span className="text-xs ml-1 underline">{showAckDetails ? '▲ Скрыть' : '▼ Подробнее'}</span>
-                    </button>
-                    {showAckDetails && (
-                      <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        {acknowledgementsData.acknowledged.length > 0 && (
-                          <div>
-                            <p className="text-xs font-semibold text-green-700 mb-2 flex items-center gap-1">
-                              <Check className="w-3 h-3" /> Подтвердили ({acknowledgementsData.acknowledged.length})
-                            </p>
-                            <ul className="space-y-1 max-h-40 overflow-y-auto">
-                              {acknowledgementsData.acknowledged.map(u => (
-                                <li key={u.eid} className="text-xs text-gray-700 flex items-center justify-between">
-                                  <span>{u.full_name}</span>
-                                  <span className="text-gray-400 ml-2">{formatDate(u.acknowledged_at)}</span>
-                                </li>
-                              ))}
-                            </ul>
-                          </div>
-                        )}
-                        {acknowledgementsData.not_acknowledged.length > 0 && (
-                          <div>
-                            <p className="text-xs font-semibold text-red-600 mb-2 flex items-center gap-1">
-                              <X className="w-3 h-3" /> Не подтвердили ({acknowledgementsData.not_acknowledged.length})
-                            </p>
-                            <ul className="space-y-1 max-h-40 overflow-y-auto">
-                              {acknowledgementsData.not_acknowledged.map(u => (
-                                <li key={u.eid} className="text-xs text-gray-700">{u.full_name}</li>
-                              ))}
-                            </ul>
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                )}
               </div>
             )}
           </div>

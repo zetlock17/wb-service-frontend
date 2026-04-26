@@ -77,6 +77,7 @@ const PortalShell = ({ isAuthenticated }: { isAuthenticated: boolean }) => {
     news,
     departments,
     fetchPortalData,
+    fetchNotifications,
     hasApiError,
     error,
     setApiError,
@@ -95,6 +96,22 @@ const PortalShell = ({ isAuthenticated }: { isAuthenticated: boolean }) => {
       fetchPortalData();
     }
   }, [fetchPortalData, isAuthenticated]);
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      return;
+    }
+
+    void fetchNotifications();
+
+    const intervalId = window.setInterval(() => {
+      void fetchNotifications();
+    }, 60000);
+
+    return () => {
+      window.clearInterval(intervalId);
+    };
+  }, [fetchNotifications, isAuthenticated]);
 
   useEffect(() => {
     if (moduleId && !isValidModuleId(moduleId)) {

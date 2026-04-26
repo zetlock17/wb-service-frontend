@@ -61,7 +61,22 @@ export interface NotificationsFilters {
 export const getNotifications = async (
     filters?: NotificationsFilters
 ): Promise<ApiResponse<NotificationListResponse>> => {
-    return await getRequest<NotificationListResponse>('/api/v1/notifications/', filters);
+    const response = await getRequest<NotificationListResponse>('/api/v1/notifications/', filters);
+
+    if (response.status === 404) {
+        return {
+            status: 200,
+            data: {
+                total: 0,
+                unread_count: 0,
+                notifications: [],
+                page: filters?.page ?? 1,
+                size: filters?.size ?? 20,
+            },
+        };
+    }
+
+    return response;
 };
 
 export const createNotification = async (

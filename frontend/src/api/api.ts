@@ -25,12 +25,22 @@ const isAuthTokenEndpoint = (url?: string) => {
   return Boolean(url && (url.includes('/protocol/openid-connect/token') || url.includes('/realms/')));
 };
 
+const isNotificationsListNotFound = (url: string, status?: number) => {
+  return status === 404 && url === '/api/v1/notifications/';
+};
+
 const handleApiError = (error: any, url: string, config?: ApiRequestConfig) => {
   console.error(`API error for ${url}:`, error);
+  const status = error.response?.status;
+
+  // 404 for notifications list is a valid empty state for UI, so avoid global error page.
+  if (isNotificationsListNotFound(url, status)) {
+    return;
+  }
   
-  if (error.response?.status >= 400 || !error.response) {
+  if (status >= 400 || !error.response) {
     const errorMessage = error.response?.data?.message || error.message || 'Ошибка сервера ';
-    if (error.response?.status === 401) {
+    if (status === 401) {
       // Не редиректим здесь, если это auth endpoint или если уже был retry
       // Интерцептор уже попытался сделать refresh выше
       if (config?.skipAuthRedirect || isAuthTokenEndpoint(url) || config?._retry) {

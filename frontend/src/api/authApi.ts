@@ -1,4 +1,5 @@
 import { postFormRequest } from './api';
+const CLIENT_SECRET = import.meta.env.VITE_KEYCLOAK_CLIENT_SECRET;
 
 // const params = new URLSearchParams({
 //   grant_type: 'password',
@@ -32,7 +33,7 @@ export const login = async (login: string, password: string) => {
     const params: LoginParams = {
         grant_type: 'password',
         client_id: 'wb-client',
-        client_secret: 'UywExoxpFsAXtIOEKFETGBt9CyyPHkwD', // брать из окружения потом
+        client_secret: CLIENT_SECRET,
         username: login,
         password: password,
     };
@@ -58,7 +59,7 @@ export const refreshToken = async (refreshTokenValue: string) => {
     const params: LoginParams = {
         grant_type: 'refresh_token',
         client_id: 'wb-client',
-        client_secret: 'UywExoxpFsAXtIOEKFETGBt9CyyPHkwD', // брать из окружения потом
+        client_secret: CLIENT_SECRET,
         refresh_token: refreshTokenValue,
     };
 

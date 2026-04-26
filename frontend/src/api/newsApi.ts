@@ -92,6 +92,21 @@ export interface CategoryCreate {
     name: string;
 }
 
+export interface AcknowledgementTarget {
+    user_eid: string;
+    full_name: string;
+    acknowledged: boolean;
+    acknowledged_at?: string | null;
+}
+
+export interface AcknowledgementStatus {
+    news_id: number;
+    ack_target_all: boolean;
+    total_targets: number;
+    acknowledged_count: number;
+    targets: AcknowledgementTarget[];
+}
+
 export type NewsSortBy = 'newest' | 'popular' | 'discussed';
 
 export interface NewsFilters {
@@ -256,8 +271,8 @@ export const acknowledgeNews = async (newsId: number): Promise<ApiResponse<any>>
  * @param newsId - ID новости
  * @returns Статус подтверждений (кто прочитал, кто нет)
  */
-export const getNewsAcknowledgements = async (newsId: number): Promise<ApiResponse<any>> => {
-    return await getRequest<any>(`/api/v1/news/${newsId}/acknowledgements`);
+export const getAcknowledgements = async (newsId: number): Promise<ApiResponse<AcknowledgementStatus>> => {
+    return await getRequest<AcknowledgementStatus>(`/api/v1/news/${newsId}/acknowledgements`);
 };
 
 /**

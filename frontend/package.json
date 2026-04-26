@@ -14,9 +14,12 @@
     "axios": "^1.13.2",
     "immer": "^10.2.0",
     "lucide-react": "^0.553.0",
+    "pdfjs-dist": "^5.6.205",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
+    "react-markdown": "^10.1.0",
     "react-router-dom": "^7.13.0",
+    "remark-gfm": "^4.0.1",
     "tailwindcss": "^4.1.17",
     "zustand": "^5.0.8"
   },

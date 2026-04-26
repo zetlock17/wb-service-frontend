@@ -51,6 +51,7 @@ export const uploadPhoto = async (
     createdFor?: number,
     type: 'image' | 'video' | 'audio' | 'document' = 'image',
     lang: 'ru' | 'en' = 'ru',
+    name?: string,
 ): Promise<UploadResponse> => {
 
     const formData = new FormData();
@@ -60,6 +61,9 @@ export const uploadPhoto = async (
     const params = new URLSearchParams({ type, lang });
     if (createdFor !== undefined) {
         params.append('created_for', String(createdFor));
+    }
+    if (name !== undefined) {
+        params.append('name', name);
     }
     const url = `${baseURL}/api/v1/static/add?${params.toString()}`;
     const token = getAccessToken();

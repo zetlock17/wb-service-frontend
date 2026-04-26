@@ -21,8 +21,16 @@ interface NotificationsPanelProps {
 
 const NotificationsPanel = ({ isOpen, onClose }: NotificationsPanelProps) => {
   const [filter, setFilter] = useState<NotificationItem["type"] | "all">("all");
-  const { notifications, fetchNotifications, markNotificationAsReadAsync, markAllNotificationsAsReadAsync } = usePortalStore();
+  const notifications = usePortalStore((state) => state.notifications);
+  const fetchNotifications = usePortalStore((state) => state.fetchNotifications);
+  const markNotificationAsReadAsync = usePortalStore((state) => state.markNotificationAsReadAsync);
+  const markAllNotificationsAsReadAsync = usePortalStore((state) => state.markAllNotificationsAsReadAsync);
   const panelRef = useRef<HTMLDivElement>(null);
+  const onCloseRef = useRef(onClose);
+
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
 
   const filteredNotifications = useMemo(
     () =>
@@ -33,21 +41,23 @@ const NotificationsPanel = ({ isOpen, onClose }: NotificationsPanelProps) => {
   );
 
   useEffect(() => {
+    if (!isOpen) {
+      return;
+    }
+
     const handleClickOutside = (event: MouseEvent) => {
       if (panelRef.current && !panelRef.current.contains(event.target as Node)) {
-        onClose();
+        onCloseRef.current();
       }
     };
 
-    if (isOpen) {
-      document.addEventListener('mousedown', handleClickOutside);
-      fetchNotifications();
-    }
+    document.addEventListener('mousedown', handleClickOutside);
+    void fetchNotifications();
 
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
-  }, [isOpen, onClose, fetchNotifications]);
+  }, [isOpen, fetchNotifications]);
 
   if (!isOpen) {
     return null;
