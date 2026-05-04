@@ -1,4 +1,5 @@
 import { LogOut, Settings, User } from "lucide-react";
+import { useEffect, useRef } from "react";
 import usePortalStore from "../../store/usePortalStore";
 import { useAvatar } from "../../hooks/useAvatar";
 import { clearTokens } from "../../utils/authTokens";
@@ -7,11 +8,39 @@ import Avatar from "../common/Avatar";
 interface ProfileMenuProps {
   isOpen: boolean;
   onNavigateHome: () => void;
+  onClose: () => void;
 }
 
-const ProfileMenu = ({ isOpen, onNavigateHome }: ProfileMenuProps) => {
+const ProfileMenu = ({ isOpen, onNavigateHome, onClose }: ProfileMenuProps) => {
   const { currentUser } = usePortalStore();
   const { avatarUrl } = useAvatar();
+  const panelRef = useRef<HTMLDivElement>(null);
+  const onCloseRef = useRef(onClose);
+
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    let removeListener: (() => void) | undefined;
+
+    const timer = setTimeout(() => {
+      const handleClickOutside = (event: MouseEvent) => {
+        if (panelRef.current && !panelRef.current.contains(event.target as Node)) {
+          onCloseRef.current();
+        }
+      };
+      document.addEventListener('click', handleClickOutside);
+      removeListener = () => document.removeEventListener('click', handleClickOutside);
+    }, 0);
+
+    return () => {
+      clearTimeout(timer);
+      removeListener?.();
+    };
+  }, [isOpen]);
 
   const handleLogout = () => {
     clearTokens();
@@ -39,7 +68,7 @@ const ProfileMenu = ({ isOpen, onNavigateHome }: ProfileMenuProps) => {
   }
 
   return (
-    <div className="absolute right-0 mt-2 w-64 bg-white rounded-lg shadow-lg border border-gray-200">
+    <div ref={panelRef} className="absolute right-0 mt-2 w-64 bg-white rounded-lg shadow-lg border border-gray-200">
       <div className="p-4 border-b border-gray-200">
         <div className="flex items-center gap-3 mb-3">
           <div className="relative">

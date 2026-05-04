@@ -41,23 +41,30 @@ const NotificationsPanel = ({ isOpen, onClose }: NotificationsPanelProps) => {
   );
 
   useEffect(() => {
-    if (!isOpen) {
-      return;
-    }
-
-    const handleClickOutside = (event: MouseEvent) => {
-      if (panelRef.current && !panelRef.current.contains(event.target as Node)) {
-        onCloseRef.current();
-      }
-    };
-
-    document.addEventListener('mousedown', handleClickOutside);
+    if (!isOpen) return;
     void fetchNotifications();
+  }, [isOpen, fetchNotifications]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    let removeListener: (() => void) | undefined;
+
+    const timer = setTimeout(() => {
+      const handleClickOutside = (event: MouseEvent) => {
+        if (panelRef.current && !panelRef.current.contains(event.target as Node)) {
+          onCloseRef.current();
+        }
+      };
+      document.addEventListener('click', handleClickOutside);
+      removeListener = () => document.removeEventListener('click', handleClickOutside);
+    }, 0);
 
     return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
+      clearTimeout(timer);
+      removeListener?.();
     };
-  }, [isOpen, fetchNotifications]);
+  }, [isOpen]);
 
   if (!isOpen) {
     return null;

@@ -232,7 +232,7 @@ const PortalShell = ({ isAuthenticated }: { isAuthenticated: boolean }) => {
       >
         <div className="relative">
           <NotificationsPanel isOpen={isNotificationsOpen} onClose={() => setIsNotificationsOpen(false)} />
-          <ProfileMenu isOpen={isProfileMenuOpen} onNavigateHome={() => handleModuleChange("home")} />
+          <ProfileMenu isOpen={isProfileMenuOpen} onNavigateHome={() => handleModuleChange("home")} onClose={() => setIsProfileMenuOpen(false)} />
         </div>
       </div>
 
