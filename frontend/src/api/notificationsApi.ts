@@ -10,7 +10,9 @@ export interface NotificationSchema {
     payload?: Record<string, unknown> | null;
     is_read?: boolean;
     is_mandatory?: boolean;
-    created_at: string;
+    created_at: string | null;
+    sent_at?: string | null;
+    delivered_at?: string | null;
 }
 
 export interface NotificationListResponse {
@@ -41,6 +43,10 @@ export interface NotificationPreferencesSchema {
     channel_email?: boolean;
     channel_messenger?: boolean;
     digest_daily?: boolean;
+    receive_news?: boolean;
+    receive_documents?: boolean;
+    receive_birthdays?: boolean;
+    receive_comments?: boolean;
     updated_at: string;
 }
 
@@ -49,6 +55,34 @@ export interface NotificationPreferencesUpdateSchema {
     channel_email?: boolean | null;
     channel_messenger?: boolean | null;
     digest_daily?: boolean | null;
+    receive_news?: boolean | null;
+    receive_documents?: boolean | null;
+    receive_birthdays?: boolean | null;
+    receive_comments?: boolean | null;
+}
+
+export interface NotificationStatsSchema {
+    total_count: number;
+    unread_count: number;
+    read_count: number;
+    mandatory_unread: number;
+    by_type: Record<string, number>;
+}
+
+export interface UserBotMappingCreateSchema {
+    band_chat_id: string;
+    band_user_id?: string | null;
+}
+
+export interface UserBotMappingSchema {
+    id: number;
+    user_eid: string;
+    band_chat_id: string;
+    band_user_id?: string | null;
+    is_active: boolean;
+    last_delivery_at?: string | null;
+    delivery_error_count: number;
+    created_at: string;
 }
 
 export interface NotificationsFilters {
@@ -125,4 +159,24 @@ export const createNotificationsBulk = async (
 
 export const cleanupOldNotifications = async (days: number = 30): Promise<ApiResponse<any>> => {
     return await deleteRequest<any>('/api/v1/notifications/cleanup', { days });
+};
+
+export const getNotificationStats = async (): Promise<ApiResponse<NotificationStatsSchema>> => {
+    return await getRequest<NotificationStatsSchema>('/api/v1/notifications/stats');
+};
+
+export const linkBot = async (data: UserBotMappingCreateSchema): Promise<ApiResponse<UserBotMappingSchema>> => {
+    return await postRequest<UserBotMappingSchema>('/api/v1/notifications/bot/link', data);
+};
+
+export const getBotMapping = async (): Promise<ApiResponse<UserBotMappingSchema>> => {
+    return await getRequest<UserBotMappingSchema>('/api/v1/notifications/bot/mapping');
+};
+
+export const unlinkBot = async (): Promise<ApiResponse<any>> => {
+    return await deleteRequest<any>('/api/v1/notifications/bot/unlink');
+};
+
+export const testBotNotification = async (): Promise<ApiResponse<any>> => {
+    return await postRequest<any>('/api/v1/notifications/bot/test', {});
 };

@@ -115,6 +115,22 @@ export const getOrgUnitEditLog = async (unitId: number): Promise<ApiResponse<Org
     return await getRequest<OrgUnitChangeLog[]>(`/api/v1/orgstructure/units/log`, { unit_id: unitId });
 };
 
+export const removeOrgUnitManager = async (unitId: number): Promise<ApiResponse<any>> => {
+    return await deleteRequest<any>(`/api/v1/orgstructure/units/remove_manager?unit_id=${unitId}`);
+};
+
+export const addEmployeeToOrgUnit = async (unitId: number, employeeEid: string): Promise<ApiResponse<any>> => {
+    return await postRequest<any>(
+        `/api/v1/orgstructure/units/add_employee?unit_id=${unitId}&employee_eid=${encodeURIComponent(employeeEid)}`
+    );
+};
+
+export const removeEmployeeFromOrgUnit = async (unitId: number, employeeEid: string): Promise<ApiResponse<any>> => {
+    return await deleteRequest<any>(
+        `/api/v1/orgstructure/units/remove_employee?unit_id=${unitId}&employee_eid=${encodeURIComponent(employeeEid)}`
+    );
+};
+
 export const searchHierarchy = async (query: string, offset?: number, size?: number): Promise<ApiResponse<ProfileSearchResult>> => {
     return await getRequest<ProfileSearchResult>(`/api/v1/profile/search`, { q: query, from_: offset, size: size ?? 10 });
 };

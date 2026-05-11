@@ -101,6 +101,44 @@ export interface UploadProgressOptions {
     onProgress?: (progress: number) => void;
 }
 
+export interface DocumentAcknowledgmentAssignSchema {
+    employee_eids: string[];
+    required_at?: string | null;
+}
+
+export interface DocumentAcknowledgmentSchema {
+    id: number;
+    document_id: number;
+    employee_eid: string;
+    required_at: string;
+    acknowledged_at: string | null;
+    acknowledged_by: string | null;
+    created_at: string;
+}
+
+export interface DocumentAcknowledgmentDetailSchema extends DocumentAcknowledgmentSchema {
+    employee_full_name?: string;
+}
+
+export interface DocumentAcknowledgmentListResponse {
+    total: number;
+    acknowledgments: DocumentAcknowledgmentDetailSchema[];
+}
+
+export interface DocumentAcknowledgmentStatusSchema {
+    employee_eid: string;
+    total_documents: number;
+    acknowledged_count: number;
+    pending_count: number;
+    overdue_count: number;
+}
+
+export interface DocumentAcknowledgmentFilters {
+    document_id?: number | null;
+    employee_eid?: string | null;
+    status?: 'pending' | 'acknowledged' | 'overdue' | null;
+}
+
 export interface BlobDownloadResponse {
     data: Blob;
     status: number;
@@ -364,6 +402,71 @@ export const uploadDocumentVersion = async (
             message: error.response?.data?.message || error.message,
         };
     }
+};
+
+export const assignDocumentAcknowledgments = async (
+    documentId: number,
+    data: DocumentAcknowledgmentAssignSchema
+): Promise<ApiResponse<DocumentAcknowledgmentSchema[]>> => {
+    return await postRequest<DocumentAcknowledgmentSchema[]>(
+        `/api/v1/documents/${documentId}/acknowledgment/assign`,
+        data
+    );
+};
+
+export const acknowledgeDocument = async (
+    documentId: number,
+    employeeEid: string
+): Promise<ApiResponse<DocumentAcknowledgmentSchema>> => {
+    return await postRequest<DocumentAcknowledgmentSchema>(
+        `/api/v1/documents/${documentId}/acknowledge?employee_eid=${encodeURIComponent(employeeEid)}`
+    );
+};
+
+export const getDocumentAcknowledgments = async (
+    documentId: number,
+    limit: number = 100,
+    offset: number = 0
+): Promise<ApiResponse<DocumentAcknowledgmentListResponse>> => {
+    return await getRequest<DocumentAcknowledgmentListResponse>(
+        `/api/v1/documents/${documentId}/acknowledgments`,
+        { limit, offset }
+    );
+};
+
+export const getEmployeeAcknowledgments = async (
+    employeeEid: string,
+    status?: 'pending' | 'acknowledged' | 'overdue' | null,
+    limit: number = 100
+): Promise<ApiResponse<DocumentAcknowledgmentListResponse>> => {
+    const params: Record<string, any> = { limit };
+    if (status) params.status = status;
+    return await getRequest<DocumentAcknowledgmentListResponse>(
+        `/api/v1/documents/acknowledgments/employee/${encodeURIComponent(employeeEid)}`,
+        params
+    );
+};
+
+export const getEmployeeAcknowledgmentStatus = async (
+    employeeEid: string
+): Promise<ApiResponse<DocumentAcknowledgmentStatusSchema>> => {
+    return await getRequest<DocumentAcknowledgmentStatusSchema>(
+        `/api/v1/documents/acknowledgments/employee/${encodeURIComponent(employeeEid)}/status`
+    );
+};
+
+export const deleteAcknowledgment = async (acknowledgmentId: number): Promise<ApiResponse<any>> => {
+    return await deleteRequest<any>(`/api/v1/documents/acknowledgments/${acknowledgmentId}`);
+};
+
+export const exportAcknowledgments = async (
+    filters?: DocumentAcknowledgmentFilters
+): Promise<ApiResponse<any>> => {
+    const params: Record<string, any> = {};
+    if (filters?.document_id !== undefined) params.document_id = filters.document_id;
+    if (filters?.employee_eid !== undefined) params.employee_eid = filters.employee_eid;
+    if (filters?.status !== undefined) params.status = filters.status;
+    return await getRequest<any>('/api/v1/documents/acknowledgments/export', params);
 };
 
 const parseFilename = (contentDisposition?: string): string | undefined => {
