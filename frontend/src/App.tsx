@@ -78,6 +78,8 @@ const PortalShell = ({ isAuthenticated }: { isAuthenticated: boolean }) => {
     departments,
     fetchPortalData,
     fetchNotifications,
+    fetchUnreadNotificationsCount,
+    fetchNotificationPreferences,
     hasApiError,
     error,
     setApiError,
@@ -103,15 +105,16 @@ const PortalShell = ({ isAuthenticated }: { isAuthenticated: boolean }) => {
     }
 
     void fetchNotifications();
+    void fetchNotificationPreferences();
 
     const intervalId = window.setInterval(() => {
-      void fetchNotifications();
-    }, 60000);
+      void fetchUnreadNotificationsCount();
+    }, 30000);
 
     return () => {
       window.clearInterval(intervalId);
     };
-  }, [fetchNotifications, isAuthenticated]);
+  }, [fetchNotifications, fetchUnreadNotificationsCount, fetchNotificationPreferences, isAuthenticated]);
 
   useEffect(() => {
     if (moduleId && !isValidModuleId(moduleId)) {

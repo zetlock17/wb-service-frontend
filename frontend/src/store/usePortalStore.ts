@@ -14,9 +14,15 @@ import {
 import { getProfile, updateProfile } from "../api/profileApi";
 import { getBirthdays } from "../api/birthdaysApi";
 import {
+  deleteNotification,
   getNotifications,
+  getNotificationPreferences,
+  getUnreadNotificationsCount,
   markAllNotificationsAsRead,
   markNotificationAsRead,
+  updateNotificationPreferences,
+  type NotificationPreferencesSchema,
+  type NotificationPreferencesUpdateSchema,
 } from "../api/notificationsApi";
 import { 
   getOrgHierarchy, 
@@ -62,6 +68,10 @@ interface PortalState {
   upcomingBirthdays: Birthday[];
   organizationHierarchy: OrgUnitHierarchy[];
   roles: string[];
+  notificationsUnreadCount: number;
+  notificationsTotal: number;
+  notificationsLoading: boolean;
+  notificationPreferences: NotificationPreferencesSchema | null;
 
   loading: boolean;
   error: string | null;
@@ -79,8 +89,12 @@ interface PortalState {
   ) => Promise<void>;
   fetchBirthdays: (timeUnit: BirthDayType) => Promise<void>;
   fetchNotifications: () => Promise<void>;
+  fetchUnreadNotificationsCount: () => Promise<void>;
   markNotificationAsReadAsync: (notificationId: number) => Promise<void>;
   markAllNotificationsAsReadAsync: () => Promise<void>;
+  deleteNotificationAsync: (notificationId: number) => Promise<void>;
+  fetchNotificationPreferences: () => Promise<void>;
+  updateNotificationPreferencesAsync: (data: NotificationPreferencesUpdateSchema) => Promise<void>;
   fetchOrgStructure: () => Promise<void>;
   moveOrgUnitAsync: (unitId: number, newParentId?: number | null) => Promise<void>;
   createOrgUnitAsync: (unitData: OrgUnitCreate) => Promise<void>;
@@ -93,32 +107,43 @@ interface PortalState {
 }
 
 const mapNotificationType = (eventType: string): NotificationItem["type"] => {
-  if (eventType.startsWith("DOCUMENT_")) {
-    return "document";
-  }
-  if (eventType.startsWith("COMMENT_")) {
-    return "comment";
-  }
-  if (eventType.startsWith("NEWS_")) {
-    return "news";
-  }
-  if (eventType.startsWith("BIRTHDAY_")) {
-    return "birthday";
-  }
-
+  if (eventType.startsWith("DOCUMENT_")) return "document";
+  if (eventType.startsWith("COMMENT_")) return "comment";
+  if (eventType.startsWith("NEWS_")) return "news";
+  if (eventType.startsWith("BIRTHDAY_")) return "birthday";
+  if (eventType.startsWith("SURVEY_")) return "survey";
+  if (eventType.startsWith("TRAINING_") || eventType.startsWith("COURSE_")) return "training";
+  if (eventType.startsWith("EVENT_") || eventType.startsWith("CALENDAR_")) return "event";
+  if (eventType.startsWith("SYSTEM_") || eventType.startsWith("SECURITY_")) return "system";
   return "event";
 };
 
-const formatNotificationTime = (value: string): string => {
+const formatNotificationTime = (value: string | null): string => {
+  if (!value) return "";
   const parsedDate = new Date(value);
+  if (Number.isNaN(parsedDate.getTime())) return value;
 
-  if (Number.isNaN(parsedDate.getTime())) {
-    return value;
+  const now = new Date();
+  const diffMs = now.getTime() - parsedDate.getTime();
+  const diffMin = Math.floor(diffMs / 60000);
+  const diffHour = Math.floor(diffMs / 3_600_000);
+  const diffDay = Math.floor(diffMs / 86_400_000);
+
+  if (diffMin < 1) return "только что";
+  if (diffMin < 60) return `${diffMin} мин назад`;
+  if (diffHour < 24 && now.getDate() === parsedDate.getDate()) {
+    return `сегодня в ${parsedDate.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" })}`;
   }
-
+  if (diffDay < 2) {
+    return `вчера в ${parsedDate.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" })}`;
+  }
+  if (diffDay < 7) {
+    return `${diffDay} дн назад`;
+  }
   return parsedDate.toLocaleString("ru-RU", {
     day: "2-digit",
     month: "2-digit",
+    year: "2-digit",
     hour: "2-digit",
     minute: "2-digit",
   });
@@ -140,6 +165,10 @@ const usePortalStore = create<PortalState>((set) => ({
   upcomingBirthdays: [],
   organizationHierarchy: [],
   roles: [],
+  notificationsUnreadCount: 0,
+  notificationsTotal: 0,
+  notificationsLoading: false,
+  notificationPreferences: null,
 
   loading: false,
   error: null,
@@ -263,53 +292,125 @@ const usePortalStore = create<PortalState>((set) => ({
   },
 
   fetchNotifications: async () => {
+    set({ notificationsLoading: true });
     try {
-      const response = await getNotifications({ page: 1, size: 50 });
+      const response = await getNotifications({ page: 1, size: 100 });
 
       if (response.status >= 200 && response.status < 300) {
         const mappedNotifications: NotificationItem[] = response.data.notifications.map((notification) => ({
           id: notification.id,
           type: mapNotificationType(notification.event_type),
+          eventType: notification.event_type,
+          title: notification.title,
           text: notification.message,
           time: formatNotificationTime(notification.created_at),
+          createdAt: notification.created_at,
           unread: !notification.is_read,
+          isMandatory: notification.is_mandatory,
+          payload: notification.payload ?? null,
         }));
 
-        set({ notifications: mappedNotifications });
+        set({
+          notifications: mappedNotifications,
+          notificationsUnreadCount: response.data.unread_count,
+          notificationsTotal: response.data.total,
+          notificationsLoading: false,
+        });
         return;
       }
 
-      set({ notifications: [] });
+      set({ notifications: [], notificationsLoading: false });
     } catch (error) {
       console.error("Failed to fetch notifications:", error);
-      set({ notifications: [] });
+      set({ notifications: [], notificationsLoading: false });
+    }
+  },
+
+  fetchUnreadNotificationsCount: async () => {
+    try {
+      const response = await getUnreadNotificationsCount();
+      if (response.status >= 200 && response.status < 300) {
+        set({ notificationsUnreadCount: response.data ?? 0 });
+      }
+    } catch (error) {
+      console.error("Failed to fetch unread count:", error);
     }
   },
 
   markNotificationAsReadAsync: async (notificationId: number) => {
+    const prev = usePortalStore.getState();
+    const wasUnread = prev.notifications.find((n) => n.id === notificationId)?.unread;
+    set((state) => ({
+      notifications: state.notifications.map((notification) =>
+        notification.id === notificationId ? { ...notification, unread: false } : notification
+      ),
+      notificationsUnreadCount: wasUnread
+        ? Math.max(0, state.notificationsUnreadCount - 1)
+        : state.notificationsUnreadCount,
+    }));
     try {
       await markNotificationAsRead(notificationId);
-      set((state) => ({
-        notifications: state.notifications.map((notification) =>
-          notification.id === notificationId ? { ...notification, unread: false } : notification
-        ),
-      }));
     } catch (error) {
       console.error("Failed to mark notification as read:", error);
     }
   },
 
   markAllNotificationsAsReadAsync: async () => {
+    set((state) => ({
+      notifications: state.notifications.map((notification) => ({
+        ...notification,
+        unread: false,
+      })),
+      notificationsUnreadCount: 0,
+    }));
     try {
       await markAllNotificationsAsRead();
-      set((state) => ({
-        notifications: state.notifications.map((notification) => ({
-          ...notification,
-          unread: false,
-        })),
-      }));
     } catch (error) {
       console.error("Failed to mark all notifications as read:", error);
+    }
+  },
+
+  deleteNotificationAsync: async (notificationId: number) => {
+    const prev = usePortalStore.getState();
+    const wasUnread = prev.notifications.find((n) => n.id === notificationId)?.unread;
+    set((state) => ({
+      notifications: state.notifications.filter((n) => n.id !== notificationId),
+      notificationsTotal: Math.max(0, state.notificationsTotal - 1),
+      notificationsUnreadCount: wasUnread
+        ? Math.max(0, state.notificationsUnreadCount - 1)
+        : state.notificationsUnreadCount,
+    }));
+    try {
+      await deleteNotification(notificationId);
+    } catch (error) {
+      console.error("Failed to delete notification:", error);
+    }
+  },
+
+  fetchNotificationPreferences: async () => {
+    try {
+      const response = await getNotificationPreferences();
+      if (response.status >= 200 && response.status < 300) {
+        set({ notificationPreferences: response.data });
+      }
+    } catch (error) {
+      console.error("Failed to fetch notification preferences:", error);
+    }
+  },
+
+  updateNotificationPreferencesAsync: async (data: NotificationPreferencesUpdateSchema) => {
+    const prev = usePortalStore.getState().notificationPreferences;
+    if (prev) {
+      set({ notificationPreferences: { ...prev, ...data } as NotificationPreferencesSchema });
+    }
+    try {
+      const response = await updateNotificationPreferences(data);
+      if (response.status >= 200 && response.status < 300) {
+        set({ notificationPreferences: response.data });
+      }
+    } catch (error) {
+      console.error("Failed to update notification preferences:", error);
+      if (prev) set({ notificationPreferences: prev });
     }
   },
   

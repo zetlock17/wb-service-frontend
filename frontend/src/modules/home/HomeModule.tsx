@@ -75,19 +75,20 @@ const HomeModule = ({ onNavigate, profileEid }: HomeModuleProps) => {
     } else if (editingField?.section === 'projects') {
       const currentProjects = user.projects || [];
       if (editingField.field === 'add') {
-        // Новые проекты отправляем без id, так как API сам создаст id
-        const { id, ...projectData } = editingValues;
+        const { id: _newId, ...projectData } = editingValues;
+        void _newId;
         const projectsToSend = [...currentProjects.map(p => {
-          const { id, ...rest } = p;
+          const { id: _id, ...rest } = p;
+          void _id;
           return rest;
         }), projectData];
         updates.projects = projectsToSend;
       } else if (editingField.index !== undefined) {
-        // При обновлении отправляем все проекты без id
         const updatedProjects = [...currentProjects];
         updatedProjects[editingField.index] = { ...updatedProjects[editingField.index], ...editingValues };
         updates.projects = updatedProjects.map(p => {
-          const { id, ...rest } = p;
+          const { id: _id, ...rest } = p;
+          void _id;
           return rest;
         });
       }
@@ -228,7 +229,7 @@ const HomeModule = ({ onNavigate, profileEid }: HomeModuleProps) => {
 
   const user = isForeignProfile ? externalProfile : currentUser;
   const canEditPersonalFields = isForeignProfile ? isHr : canEditOwnProfileFields;
-  const canEditAvatar = !isForeignProfile && isHr;
+  const canEditAvatar = !isForeignProfile;
   const displayedAvatarUrl = isForeignProfile ? externalAvatarUrl : avatarUrl;
 
   const orgUnitOptions = useMemo(() => {
@@ -347,7 +348,7 @@ const HomeModule = ({ onNavigate, profileEid }: HomeModuleProps) => {
         position: "HR-бизнес-партнер",
         department: "HR",
       },
-    ].filter((person): person is { id: string; full_name: string; position: string; department?: string | null } => Boolean(person.full_name)),
+    ].filter((person): person is { id: string; full_name: string; position: string; department: string | undefined } => Boolean(person.full_name)),
     [user?.manager_name, user?.hr_name, user?.org_unit]
   );
 

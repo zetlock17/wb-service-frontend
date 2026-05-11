@@ -138,19 +138,27 @@ export interface Project {
   link?: string;
 }
 
-export interface NotificationItem {
-  id: number;
-  type:
+export type NotificationType =
   | "document"
   | "comment"
   | "news"
   | "event"
   | "survey"
   | "training"
-  | "birthday";
+  | "birthday"
+  | "system";
+
+export interface NotificationItem {
+  id: number;
+  type: NotificationType;
+  eventType: string;
+  title: string;
   text: string;
   time: string;
+  createdAt: string | null;
   unread?: boolean;
+  isMandatory?: boolean;
+  payload?: Record<string, unknown> | null;
 }
 
 export interface DocumentItem {

@@ -24,9 +24,9 @@ const AppHeader = ({
   onToggleProfileMenu,
   onToggleSidebar,
 }: AppHeaderProps) => {
-  const { currentUser, notifications } = usePortalStore();
+  const { currentUser, notificationsUnreadCount } = usePortalStore();
   const { avatarUrl } = useAvatar();
-  const unreadCount = notifications.filter((notification) => notification.unread).length;
+  const unreadCount = notificationsUnreadCount;
 
   if (!currentUser) {
     return (
@@ -94,9 +94,12 @@ const AppHeader = ({
               >
                 <Bell className="w-5 h-5" />
                 {unreadCount > 0 && (
-                  <span className="absolute top-1 right-1 w-4 h-4 bg-red-500 text-white text-xs rounded-full flex items-center justify-center">
-                    {unreadCount}
-                  </span>
+                  <>
+                    <span className="absolute top-0.5 right-0.5 w-4 h-4 bg-red-500 text-white text-[10px] font-semibold rounded-full flex items-center justify-center px-1 min-w-4">
+                      {unreadCount > 99 ? "99+" : unreadCount}
+                    </span>
+                    <span className="absolute top-0.5 right-0.5 w-4 h-4 bg-red-500 rounded-full animate-ping opacity-60" />
+                  </>
                 )}
               </button>
             </div>

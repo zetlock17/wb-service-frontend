@@ -92,7 +92,7 @@ export const useAvatarWithEdit = () => {
 
       const response = await uploadPhoto(
         file,
-        currentUser.eid,
+        undefined,
         'image'  // тип для аватарки
       );
 
@@ -176,7 +176,7 @@ export const useAvatarWithEdit = () => {
       // Загружаем новый аватар
       const uploadResponse = await uploadPhoto(
         file,
-        currentUser.eid,
+        undefined,
         'image'  // тип для аватарки
       );
 
