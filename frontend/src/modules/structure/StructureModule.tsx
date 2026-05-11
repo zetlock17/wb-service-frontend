@@ -9,6 +9,9 @@ import {
   DeleteOrgUnitModal,
   SetManagerModal,
   MoveOrgUnitModal,
+  RemoveManagerModal,
+  AddEmployeeModal,
+  RemoveEmployeeModal,
 } from "./OrgUnitManagement";
 import type { ExpandedNodes } from "./types";
 import DepartmentNode from "./components/DepartmentNode";
@@ -25,7 +28,7 @@ const StructureModule = () => {
   const [activeSearchQuery, setActiveSearchQuery] = useState("");
   const [expandedNodes, setExpandedNodes] = useState<ExpandedNodes>({});
 
-  const { organizationHierarchy, loading, fetchOrgStructure, roles } = usePortalStore();
+  const { organizationHierarchy, unitEmployees, loading, fetchOrgStructure, roles } = usePortalStore();
   const canManage = roles.includes("admin") || roles.includes("hr");
 
   const [createModalOpen, setCreateModalOpen] = useState(false);
@@ -33,6 +36,9 @@ const StructureModule = () => {
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [setManagerModalOpen, setSetManagerModalOpen] = useState(false);
   const [moveModalOpen, setMoveModalOpen] = useState(false);
+  const [removeManagerModalOpen, setRemoveManagerModalOpen] = useState(false);
+  const [addEmployeeModalOpen, setAddEmployeeModalOpen] = useState(false);
+  const [removeEmployeeModalOpen, setRemoveEmployeeModalOpen] = useState(false);
   const [selectedUnit, setSelectedUnit] = useState<OrgUnitHierarchy | null>(null);
   const [selectedParentId, setSelectedParentId] = useState<number | null>(null);
 
@@ -85,6 +91,21 @@ const StructureModule = () => {
   const handleMoveUnit = useCallback((unit: OrgUnitHierarchy) => {
     setSelectedUnit(unit);
     setMoveModalOpen(true);
+  }, []);
+
+  const handleRemoveManager = useCallback((unit: OrgUnitHierarchy) => {
+    setSelectedUnit(unit);
+    setRemoveManagerModalOpen(true);
+  }, []);
+
+  const handleAddEmployee = useCallback((unit: OrgUnitHierarchy) => {
+    setSelectedUnit(unit);
+    setAddEmployeeModalOpen(true);
+  }, []);
+
+  const handleRemoveEmployee = useCallback((unit: OrgUnitHierarchy) => {
+    setSelectedUnit(unit);
+    setRemoveEmployeeModalOpen(true);
   }, []);
 
   const handleRefresh = useCallback(() => fetchOrgStructure(), [fetchOrgStructure]);
@@ -187,9 +208,13 @@ const StructureModule = () => {
                   setExpandedNodes={setExpandedNodes}
                   canManage={canManage}
                   allUnits={organizationHierarchy}
+                  employeesByUnit={unitEmployees}
                   onEdit={handleEditUnit}
                   onDelete={handleDeleteUnit}
                   onSetManager={handleSetManager}
+                  onRemoveManager={handleRemoveManager}
+                  onAddEmployee={handleAddEmployee}
+                  onRemoveEmployee={handleRemoveEmployee}
                   onMove={handleMoveUnit}
                   onCreateChild={handleCreateChild}
                   onOpenProfile={handleOpenProfile}
@@ -241,6 +266,24 @@ const StructureModule = () => {
             onClose={() => setMoveModalOpen(false)}
             unit={selectedUnit}
             allUnits={organizationHierarchy}
+            onSuccess={handleRefresh}
+          />
+          <RemoveManagerModal
+            isOpen={removeManagerModalOpen}
+            onClose={() => setRemoveManagerModalOpen(false)}
+            unit={selectedUnit}
+            onSuccess={handleRefresh}
+          />
+          <AddEmployeeModal
+            isOpen={addEmployeeModalOpen}
+            onClose={() => setAddEmployeeModalOpen(false)}
+            unit={selectedUnit}
+            onSuccess={handleRefresh}
+          />
+          <RemoveEmployeeModal
+            isOpen={removeEmployeeModalOpen}
+            onClose={() => setRemoveEmployeeModalOpen(false)}
+            unit={selectedUnit}
             onSuccess={handleRefresh}
           />
         </>

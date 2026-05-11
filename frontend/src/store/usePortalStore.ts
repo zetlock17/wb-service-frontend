@@ -31,7 +31,12 @@ import {
   updateOrgUnit,
   deleteOrgUnit,
   setOrgUnitManager,
+  removeOrgUnitManager,
+  addEmployeeToOrgUnit,
+  removeEmployeeFromOrgUnit,
+  searchHierarchy,
   type OrgUnitHierarchy,
+  type ProfileSearchEmployee,
   type OrgUnitCreate,
   type OrgUnitUpdate,
 } from "../api/orgStructureApi";
@@ -67,6 +72,7 @@ interface PortalState {
   reports: ReportCard[];
   upcomingBirthdays: Birthday[];
   organizationHierarchy: OrgUnitHierarchy[];
+  unitEmployees: Record<number, ProfileSearchEmployee[]>;
   roles: string[];
   notificationsUnreadCount: number;
   notificationsTotal: number;
@@ -96,11 +102,15 @@ interface PortalState {
   fetchNotificationPreferences: () => Promise<void>;
   updateNotificationPreferencesAsync: (data: NotificationPreferencesUpdateSchema) => Promise<void>;
   fetchOrgStructure: () => Promise<void>;
+  fetchUnitEmployees: () => Promise<void>;
   moveOrgUnitAsync: (unitId: number, newParentId?: number | null) => Promise<void>;
   createOrgUnitAsync: (unitData: OrgUnitCreate) => Promise<void>;
   updateOrgUnitAsync: (unitId: number, unitData: OrgUnitUpdate) => Promise<void>;
   deleteOrgUnitAsync: (unitId: number) => Promise<void>;
   setOrgUnitManagerAsync: (unitId: number, managerEid: string) => Promise<void>;
+  removeOrgUnitManagerAsync: (unitId: number) => Promise<void>;
+  addEmployeeToOrgUnitAsync: (unitId: number, employeeEid: string) => Promise<void>;
+  removeEmployeeFromOrgUnitAsync: (unitId: number, employeeEid: string) => Promise<void>;
   setApiError: (error: string | null) => void;
   clearApiError: () => void;
   setRoles: (roles: string[]) => void;
@@ -164,6 +174,7 @@ const usePortalStore = create<PortalState>((set) => ({
   reports: [],
   upcomingBirthdays: [],
   organizationHierarchy: [],
+  unitEmployees: {},
   roles: [],
   notificationsUnreadCount: 0,
   notificationsTotal: 0,
@@ -419,9 +430,38 @@ const usePortalStore = create<PortalState>((set) => ({
     try {
       const response = await getOrgHierarchy();
       set({ organizationHierarchy: response.data || [], loading: false });
+      void usePortalStore.getState().fetchUnitEmployees();
     } catch (error) {
       console.error("Failed to fetch organization structure:", error);
       set({ error: "Failed to fetch organization structure", organizationHierarchy: [], loading: false });
+    }
+  },
+
+  fetchUnitEmployees: async () => {
+    try {
+      const pageSize = 100;
+      const all: ProfileSearchEmployee[] = [];
+      let offset = 0;
+      let total = Infinity;
+      while (offset < total) {
+        const resp = await searchHierarchy("", offset, pageSize);
+        if (resp.status !== 200 || !resp.data) break;
+        const results = resp.data.results || [];
+        all.push(...results);
+        total = resp.data.total ?? all.length;
+        if (results.length === 0) break;
+        offset += results.length;
+        if (all.length >= 5000) break;
+      }
+      const byUnit: Record<number, ProfileSearchEmployee[]> = {};
+      for (const e of all) {
+        const uid = e.organization_unit_id != null ? Number(e.organization_unit_id) : NaN;
+        if (!Number.isFinite(uid)) continue;
+        (byUnit[uid] ||= []).push(e);
+      }
+      set({ unitEmployees: byUnit });
+    } catch (error) {
+      console.error("Failed to fetch unit employees:", error);
     }
   },
 
@@ -489,6 +529,80 @@ const usePortalStore = create<PortalState>((set) => ({
       set({ organizationHierarchy: response.data || [] });
     } catch (error) {
       console.error("Failed to set org unit manager:", error);
+      throw error;
+    }
+  },
+
+  removeOrgUnitManagerAsync: async (unitId: number) => {
+    try {
+      await removeOrgUnitManager(unitId);
+      const response = await getOrgHierarchy();
+      set({ organizationHierarchy: response.data || [] });
+    } catch (error) {
+      console.error("Failed to remove org unit manager:", error);
+      throw error;
+    }
+  },
+
+  addEmployeeToOrgUnitAsync: async (unitId: number, employeeEid: string) => {
+    try {
+      await addEmployeeToOrgUnit(unitId, employeeEid);
+
+      // Оптимистично переносим запись о сотруднике в новое подразделение,
+      // т.к. Elasticsearch индексируется не сразу.
+      set((state) => {
+        const next: Record<number, ProfileSearchEmployee[]> = {};
+        let moved: ProfileSearchEmployee | null = null;
+        for (const [uidStr, list] of Object.entries(state.unitEmployees)) {
+          const uid = Number(uidStr);
+          const filtered: ProfileSearchEmployee[] = [];
+          for (const emp of list) {
+            if (emp.eid === employeeEid) {
+              moved = emp;
+            } else {
+              filtered.push(emp);
+            }
+          }
+          next[uid] = filtered;
+        }
+        const targetEmp: ProfileSearchEmployee = moved ?? {
+          eid: employeeEid,
+          full_name: employeeEid,
+          position: "",
+          organization_unit_id: String(unitId),
+          score: 0,
+        };
+        next[unitId] = [...(next[unitId] || []), { ...targetEmp, organization_unit_id: String(unitId) }];
+        return { unitEmployees: next };
+      });
+
+      const response = await getOrgHierarchy();
+      set({ organizationHierarchy: response.data || [] });
+      void usePortalStore.getState().fetchUnitEmployees();
+    } catch (error) {
+      console.error("Failed to add employee to org unit:", error);
+      throw error;
+    }
+  },
+
+  removeEmployeeFromOrgUnitAsync: async (unitId: number, employeeEid: string) => {
+    try {
+      await removeEmployeeFromOrgUnit(unitId, employeeEid);
+
+      // Оптимистично убираем сотрудника из подразделения,
+      // не дожидаясь переиндексации Elasticsearch.
+      set((state) => ({
+        unitEmployees: {
+          ...state.unitEmployees,
+          [unitId]: (state.unitEmployees[unitId] || []).filter((e) => e.eid !== employeeEid),
+        },
+      }));
+
+      const response = await getOrgHierarchy();
+      set({ organizationHierarchy: response.data || [] });
+      void usePortalStore.getState().fetchUnitEmployees();
+    } catch (error) {
+      console.error("Failed to remove employee from org unit:", error);
       throw error;
     }
   },

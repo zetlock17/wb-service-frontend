@@ -1,5 +1,6 @@
-import { Edit, Trash2, Plus, Users, SlidersVertical } from "lucide-react";
-import type { OrgUnitHierarchy } from "../../../api/orgStructureApi";
+import { Edit, Trash2, Plus, Users, SlidersVertical, UserMinus, UserPlus, UserX } from "lucide-react";
+import type { OrgUnitHierarchy, ProfileSearchEmployee } from "../../../api/orgStructureApi";
+import Avatar from "../../../components/common/Avatar";
 import type { ExpandedNodes } from "../types";
 import Triangle from "./Triangle";
 import VerticalDashed from "./VerticalDashed";
@@ -12,9 +13,13 @@ interface DepartmentNodeProps {
   setExpandedNodes: (nodes: ExpandedNodes) => void;
   canManage?: boolean;
   allUnits?: OrgUnitHierarchy[];
+  employeesByUnit?: Record<number, ProfileSearchEmployee[]>;
   onEdit?: (unit: OrgUnitHierarchy) => void;
   onDelete?: (unit: OrgUnitHierarchy) => void;
   onSetManager?: (unit: OrgUnitHierarchy) => void;
+  onRemoveManager?: (unit: OrgUnitHierarchy) => void;
+  onAddEmployee?: (unit: OrgUnitHierarchy) => void;
+  onRemoveEmployee?: (unit: OrgUnitHierarchy) => void;
   onMove?: (unit: OrgUnitHierarchy) => void;
   onCreateChild?: (parentId: number) => void;
   onOpenProfile?: (eid: string) => void;
@@ -27,9 +32,13 @@ const DepartmentNode = ({
   setExpandedNodes,
   canManage = false,
   allUnits = [],
+  employeesByUnit = {},
   onEdit,
   onDelete,
   onSetManager,
+  onRemoveManager,
+  onAddEmployee,
+  onRemoveEmployee,
   onMove,
   onCreateChild,
   onOpenProfile,
@@ -93,6 +102,29 @@ const DepartmentNode = ({
                     <Users className="w-4 h-4" />
                   </button>
                 )}
+                {unit.manager && (
+                  <button
+                    onClick={() => onRemoveManager?.(unit)}
+                    className="rounded-lg p-2 text-gray-600 transition-colors hover:bg-red-100"
+                    title="Удалить руководителя"
+                  >
+                    <UserMinus className="w-4 h-4" />
+                  </button>
+                )}
+                <button
+                  onClick={() => onAddEmployee?.(unit)}
+                  className="rounded-lg p-2 text-gray-600 transition-colors hover:bg-purple-100"
+                  title="Добавить сотрудника"
+                >
+                  <UserPlus className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => onRemoveEmployee?.(unit)}
+                  className="rounded-lg p-2 text-gray-600 transition-colors hover:bg-red-100"
+                  title="Удалить сотрудника"
+                >
+                  <UserX className="w-4 h-4" />
+                </button>
                 <button
                   onClick={() => onCreateChild?.(unit.id)}
                   className="rounded-lg p-2 text-gray-600 transition-colors hover:bg-purple-100"
@@ -125,27 +157,65 @@ const DepartmentNode = ({
             )}
           </div>
 
-          {isExpanded && unit.children && unit.children.length > 0 && (
-            <div className="mt-3 space-y-2">
-              {unit.children.map((child) => (
-                <DepartmentNode
-                  key={child.id}
-                  unit={child}
-                  level={level + 1}
-                  expandedNodes={expandedNodes}
-                  setExpandedNodes={setExpandedNodes}
-                  canManage={canManage}
-                  allUnits={allUnits}
-                  onEdit={onEdit}
-                  onDelete={onDelete}
-                  onSetManager={onSetManager}
-                  onMove={onMove}
-                  onCreateChild={onCreateChild}
-                  onOpenProfile={onOpenProfile}
-                />
-              ))}
-            </div>
-          )}
+          {isExpanded && (() => {
+            const managerEid = unit.manager?.eid;
+            const unitEmployees = (employeesByUnit[unit.id] || []).filter(
+              (e) => e.eid !== managerEid
+            );
+            return (
+              <>
+                {unitEmployees.length > 0 && (
+                  <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                    {unitEmployees.map((emp) => (
+                      <div
+                        key={emp.eid}
+                        className="flex items-center gap-2 rounded-xl border border-gray-200 bg-white p-2.5"
+                      >
+                        <Avatar fullName={emp.full_name} size={6} />
+                        <div className="min-w-0 flex-1">
+                          <button
+                            type="button"
+                            onClick={() => onOpenProfile?.(emp.eid)}
+                            className="block truncate text-sm font-medium text-purple-600 hover:underline"
+                          >
+                            {emp.full_name}
+                          </button>
+                          {emp.position && (
+                            <p className="truncate text-xs text-gray-600">{emp.position}</p>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {unit.children && unit.children.length > 0 && (
+                  <div className="mt-3 space-y-2">
+                    {unit.children.map((child) => (
+                      <DepartmentNode
+                        key={child.id}
+                        unit={child}
+                        level={level + 1}
+                        expandedNodes={expandedNodes}
+                        setExpandedNodes={setExpandedNodes}
+                        canManage={canManage}
+                        allUnits={allUnits}
+                        employeesByUnit={employeesByUnit}
+                        onEdit={onEdit}
+                        onDelete={onDelete}
+                        onSetManager={onSetManager}
+                        onRemoveManager={onRemoveManager}
+                        onAddEmployee={onAddEmployee}
+                        onRemoveEmployee={onRemoveEmployee}
+                        onMove={onMove}
+                        onCreateChild={onCreateChild}
+                        onOpenProfile={onOpenProfile}
+                      />
+                    ))}
+                  </div>
+                )}
+              </>
+            );
+          })()}
         </div>
       </div>
     </div>

@@ -449,6 +449,325 @@ export const SetManagerModal = ({
   );
 };
 
+// Модальное окно для удаления назначенного руководителя
+interface RemoveManagerModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  unit?: OrgUnitHierarchy;
+  onSuccess?: () => void;
+}
+
+export const RemoveManagerModal = ({ isOpen, onClose, unit, onSuccess }: RemoveManagerModalProps) => {
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const { removeOrgUnitManagerAsync } = usePortalStore();
+
+  const handleRemove = async () => {
+    if (!unit) return;
+    setLoading(true);
+    setError(null);
+    try {
+      await removeOrgUnitManagerAsync(unit.id);
+      onClose();
+      onSuccess?.();
+    } catch (err: any) {
+      setError(err?.message || "Ошибка при удалении руководителя");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (!isOpen || !unit) return null;
+
+  return (
+    <Modal isOpen={isOpen} title="Удалить руководителя" onClose={onClose} widthClass="max-w-md">
+      <div className="space-y-4">
+        <div>
+          <p className="text-gray-700 mb-2">Снять руководителя с подразделения:</p>
+          <p className="font-semibold text-purple-600">{unit.name}</p>
+          {unit.manager && (
+            <p className="text-sm text-gray-600 mt-2">
+              Текущий руководитель: <span className="font-medium">{unit.manager.full_name}</span>
+            </p>
+          )}
+        </div>
+
+        {error && <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">{error}</div>}
+
+        <div className="flex gap-2 pt-2">
+          <button
+            onClick={onClose}
+            className="flex-1 px-4 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+          >
+            Отмена
+          </button>
+          <button
+            onClick={handleRemove}
+            disabled={loading}
+            className="flex-1 px-4 py-2 text-white bg-red-600 hover:bg-red-700 disabled:bg-gray-400 rounded-lg transition-colors"
+          >
+            {loading ? "Удаление..." : "Удалить"}
+          </button>
+        </div>
+      </div>
+    </Modal>
+  );
+};
+
+// Модальное окно для добавления сотрудника в подразделение
+interface AddEmployeeModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  unit?: OrgUnitHierarchy;
+  onSuccess?: () => void;
+}
+
+export const AddEmployeeModal = ({ isOpen, onClose, unit, onSuccess }: AddEmployeeModalProps) => {
+  const [searchQuery, setSearchQuery] = useState("");
+  const [suggestions, setSuggestions] = useState<ProfileSuggestion[]>([]);
+  const [selectedEmployee, setSelectedEmployee] = useState<ProfileSuggestion | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const { addEmployeeToOrgUnitAsync } = usePortalStore();
+
+  const handleSearch = async (query: string) => {
+    setSearchQuery(query);
+    setSelectedEmployee(null);
+    if (query.trim().length < 2) {
+      setSuggestions([]);
+      return;
+    }
+    try {
+      const response = await searchSuggestHierarchy(query, 10);
+      if (response.status === 200 && response.data) {
+        setSuggestions(response.data.suggestions || []);
+      }
+    } catch (err) {
+      console.error("Search error:", err);
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!unit) return;
+    if (!selectedEmployee) {
+      setError("Выберите сотрудника");
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      await addEmployeeToOrgUnitAsync(unit.id, selectedEmployee.eid.toString());
+      setSearchQuery("");
+      setSelectedEmployee(null);
+      setSuggestions([]);
+      onClose();
+      onSuccess?.();
+    } catch (err: any) {
+      setError(err?.message || "Ошибка при добавлении сотрудника");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (!isOpen || !unit) return null;
+
+  return (
+    <Modal isOpen={isOpen} title="Добавить сотрудника" onClose={onClose} widthClass="max-w-md">
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Подразделение: {unit.name}</label>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Поиск сотрудника</label>
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => handleSearch(e.target.value)}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+            placeholder="Введите имя сотрудника"
+          />
+
+          {suggestions.length > 0 && (
+            <div className="mt-2 border border-gray-300 rounded-lg max-h-48 overflow-y-auto">
+              {suggestions.map((suggestion) => (
+                <div
+                  key={suggestion.eid}
+                  onClick={() => {
+                    setSelectedEmployee(suggestion);
+                    setSearchQuery(suggestion.full_name);
+                    setSuggestions([]);
+                  }}
+                  className="px-3 py-2 hover:bg-purple-50 cursor-pointer border-b last:border-b-0"
+                >
+                  <div className="font-medium text-purple-600">{suggestion.full_name}</div>
+                  <div className="text-sm text-gray-600">{suggestion.position}</div>
+                  <div className="text-xs text-gray-500">{suggestion.department}</div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {selectedEmployee && (
+          <div className="p-3 bg-purple-50 border border-purple-200 rounded-lg">
+            <div className="text-sm font-medium text-gray-700">Выбранный сотрудник:</div>
+            <div className="font-semibold text-purple-600 mt-1">{selectedEmployee.full_name}</div>
+            <div className="text-sm text-gray-600">{selectedEmployee.position}</div>
+          </div>
+        )}
+
+        {error && <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">{error}</div>}
+
+        <div className="flex gap-2 pt-2">
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex-1 px-4 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+          >
+            Отмена
+          </button>
+          <button
+            type="submit"
+            disabled={loading || !selectedEmployee}
+            className="flex-1 px-4 py-2 text-white bg-purple-600 hover:bg-purple-700 disabled:bg-gray-400 rounded-lg transition-colors"
+          >
+            {loading ? "Добавление..." : "Добавить"}
+          </button>
+        </div>
+      </form>
+    </Modal>
+  );
+};
+
+// Модальное окно для удаления сотрудника из подразделения
+interface RemoveEmployeeModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  unit?: OrgUnitHierarchy;
+  onSuccess?: () => void;
+}
+
+export const RemoveEmployeeModal = ({ isOpen, onClose, unit, onSuccess }: RemoveEmployeeModalProps) => {
+  const [searchQuery, setSearchQuery] = useState("");
+  const [suggestions, setSuggestions] = useState<ProfileSuggestion[]>([]);
+  const [selectedEmployee, setSelectedEmployee] = useState<ProfileSuggestion | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const { removeEmployeeFromOrgUnitAsync } = usePortalStore();
+
+  const handleSearch = async (query: string) => {
+    setSearchQuery(query);
+    setSelectedEmployee(null);
+    if (query.trim().length < 2) {
+      setSuggestions([]);
+      return;
+    }
+    try {
+      const response = await searchSuggestHierarchy(query, 10);
+      if (response.status === 200 && response.data) {
+        setSuggestions(response.data.suggestions || []);
+      }
+    } catch (err) {
+      console.error("Search error:", err);
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!unit) return;
+    if (!selectedEmployee) {
+      setError("Выберите сотрудника");
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      await removeEmployeeFromOrgUnitAsync(unit.id, selectedEmployee.eid.toString());
+      setSearchQuery("");
+      setSelectedEmployee(null);
+      setSuggestions([]);
+      onClose();
+      onSuccess?.();
+    } catch (err: any) {
+      setError(err?.message || "Ошибка при удалении сотрудника");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (!isOpen || !unit) return null;
+
+  return (
+    <Modal isOpen={isOpen} title="Удалить сотрудника" onClose={onClose} widthClass="max-w-md">
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Подразделение: {unit.name}</label>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Поиск сотрудника</label>
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => handleSearch(e.target.value)}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+            placeholder="Введите имя сотрудника"
+          />
+
+          {suggestions.length > 0 && (
+            <div className="mt-2 border border-gray-300 rounded-lg max-h-48 overflow-y-auto">
+              {suggestions.map((suggestion) => (
+                <div
+                  key={suggestion.eid}
+                  onClick={() => {
+                    setSelectedEmployee(suggestion);
+                    setSearchQuery(suggestion.full_name);
+                    setSuggestions([]);
+                  }}
+                  className="px-3 py-2 hover:bg-purple-50 cursor-pointer border-b last:border-b-0"
+                >
+                  <div className="font-medium text-purple-600">{suggestion.full_name}</div>
+                  <div className="text-sm text-gray-600">{suggestion.position}</div>
+                  <div className="text-xs text-gray-500">{suggestion.department}</div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {selectedEmployee && (
+          <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
+            <div className="text-sm font-medium text-gray-700">Будет удалён:</div>
+            <div className="font-semibold text-red-600 mt-1">{selectedEmployee.full_name}</div>
+            <div className="text-sm text-gray-600">{selectedEmployee.position}</div>
+          </div>
+        )}
+
+        {error && <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">{error}</div>}
+
+        <div className="flex gap-2 pt-2">
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex-1 px-4 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+          >
+            Отмена
+          </button>
+          <button
+            type="submit"
+            disabled={loading || !selectedEmployee}
+            className="flex-1 px-4 py-2 text-white bg-red-600 hover:bg-red-700 disabled:bg-gray-400 rounded-lg transition-colors"
+          >
+            {loading ? "Удаление..." : "Удалить"}
+          </button>
+        </div>
+      </form>
+    </Modal>
+  );
+};
+
 // Компонент для перемещения подразделения
 interface MoveOrgUnitModalProps {
   isOpen: boolean;

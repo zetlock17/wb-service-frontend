@@ -31,6 +31,7 @@ import { useAvatarWithEdit } from "../../hooks/useAvatar";
 import Avatar from "../../components/common/Avatar";
 import { fetchStatic } from "../../api/filesApi";
 import { getProfileByEid, suggestEmployees, updateProfileByEid } from "../../api/profileApi";
+import { getBirthdayTelegramLink } from "../../api/birthdaysApi";
 import type { UserProfile } from "../../types/portal";
 
 interface HomeModuleProps {
@@ -51,6 +52,9 @@ const HomeModule = ({ onNavigate, profileEid }: HomeModuleProps) => {
   const navigate = useNavigate();
   const [birthdayFilter, setBirthdayFilter] = useState<BirthdayFilter>("week");
   const [selectedPerson, setSelectedPerson] = useState<Birthday | null>(null);
+  const [congratsMessage, setCongratsMessage] = useState("");
+  const [congratsLoading, setCongratsLoading] = useState(false);
+  const [congratsError, setCongratsError] = useState<string | null>(null);
   const [editingField, setEditingField] = useState<{ section: string; field?: string; index?: number } | null>(null);
   const [editingValues, setEditingValues] = useState<any>({});
   const [showAvatarModal, setShowAvatarModal] = useState(false);
@@ -103,8 +107,14 @@ const HomeModule = ({ onNavigate, profileEid }: HomeModuleProps) => {
 
     if (isForeignProfile && isHr) {
       const response = await updateProfileByEid(String(user.eid), updates);
-      if (response.status >= 200 && response.status < 300 && response.data) {
-        setExternalProfile(response.data);
+      if (response.status >= 200 && response.status < 300) {
+        if (response.data) {
+          setExternalProfile(response.data);
+        }
+        const refreshed = await getProfileByEid(String(user.eid));
+        if (refreshed.status >= 200 && refreshed.status < 300 && refreshed.data) {
+          setExternalProfile(refreshed.data);
+        }
       }
     } else if (currentUser) {
       await updateCurrentUser(currentUser.eid, updates);
@@ -921,23 +931,59 @@ const HomeModule = ({ onNavigate, profileEid }: HomeModuleProps) => {
                 <p className="text-sm text-purple-600 font-medium">{formatBirthdayDate(selectedPerson.birth_date)}</p>
               </div>
             </div>
-            <p className="text-sm text-gray-600">Выберите способ отправки поздравления:</p>
-            <div className="space-y-3">
-              {["Через портал", "По электронной почте", "Через Band"].map((option) => (
-                <button
-                  key={option}
-                  className="w-full flex items-center gap-3 p-3 border-2 border-purple-200 rounded-lg hover:bg-purple-50 hover:border-purple-400 transition-colors"
-                >
-                  <MessageSquare className="w-5 h-5 text-purple-600" />
-                  <div className="text-left">
-                    <p className="font-medium text-gray-900">{option}</p>
-                    <p className="text-xs text-gray-600">Отправить поздравление выбранным способом</p>
-                  </div>
-                </button>
-              ))}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Сообщение</label>
+              <textarea
+                value={congratsMessage}
+                onChange={(e) => setCongratsMessage(e.target.value)}
+                rows={3}
+                placeholder="С Днём рождения! Желаю..."
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+              />
             </div>
+            {congratsError && (
+              <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-600">
+                {congratsError}
+              </div>
+            )}
             <button
-              onClick={() => setSelectedPerson(null)}
+              onClick={async () => {
+                if (!selectedPerson) return;
+                const message = congratsMessage.trim();
+                if (!message) {
+                  setCongratsError("Введите текст поздравления");
+                  return;
+                }
+                setCongratsError(null);
+                setCongratsLoading(true);
+                try {
+                  const response = await getBirthdayTelegramLink(selectedPerson.eid, message);
+                  if (response.status >= 200 && response.status < 300 && response.data?.telegram_link) {
+                    window.open(response.data.telegram_link, "_blank", "noopener,noreferrer");
+                    setSelectedPerson(null);
+                    setCongratsMessage("");
+                  } else {
+                    setCongratsError(response.message || "Не удалось получить ссылку для поздравления");
+                  }
+                } catch (err) {
+                  console.error("Failed to get telegram link:", err);
+                  setCongratsError("Ошибка при получении ссылки");
+                } finally {
+                  setCongratsLoading(false);
+                }
+              }}
+              disabled={congratsLoading}
+              className="w-full flex items-center justify-center gap-2 p-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <MessageSquare className="w-5 h-5" />
+              {congratsLoading ? "Загрузка..." : "Поздравить в Telegram"}
+            </button>
+            <button
+              onClick={() => {
+                setSelectedPerson(null);
+                setCongratsMessage("");
+                setCongratsError(null);
+              }}
               className="w-full px-4 py-2 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50"
             >
               Отмена
