@@ -59,7 +59,7 @@ export const uploadPhoto = async (
 
     const baseURL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
     const params = new URLSearchParams({ type, lang });
-    if (createdFor !== undefined) {
+    if (createdFor !== undefined && Number.isFinite(createdFor)) {
         params.append('created_for', String(createdFor));
     }
     if (name !== undefined) {
@@ -72,7 +72,6 @@ export const uploadPhoto = async (
 
         const response = await axios.post<number>(url, formData, {
             headers: {
-                'Content-Type': 'multipart/form-data',
                 Authorization: token ? `Bearer ${token}` : '',
             },
         });
@@ -82,10 +81,14 @@ export const uploadPhoto = async (
             status: response.status,
         };
     } catch (error: any) {
+        console.error('[uploadPhoto] error', error.response?.status, error.response?.data);
         return {
             data: 0,
             status: error.response?.status || 500,
-            message: error.response?.data?.message || error.message,
+            message:
+                error.response?.data?.message
+                || (typeof error.response?.data?.detail === 'string' ? error.response.data.detail : JSON.stringify(error.response?.data?.detail))
+                || error.message,
         };
     }
 }
