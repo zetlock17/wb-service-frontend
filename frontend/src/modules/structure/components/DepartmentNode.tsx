@@ -1,4 +1,5 @@
-import { Edit, Trash2, Plus, Users, SlidersVertical, UserMinus, UserPlus, UserX } from "lucide-react";
+import { Edit, Trash2, Plus, Users, SlidersVertical, UserMinus, UserPlus, X, Check } from "lucide-react";
+import { useState } from "react";
 import type { OrgUnitHierarchy, ProfileSearchEmployee } from "../../../api/orgStructureApi";
 import Avatar from "../../../components/common/Avatar";
 import type { ExpandedNodes } from "../types";
@@ -20,6 +21,7 @@ interface DepartmentNodeProps {
   onRemoveManager?: (unit: OrgUnitHierarchy) => void;
   onAddEmployee?: (unit: OrgUnitHierarchy) => void;
   onRemoveEmployee?: (unit: OrgUnitHierarchy) => void;
+  onRemoveEmployeeById?: (unitId: number, eid: string) => void;
   onMove?: (unit: OrgUnitHierarchy) => void;
   onCreateChild?: (parentId: number) => void;
   onOpenProfile?: (eid: string) => void;
@@ -39,10 +41,12 @@ const DepartmentNode = ({
   onRemoveManager,
   onAddEmployee,
   onRemoveEmployee,
+  onRemoveEmployeeById,
   onMove,
   onCreateChild,
   onOpenProfile,
 }: DepartmentNodeProps) => {
+  const [confirmingEid, setConfirmingEid] = useState<string | null>(null);
   const unitKey = `unit-${unit.id}`;
   const isExpanded = expandedNodes[unitKey] ?? true;
   const titleClass = level === 0 ? "text-2xl" : level === 1 ? "text-xl" : "text-lg";
@@ -119,13 +123,6 @@ const DepartmentNode = ({
                   <UserPlus className="w-4 h-4" />
                 </button>
                 <button
-                  onClick={() => onRemoveEmployee?.(unit)}
-                  className="rounded-lg p-2 text-gray-600 transition-colors hover:bg-red-100"
-                  title="Удалить сотрудника"
-                >
-                  <UserX className="w-4 h-4" />
-                </button>
-                <button
                   onClick={() => onCreateChild?.(unit.id)}
                   className="rounded-lg p-2 text-gray-600 transition-colors hover:bg-purple-100"
                   title="Создать подразделение"
@@ -184,6 +181,41 @@ const DepartmentNode = ({
                             <p className="truncate text-xs text-gray-600">{emp.position}</p>
                           )}
                         </div>
+                        {canManage && (
+                          confirmingEid === emp.eid ? (
+                            <div className="flex shrink-0 items-center gap-1">
+                              <span className="text-xs text-gray-500">Удалить?</span>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  onRemoveEmployeeById?.(unit.id, emp.eid);
+                                  setConfirmingEid(null);
+                                }}
+                                className="rounded-lg p-1 text-red-600 transition-colors hover:bg-red-100"
+                                title="Подтвердить"
+                              >
+                                <Check className="h-3.5 w-3.5" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setConfirmingEid(null)}
+                                className="rounded-lg p-1 text-gray-500 transition-colors hover:bg-gray-100"
+                                title="Отмена"
+                              >
+                                <X className="h-3.5 w-3.5" />
+                              </button>
+                            </div>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => setConfirmingEid(emp.eid)}
+                              className="shrink-0 rounded-lg p-1 text-gray-400 transition-colors hover:bg-red-100 hover:text-red-600"
+                              title="Удалить сотрудника"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          )
+                        )}
                       </div>
                     ))}
                   </div>
@@ -206,6 +238,7 @@ const DepartmentNode = ({
                         onRemoveManager={onRemoveManager}
                         onAddEmployee={onAddEmployee}
                         onRemoveEmployee={onRemoveEmployee}
+                        onRemoveEmployeeById={onRemoveEmployeeById}
                         onMove={onMove}
                         onCreateChild={onCreateChild}
                         onOpenProfile={onOpenProfile}

@@ -28,7 +28,7 @@ const StructureModule = () => {
   const [activeSearchQuery, setActiveSearchQuery] = useState("");
   const [expandedNodes, setExpandedNodes] = useState<ExpandedNodes>({});
 
-  const { organizationHierarchy, unitEmployees, loading, fetchOrgStructure, roles } = usePortalStore();
+  const { organizationHierarchy, unitEmployees, loading, fetchOrgStructure, roles, removeEmployeeFromOrgUnitAsync } = usePortalStore();
   const canManage = roles.includes("admin") || roles.includes("hr");
 
   const [createModalOpen, setCreateModalOpen] = useState(false);
@@ -109,6 +109,11 @@ const StructureModule = () => {
   }, []);
 
   const handleRefresh = useCallback(() => fetchOrgStructure(), [fetchOrgStructure]);
+
+  const handleRemoveEmployeeById = useCallback(async (unitId: number, eid: string) => {
+    await removeEmployeeFromOrgUnitAsync(unitId, eid);
+    handleRefresh();
+  }, [removeEmployeeFromOrgUnitAsync, handleRefresh]);
 
   const handleOpenProfile = useCallback(
     (eid: string) => navigate(`/profile/${eid}`),
@@ -215,6 +220,7 @@ const StructureModule = () => {
                   onRemoveManager={handleRemoveManager}
                   onAddEmployee={handleAddEmployee}
                   onRemoveEmployee={handleRemoveEmployee}
+                  onRemoveEmployeeById={handleRemoveEmployeeById}
                   onMove={handleMoveUnit}
                   onCreateChild={handleCreateChild}
                   onOpenProfile={handleOpenProfile}
