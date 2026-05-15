@@ -198,7 +198,7 @@ const PortalShell = ({ isAuthenticated }: { isAuthenticated: boolean }) => {
   };
 
   return (
-    <div className="min-h-screen bg-purple-50">
+    <div className="min-h-screen bg-wb-pink">
       <AppHeader
         activeModule={activeModule}
         modules={moduleConfig}

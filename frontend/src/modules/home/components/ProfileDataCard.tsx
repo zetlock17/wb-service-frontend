@@ -19,7 +19,7 @@ const ProfileDataCard = ({
   employeeIdByName,
   startEditing,
 }: ProfileDataCardProps) => (
-  <InfoCard title="Данные профиля" icon={<User className="w-5 h-5 text-purple-600" />}>
+  <InfoCard title="Данные профиля" icon={<User className="w-4 h-4 text-wb-green" />}>
     <div className="space-y-3">
       <ProfileRow label="EID" value={user.eid.toString()} editable={false} />
       <ProfileRow

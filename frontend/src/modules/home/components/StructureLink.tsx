@@ -6,7 +6,7 @@ interface StructureLinkProps {
 const StructureLink = ({ label, value }: StructureLinkProps) => (
   <div>
     <p className="text-sm text-gray-500">{label}</p>
-    <button className="font-medium text-purple-600 hover:underline">{value}</button>
+    <button className="font-medium text-wb-green hover:underline">{value}</button>
   </div>
 );
 

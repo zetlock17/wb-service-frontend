@@ -11,19 +11,19 @@ interface AboutCardProps {
 const AboutCard = ({ user, canEditPersonalFields, startEditing }: AboutCardProps) => (
   <Card
     title="О себе"
-    icon={<User className="w-5 h-5 text-purple-600" />}
+    icon={<User className="w-4 h-4 text-wb-green" />}
     action={
       canEditPersonalFields ? (
         <button
           onClick={() => startEditing("profile", "about_me", { about_me: user.about_me || "" })}
-          className="px-4 py-2 text-sm font-normal text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 flex items-center gap-2"
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-gray-300 text-gray-700 text-sm rounded-full hover:bg-gray-50 transition-colors"
         >
-          <Edit2 className="w-4 h-4" /> Редактировать
+          <Edit2 className="w-3.5 h-3.5" /> Редактировать
         </button>
       ) : null
     }
   >
-    <p className="text-gray-700 leading-relaxed">{user.about_me || "Не указано"}</p>
+    <p className="text-gray-700 leading-relaxed">{user.about_me || "Расскажите коллегам о себе"}</p>
   </Card>
 );
 

@@ -20,9 +20,9 @@ interface ProfileFieldEditorProps {
 }
 
 const inputClass =
-  "w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500";
+  "w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-wb-green";
 const selectClass =
-  "w-full px-3 py-2 border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-purple-500";
+  "w-full px-3 py-2 border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-wb-green";
 
 const ProfileFieldEditor = ({
   editingField,

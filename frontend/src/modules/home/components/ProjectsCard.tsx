@@ -12,45 +12,44 @@ interface ProjectsCardProps {
 const ProjectsCard = ({ user, canEditPersonalFields, startEditing }: ProjectsCardProps) => (
   <Card
     title="Проекты"
-    icon={<Award className="w-5 h-5 text-purple-600" />}
+    icon={<Award className="w-4 h-4 text-wb-green" />}
     action={
       canEditPersonalFields ? (
         <button
           onClick={() => startEditing("projects", "add", {})}
-          className="px-3 py-1.5 text-sm text-purple-600 hover:bg-purple-50 rounded-lg flex items-center gap-1"
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-gray-300 text-gray-700 text-sm rounded-full hover:bg-gray-50 transition-colors"
         >
-          <Plus className="w-4 h-4" />
+          <Plus className="w-3.5 h-3.5" />
           Добавить проект
         </button>
       ) : null
     }
   >
-    <div className="space-y-3">
+    <div className="space-y-2">
       {(user.projects || []).map((project) => (
         <div
           key={project.id}
-          className="p-4 border border-gray-200 rounded-lg hover:shadow-sm transition-shadow"
+          className="flex items-start justify-between p-4 bg-wb-pink-light rounded-xl hover:bg-pink-100 transition-colors"
         >
-          <div className="flex items-start justify-between mb-2">
-            <h4 className="font-semibold text-gray-900">{project.name || "Без названия"}</h4>
-            <div className="flex gap-2">
-              {project.link && (
-                <a
-                  href={project.link}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="text-purple-600 hover:text-purple-700"
-                >
-                  <ExternalLink className="w-4 h-4" />
-                </a>
-              )}
-            </div>
+          <div>
+            <h4 className="font-semibold text-gray-900 mb-0.5">{project.name || "Без названия"}</h4>
+            <p className="text-sm text-gray-500 mb-0.5">{project.position || "Не указана"}</p>
+            <p className="text-xs text-gray-400">
+              {project.start_d ? formatDate(project.start_d, "my") : "Не указано"} —{" "}
+              {project.end_d ? formatDate(project.end_d, "my") : "настоящее время"}
+            </p>
           </div>
-          <p className="text-sm text-gray-600 mb-1">{project.position || "Не указана"}</p>
-          <p className="text-xs text-gray-500">
-            {project.start_d ? formatDate(project.start_d, "my") : "Не указано"} -{" "}
-            {project.end_d ? formatDate(project.end_d, "my") : "настоящее время"}
-          </p>
+          {project.link && (
+            <a
+              href={project.link}
+              target="_blank"
+              rel="noreferrer"
+              className="flex items-center justify-center w-8 h-8 bg-wb-green-light text-wb-green-dark rounded-lg hover:bg-wb-green hover:text-white transition-colors shrink-0"
+              aria-label="Открыть проект"
+            >
+              <ExternalLink className="w-4 h-4" />
+            </a>
+          )}
         </div>
       ))}
     </div>

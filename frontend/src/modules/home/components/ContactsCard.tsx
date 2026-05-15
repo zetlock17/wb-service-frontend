@@ -11,7 +11,7 @@ interface ContactsCardProps {
 }
 
 const ContactsCard = ({ user, canEditPersonalFields, isHr, startEditing }: ContactsCardProps) => (
-  <InfoCard title="Контакты" icon={<Mail className="w-5 h-5 text-purple-600" />}>
+  <InfoCard title="Контакты" icon={<Mail className="w-4 h-4 text-wb-green" />}>
     <div className="space-y-3">
       <ProfileRow
         label="Личный телефон"

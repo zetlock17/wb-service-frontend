@@ -16,7 +16,7 @@ interface EditProfileModalProps {
 }
 
 const inputClass =
-  "w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500";
+  "w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-wb-green";
 
 const ProjectFields = ({
   values,
@@ -156,7 +156,7 @@ const EditProfileModal = ({
           <div className="flex gap-3">
             <button
               onClick={onSave}
-              className="flex-1 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700"
+              className="flex-1 px-4 py-2 bg-wb-green text-white rounded-lg hover:bg-wb-green-dark"
             >
               Сохранить
             </button>

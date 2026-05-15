@@ -19,7 +19,7 @@ const Avatar = ({ avatarUrl, fullName, size = 16 }: AvatarProps) => {
       ) : (
         <div 
           style={{ fontSize: `${size/10}rem` }}
-          className={`w-${size} h-${size} bg-linear-to-br from-purple-500 to-fuchsia-500 rounded-full flex items-center justify-center text-white font-bold`}
+          className={`w-${size} h-${size} bg-linear-to-br from-wb-pink to-wb-pink-dark rounded-full flex items-center justify-center text-white font-bold`}
         >
           {getInitials(fullName)}
         </div>

@@ -29,24 +29,23 @@ const StructureCard = ({ user, onNavigate, onOpenProfileByName }: StructureCardP
   const structurePeople = buildStructurePeople(user);
 
   return (
-    <InfoCard title="Структура" icon={<Users className="w-5 h-5 text-purple-600" />}>
-      <div className="space-y-3">
+    <InfoCard title="Структура" icon={<Users className="w-4 h-4 text-wb-green" />}>
+      <div className="space-y-2">
         {structurePeople.map((employee) => (
           <button
             key={employee.id}
             type="button"
             onClick={() => onOpenProfileByName(employee.full_name)}
-            className="p-2 w-full text-left hover:bg-purple-50 rounded-lg transition-colors"
+            className="p-3 w-full text-left bg-wb-pink-light hover:bg-pink-100 rounded-xl transition-colors"
           >
-            <div className="flex justify-between items-center gap-3">
+            <div className="flex items-center gap-3">
               <Avatar fullName={employee.full_name} size={16} />
               <div className="flex-1 min-w-0">
-                <p className="text-sm text-gray-500">{employee.position}</p>
-                <h3 className="font-semibold text-purple-600 hover:underline">
+                <p className="text-xs text-gray-500">{employee.position}</p>
+                <h3 className="font-semibold text-wb-green hover:underline text-sm">
                   {getCasualName(employee.full_name)}
                 </h3>
-                <p className="text-sm text-gray-500">Департамент</p>
-                <p className="text-sm text-black">{employee.department || "Не указан"}</p>
+                <p className="text-xs text-gray-400">{employee.department || "Не указан"}</p>
               </div>
             </div>
           </button>
@@ -54,7 +53,7 @@ const StructureCard = ({ user, onNavigate, onOpenProfileByName }: StructureCardP
 
         <button
           onClick={() => onNavigate("structure")}
-          className="mt-4 text-sm text-purple-600 hover:underline flex items-center gap-1"
+          className="mt-2 text-sm text-wb-green hover:text-wb-green-dark flex items-center gap-1 transition-colors"
         >
           Вся структура / Коллеги по отделу <ChevronRight strokeWidth={2} className="w-4 h-4" />
         </button>

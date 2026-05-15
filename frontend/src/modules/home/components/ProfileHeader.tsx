@@ -1,4 +1,4 @@
-import { Camera, Edit2, Share2 } from "lucide-react";
+import { Camera, Share2 } from "lucide-react";
 import Avatar from "../../../components/common/Avatar";
 import type { ProfileVacation, UserProfile } from "../../../types/portal";
 import { getCasualName } from "../../../utils/nameUtils";
@@ -19,46 +19,42 @@ const ProfileHeader = ({
   currentVacation,
   onAvatarClick,
 }: ProfileHeaderProps) => (
-  <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-    <div className="flex items-start justify-between mb-4">
-      <div className="flex items-center gap-4">
+  <div className="bg-white rounded-4xl shadow-sm border border-gray-100 p-6">
+    <div className="flex items-start justify-between">
+      <div className="flex items-center gap-5">
         <div
-          className={`relative w-20 h-20 rounded-full group ${canEditAvatar ? "cursor-pointer" : "cursor-default"}`}
+          className={`relative w-24 h-24 rounded-3xl group ${canEditAvatar ? "cursor-pointer" : "cursor-default"}`}
           onClick={canEditAvatar ? onAvatarClick : undefined}
         >
-          <Avatar avatarUrl={displayedAvatarUrl ?? undefined} fullName={user.full_name} size={20} />
+          <Avatar avatarUrl={displayedAvatarUrl ?? undefined} fullName={user.full_name} size={24} />
           {canEditAvatar && (
-            <div className="absolute inset-0 bg-black bg-opacity-40 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+            <div className="absolute inset-0 bg-black/40 rounded-3xl flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
               <Camera className="w-8 h-8 text-white" />
             </div>
           )}
         </div>
         <div>
           <div className="flex items-center gap-2 mb-1">
-            <h2 className="text-2xl font-bold text-gray-900">{getCasualName(user.full_name)}</h2>
+            <h2 className="text-2xl font-bold text-gray-900 uppercase tracking-wide">{getCasualName(user.full_name)}</h2>
             {currentVacation && (
               <span
-                className={`px-2 py-1 text-xs font-medium rounded-full ${
+                className={`px-2.5 py-0.5 text-xs font-medium rounded-3xl ${
                   getVacationStatus(currentVacation) === "active"
-                    ? "bg-orange-100 text-orange-700"
-                    : "bg-purple-600 text-white"
+                    ? "bg-wb-green-light text-wb-green-dark"
+                    : "bg-wb-pink-light text-wb-pink"
                 }`}
               >
                 {getVacationStatus(currentVacation) === "active" ? "В отпуске" : "Отпуск запланирован"}
               </span>
             )}
-            <button className="p-1 hover:bg-gray-100 rounded" aria-label="Поделиться профилем">
-              <Share2 className="w-4 h-4 text-gray-500" />
+            <button className="p-1.5 hover:bg-gray-100 rounded-3xl transition-colors" aria-label="Поделиться профилем">
+              <Share2 className="w-4 h-4 text-gray-400" />
             </button>
           </div>
           <p className="text-gray-600">{user.position}</p>
-          <p className="text-sm text-gray-500">{user.eid}</p>
+          <p className="text-sm text-gray-400 font-mono mt-0.5">{user.eid}</p>
         </div>
       </div>
-      <button className="px-4 py-2 text-sm font-normal text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 flex items-center gap-2">
-        <Edit2 className="w-4 h-4" />
-        Редактировать профиль
-      </button>
     </div>
   </div>
 );

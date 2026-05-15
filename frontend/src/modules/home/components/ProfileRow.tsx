@@ -26,7 +26,7 @@ const ProfileRow = ({
     <div className="space-y-0.5">
       <p className="text-sm text-gray-500">{label}</p>
       <Tag
-        className={`font-medium flex items-center gap-2 ${isSmall ? "text-sm" : ""} ${link ? "text-purple-600 hover:underline" : ""}`}
+        className={`font-medium flex items-center gap-2 ${isSmall ? "text-sm" : ""} ${link ? "text-wb-green hover:underline" : ""}`}
         href={link}
       >
         {value}

@@ -22,7 +22,7 @@ const BirthdaysCard = ({
 }: BirthdaysCardProps) => (
   <Card
     title="Ближайшие дни рождения"
-    icon={<Cake className="w-5 h-5 text-purple-600" />}
+    icon={<Cake className="w-4 h-4 text-wb-green" />}
     action={
       <FilterSwitch
         options={birthdayOptions}
@@ -32,14 +32,16 @@ const BirthdaysCard = ({
       />
     }
   >
-    <div className="space-y-3">
+    <div className="space-y-2">
       {birthdays.length ? (
         birthdays.map((person) => {
           const today = isBirthdayToday(person.birth_date);
           return (
             <div
               key={person.eid}
-              className={`flex items-center justify-between p-3 rounded-lg ${today ? "bg-purple-500" : "bg-purple-50"}`}
+              className={`flex items-center justify-between p-3 rounded-xl ${
+                today ? "bg-wb-green" : "bg-wb-pink-light"
+              }`}
             >
               <div>
                 <button
@@ -49,18 +51,27 @@ const BirthdaysCard = ({
                 >
                   {person.full_name}
                 </button>
-                <p className={`text-sm ${today ? "text-white" : "text-gray-600"}`}>{person.org_unit}</p>
+                <p className={`text-sm ${today ? "text-white/70" : "text-gray-500"}`}>{person.org_unit}</p>
               </div>
-              <div className="text-right">
-                <p className={`text-sm font-medium ${today ? "text-white" : "text-purple-600"}`}>
-                  {formatBirthdayDate(person.birth_date)}
+              <div className="text-right flex flex-col items-end gap-1">
+                <p className={`text-xs font-semibold uppercase tracking-wide ${today ? "text-white" : "text-gray-500"}`}>
+                  {today ? "Сегодня" : formatBirthdayDate(person.birth_date)}
                 </p>
-                <button
-                  onClick={() => onCongratulate(person)}
-                  className={`text-xs ${today ? "text-white" : "text-purple-600"} hover:underline mt-1`}
-                >
-                  Поздравить
-                </button>
+                {today ? (
+                  <button
+                    onClick={() => onCongratulate(person)}
+                    className="text-xs px-2.5 py-1 border border-white/60 text-white rounded-full hover:bg-wb-green-dark transition-colors"
+                  >
+                    Поздравить
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => onCongratulate(person)}
+                    className="text-xs px-2.5 py-1 bg-wb-green-dark text-white rounded-full hover:bg-wb-green transition-colors"
+                  >
+                    Поздравить
+                  </button>
+                )}
               </div>
             </div>
           );

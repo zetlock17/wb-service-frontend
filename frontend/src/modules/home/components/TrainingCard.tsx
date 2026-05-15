@@ -8,27 +8,30 @@ interface TrainingCardProps {
 }
 
 const TrainingCard = ({ courses, onNavigate }: TrainingCardProps) => (
-  <Card title="Моё обучение" icon={<GraduationCap className="w-5 h-5 text-purple-600" />}>
+  <Card title="Моё обучение" icon={<GraduationCap className="w-4 h-4 text-wb-green" />}>
     <div className="space-y-3">
       {courses
         .filter((course) => course.status !== "completed")
         .slice(0, 2)
         .map((course) => (
-          <div key={course.id} className="p-3 border border-gray-200 rounded-lg">
-            <p className="font-medium text-gray-900 mb-2">{course.title}</p>
-            <div className="flex items-center gap-2 mb-1">
-              <div className="flex-1 bg-gray-200 rounded-full h-2">
-                <div
-                  className="bg-purple-600 h-2 rounded-full transition-all"
-                  style={{ width: `${course.progress}%` }}
-                />
-              </div>
-              <span className="text-sm text-gray-600">{course.progress}%</span>
+          <div key={course.id} className="p-4 bg-wb-pink-light rounded-xl">
+            <div className="flex items-center justify-between mb-2">
+              <p className="font-medium text-gray-900 text-sm">{course.title}</p>
+              <span className="text-sm font-medium text-wb-green">{course.progress}%</span>
+            </div>
+            <div className="h-1.5 bg-gray-200 rounded-full overflow-hidden">
+              <div
+                className="h-full bg-wb-green rounded-full transition-all"
+                style={{ width: `${course.progress}%` }}
+              />
             </div>
           </div>
         ))}
     </div>
-    <button onClick={() => onNavigate("training")} className="mt-4 text-sm text-purple-600 hover:underline">
+    <button
+      onClick={() => onNavigate("training")}
+      className="mt-4 text-sm text-wb-green hover:text-wb-green-dark flex items-center gap-1 transition-colors"
+    >
       Все курсы →
     </button>
   </Card>

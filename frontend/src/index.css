@@ -1,1 +1,11 @@
 @import "tailwindcss";
+
+@theme {
+  --color-wb-pink: #F2C;
+  --color-wb-pink-light: #fff1f2;
+  --color-wb-pink-dark: #C21B9B;
+
+  --color-wb-green: #0E613B;
+  --color-wb-green-light: #f0fdf4;
+  --color-wb-green-dark: #16a34a;
+}

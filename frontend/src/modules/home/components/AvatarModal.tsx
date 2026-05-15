@@ -85,7 +85,7 @@ const AvatarModal = ({
             <button
               onClick={() => fileInputRef.current?.click()}
               disabled={avatarLoading}
-              className="w-full px-4 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              className="w-full px-4 py-3 bg-wb-green text-white rounded-lg hover:bg-wb-green-dark disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
               <Upload className="w-5 h-5" />
               {avatarUrl ? "Изменить фотографию" : "Загрузить фотографию"}

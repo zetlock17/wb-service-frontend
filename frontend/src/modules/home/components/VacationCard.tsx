@@ -17,34 +17,35 @@ const VacationCard = ({ vacation, canEditPersonalFields, startEditing }: Vacatio
   return (
     <Card
       title="Отпуск"
-      icon={<Calendar className="w-5 h-5 text-purple-600" />}
+      icon={<Calendar className="w-4 h-4 text-wb-green" />}
       status={
         <span
-          className={`px-3 py-1 text-sm font-medium rounded-full ${
-            status === "active" ? "bg-orange-100 text-orange-700" : "bg-purple-600 text-white"
+          className={`ml-1 px-2.5 py-0.5 text-xs font-medium rounded-full ${
+            status === "active"
+              ? "bg-wb-green-light text-wb-green-dark"
+              : "bg-wb-pink-light text-wb-pink"
           }`}
         >
-          {status === "active" ? "В отпуске" : "Планируется"}{" "}
+          {status === "active" ? "В отпуске" : "Планируется"}
         </span>
       }
       action={
         canEditPersonalFields ? (
           <button
             onClick={() => startEditing("vacations", undefined, vacation)}
-            className="px-3 py-1.5 text-sm text-purple-600 hover:bg-purple-50 rounded-lg flex items-center gap-1"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-wb-green text-white text-sm rounded-full hover:bg-wb-green-dark transition-colors"
           >
             <ArrowRight strokeWidth={1.5} className="w-4 h-4" /> Отправить заявку
           </button>
         ) : null
       }
     >
-      <div className="space-y-4">
-        <div className="flex items-center justify-between px-5 py-4 bg-purple-50 rounded-lg">
+      <div className="space-y-3">
+        <div className="flex items-center justify-between px-5 py-4 bg-wb-pink-light rounded-xl">
           <VacationInfo label="Дата начала" value={formatDate(vacation.start_date)} />
           {vacation.substitute && <StructureLink label="Замещение" value={vacation.substitute} />}
         </div>
-
-        <div className="flex items-center justify-between px-5 py-4 bg-purple-50 rounded-lg">
+        <div className="flex items-center justify-between px-5 py-4 bg-wb-pink-light rounded-xl">
           <VacationInfo label="Дата окончания" value={formatDate(vacation.end_date)} />
           {vacation.comment && (
             <div>
