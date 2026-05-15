@@ -104,10 +104,15 @@ const NotificationsPanel = ({ isOpen, onClose }: NotificationsPanelProps) => {
   const deleteNotificationAsync = usePortalStore((state) => state.deleteNotificationAsync);
   const panelRef = useRef<HTMLDivElement>(null);
   const onCloseRef = useRef(onClose);
+  const isPrefsOpenRef = useRef(isPrefsOpen);
 
   useEffect(() => {
     onCloseRef.current = onClose;
   }, [onClose]);
+
+  useEffect(() => {
+    isPrefsOpenRef.current = isPrefsOpen;
+  }, [isPrefsOpen]);
 
   const counts = useMemo(() => {
     const map: Partial<Record<FilterId, number>> = { all: notifications.length, unread: 0 };
@@ -143,6 +148,7 @@ const NotificationsPanel = ({ isOpen, onClose }: NotificationsPanelProps) => {
 
     const timer = setTimeout(() => {
       const handleClickOutside = (event: MouseEvent) => {
+        if (isPrefsOpenRef.current) return;
         if (panelRef.current && !panelRef.current.contains(event.target as Node)) {
           onCloseRef.current();
         }

@@ -284,6 +284,20 @@ export const deleteRequest = async <T>(url: string, params?: object): Promise<Ap
   }
 }
 
+export const downloadRequest = async (url: string, filename: string, params?: object): Promise<void> => {
+  try {
+    const response = await api.get(url, { params, responseType: 'blob' });
+    const blob = new Blob([response.data], { type: response.headers['content-type'] });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = filename;
+    link.click();
+    URL.revokeObjectURL(link.href);
+  } catch (error: any) {
+    handleApiError(error, url);
+  }
+};
+
 export const putRequest = async <T>(url: string, data?: object): Promise<ApiResponse<T>> => {
   try {
     const response: AxiosResponse<T> = await api.put(url, data);

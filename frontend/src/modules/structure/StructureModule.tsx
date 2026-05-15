@@ -2,6 +2,7 @@ import { Download, Plus, Sparkles, RotateCw, SlidersVertical } from "lucide-reac
 import { useState, useCallback, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import type { OrgUnitHierarchy, ProfileSuggestion } from "../../api/orgStructureApi";
+import { exportHierarchy } from "../../api/orgStructureApi";
 import usePortalStore from "../../store/usePortalStore";
 import {
   CreateOrgUnitModal,
@@ -183,7 +184,10 @@ const StructureModule = () => {
               onSubmit={handleSearchSubmit}
               onSuggestionClick={handleSuggestionClick}
             />
-            <button className="inline-flex items-center justify-center gap-2 rounded-xl border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 transition hover:bg-gray-50">
+            <button
+              onClick={() => exportHierarchy()}
+              className="inline-flex items-center justify-center gap-2 rounded-xl border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 transition hover:bg-gray-50"
+            >
               <Download strokeWidth={2} className="h-5 w-5 text-gray-500" />
               Экспорт
             </button>

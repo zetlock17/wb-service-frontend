@@ -1,5 +1,5 @@
 import type { ApiResponse } from './api';
-import { deleteRequest, getRequest, patchRequest, postRequest, putRequest } from './api';
+import { deleteRequest, downloadRequest, getRequest, patchRequest, postRequest, putRequest } from './api';
 
 export type OrgUnitType = 'Department' | 'Management' | 'Division' | 'Group' | 'ProjectTeam';
 
@@ -137,4 +137,8 @@ export const searchHierarchy = async (query: string, offset?: number, size?: num
 
 export const searchSuggestHierarchy = async (query: string, size?: number): Promise<ApiResponse<ProfileSearchSuggestResponse>> => {
     return await getRequest<ProfileSearchSuggestResponse>(`/api/v1/profile/suggest`, { q: query, size });
+};
+
+export const exportHierarchy = async (): Promise<void> => {
+    return await downloadRequest(`/api/v1/orgstructure/hierarchy/export`, 'org_structure.xlsx');
 };
