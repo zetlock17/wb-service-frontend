@@ -1,6 +1,7 @@
 import {
   Archive,
   CalendarClock,
+  ChevronDown,
   ChevronRight,
   Clock3,
   Eye,
@@ -11,6 +12,7 @@ import {
   Home,
   Plus,
   Search,
+  SlidersHorizontal,
   Sparkles,
   FolderTree as FolderTreeIcon,
   UserRound,
@@ -83,6 +85,13 @@ const TAB_ITEMS: { id: ActiveTab; label: string; icon: React.ElementType }[] = [
   { id: "recent", label: "Недавние", icon: Clock3 },
   { id: "archive", label: "Архив", icon: Archive },
 ];
+
+const STAT_TONES = [
+  "bg-wb-green-light text-wb-green",
+  "bg-wb-pink-light text-wb-pink-dark",
+  "bg-wb-pink-dark text-white",
+  "bg-gray-900 text-white",
+] as const;
 
 const DocumentsModule = () => {
   const { currentUser, roles } = usePortalStore();
@@ -648,16 +657,21 @@ const DocumentsModule = () => {
 
   if (loading) {
     return (
-      <div className="animate-pulse rounded-3xl border border-purple-100 bg-linear-to-br from-white via-purple-50/50 to-blue-50/40 p-6 md:p-8">
-        <div className="mb-6 flex gap-3">
-          <div className="h-10 w-64 rounded-xl bg-purple-100" />
-          <div className="h-10 w-40 rounded-xl bg-purple-100" />
+      <div className="animate-pulse space-y-5">
+        <div className="rounded-[28px] bg-wb-green p-8 sm:p-10">
+          <div className="mb-4 h-8 w-48 rounded-full bg-white/20" />
+          <div className="mb-3 h-12 w-96 max-w-full rounded-2xl bg-white/20" />
+          <div className="h-5 w-72 max-w-full rounded-xl bg-white/20" />
         </div>
-        <div className="mb-6 grid grid-cols-2 gap-3 md:grid-cols-4">
-          {[1, 2, 3, 4].map((i) => <div key={i} className="h-24 rounded-2xl bg-white" />)}
+        <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+          {[1, 2, 3, 4].map((i) => (
+            <div key={i} className="h-36 rounded-[28px] bg-white" />
+          ))}
         </div>
         <div className="space-y-3">
-          {[1, 2, 3].map((i) => <div key={i} className="h-20 rounded-2xl bg-white" />)}
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="h-24 rounded-[28px] bg-white" />
+          ))}
         </div>
       </div>
     );
@@ -666,145 +680,180 @@ const DocumentsModule = () => {
   const hasActiveSearchFilters =
     searchStatus !== "all" || searchAuthorId || searchCuratorId || searchDateFrom || searchDateTo;
 
+  const folderPath = getFolderPath(currentFolderId);
+
   return (
-    <div className="space-y-6">
-      <div className="overflow-hidden rounded-3xl border border-purple-100 bg-linear-to-br from-white via-purple-50/60 to-blue-50/40 shadow-sm">
+    <div className="space-y-5">
 
-        {/* ── Header ── */}
-        <div className="border-b border-purple-100/80 bg-white/70 p-6 backdrop-blur md:p-8">
-          <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
-            <div>
-              <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-purple-200 bg-white px-3 py-1 text-xs font-medium text-purple-700">
-                <Sparkles className="h-3.5 w-3.5" />
-                Центр знаний компании
-              </div>
-              <h2 className="text-2xl font-bold text-gray-900 md:text-3xl">Управление документами</h2>
-              <p className="mt-1.5 text-sm text-gray-500">
-                Быстрый поиск, структура папок и удобная работа с версиями.
-              </p>
-            </div>
-            {canManageDocuments && (
-              <button
-                type="button"
-                onClick={() => {
-                  setUploadFolderId(currentFolderId);
-                  setIsUploadModalOpen(true);
-                }}
-                disabled={uploading || folderActionLoading}
-                className="inline-flex items-center gap-2 rounded-xl bg-purple-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-purple-700 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                <Plus className="h-4 w-4" />
-                {uploading ? "Загрузка..." : "Добавить документ"}
-              </button>
-            )}
+      {/* ── Hero header ── */}
+      <header className="rounded-[28px] bg-wb-green px-7 pt-8 pb-10 sm:px-10">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div className="min-w-0">
+            <span className="inline-flex items-center gap-2 rounded-full bg-white px-3.5 py-2 text-[13px] font-extrabold tracking-wide text-wb-pink-dark">
+              <Sparkles className="h-3.5 w-3.5" />
+              Центр знаний компании
+            </span>
+            <h1 className="mt-4 text-[32px] font-black leading-tight tracking-tight text-white sm:text-[42px]">
+              Управление документами
+            </h1>
+            <p className="mt-2 text-base font-medium leading-snug text-white/80">
+              Быстрый поиск, структура папок и удобная работа с версиями.
+            </p>
           </div>
-
-          {/* Stats */}
-          <div className="mb-6 grid grid-cols-2 gap-3 md:grid-cols-4">
-            {overviewStats.map((item) => {
-              const Icon = item.icon;
-              return (
-                <div key={item.label} className="rounded-2xl border border-purple-100 bg-white p-4 shadow-sm">
-                  <div className="mb-2 inline-flex rounded-lg bg-purple-50 p-2 text-purple-600">
-                    <Icon className="h-4 w-4" />
-                  </div>
-                  <p className="text-2xl font-bold text-gray-900">{item.value}</p>
-                  <p className="text-sm font-medium text-gray-700">{item.label}</p>
-                  <p className="text-xs text-gray-400">{item.hint}</p>
-                </div>
-              );
-            })}
-          </div>
-
-          {/* Tabs */}
-          <div className="mb-4 flex flex-wrap gap-2">
-            {TAB_ITEMS.map((tab) => {
-              const Icon = tab.icon;
-              const isActive = activeTab === tab.id;
-              return (
-                <button
-                  key={tab.id}
-                  type="button"
-                  onClick={() => setActiveTab(tab.id)}
-                  className={`inline-flex items-center gap-2 rounded-xl border px-3.5 py-2 text-sm font-medium transition ${
-                    isActive
-                      ? "border-purple-600 bg-purple-600 text-white shadow-sm"
-                      : "border-purple-100 bg-white text-gray-600 hover:border-purple-200 hover:bg-purple-50"
-                  }`}
-                >
-                  <Icon className="h-4 w-4" />
-                  {tab.label}
-                </button>
-              );
-            })}
-          </div>
-
-          {/* Search row */}
-          <div className="grid grid-cols-1 gap-3 lg:grid-cols-[1fr_auto_auto_auto_auto]">
-            <label className="relative block">
-              <Search className="pointer-events-none absolute left-3 top-6 h-4 w-4 -translate-y-1/2 text-gray-400" />
-              <input
-                type="text"
-                placeholder="Поиск по названию, файлу, описанию..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full rounded-xl border border-purple-100 bg-white py-2.5 pl-10 pr-4 text-sm outline-none transition focus:border-purple-400 focus:ring-2 focus:ring-purple-200 min-h-12"
-              />
-            </label>
-
+          {canManageDocuments && (
             <button
               type="button"
-              onClick={() => setActiveFolderPicker("current")}
-              className="rounded-xl border border-purple-100 bg-white px-4 py-2.5 text-left transition hover:bg-purple-50"
+              onClick={() => {
+                setUploadFolderId(currentFolderId);
+                setIsUploadModalOpen(true);
+              }}
+              disabled={uploading || folderActionLoading}
+              className="inline-flex shrink-0 items-center gap-2 rounded-full bg-gray-900 px-5 py-3.5 text-[15px] font-bold whitespace-nowrap text-white transition hover:-translate-y-px disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:translate-y-0"
             >
-              <span className="block text-xs text-gray-400">Папка</span>
-              <span className="block max-w-48 truncate text-sm font-semibold text-gray-900">
-                {getFolderDisplayName(currentFolderId, "Корень")}
-              </span>
+              <Plus className="h-4 w-4" />
+              {uploading ? "Загрузка..." : "Добавить документ"}
             </button>
+          )}
+        </div>
+      </header>
 
+      {/* ── Stats grid ── */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {overviewStats.map((item, i) => {
+          const Icon = item.icon;
+          return (
+            <article key={item.label} className="rounded-[28px] bg-white p-6">
+              <div className={`mb-4 inline-flex h-10 w-10 items-center justify-center rounded-2xl ${STAT_TONES[i]}`}>
+                <Icon className="h-[18px] w-[18px]" />
+              </div>
+              <div className="text-[38px] font-black leading-none tracking-tight text-gray-900">{item.value}</div>
+              <div className="mt-2 text-[15px] font-extrabold text-gray-800">{item.label}</div>
+              <div className="mt-0.5 text-[12.5px] font-semibold text-gray-400">{item.hint}</div>
+            </article>
+          );
+        })}
+      </div>
+
+      {/* ── Tabs ── */}
+      <div className="flex flex-wrap gap-2.5">
+        {TAB_ITEMS.map((tab) => {
+          const Icon = tab.icon;
+          const isActive = activeTab === tab.id;
+          return (
+            <button
+              key={tab.id}
+              type="button"
+              onClick={() => setActiveTab(tab.id)}
+              style={{ paddingLeft: 18, paddingRight: 18 }}
+              className={`inline-flex items-center gap-2 rounded-full py-3 text-[14.5px] font-bold transition hover:-translate-y-px ${
+                isActive ? "bg-gray-900 text-white" : "bg-white text-gray-700"
+              }`}
+            >
+              <Icon className="h-4 w-4" />
+              {tab.label}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* ── Search card ── */}
+      <div className="rounded-[28px] bg-white p-4">
+        <div className="flex flex-wrap items-center gap-2.5">
+          {/* Search input */}
+          <div className="relative min-w-[220px] flex-1 basis-80">
+            <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+            <input
+              type="text"
+              placeholder="Поиск по названию, файлу, описанию..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full rounded-full bg-wb-pink-light py-3.5 pl-12 pr-4 text-[14.5px] font-semibold text-gray-800 outline-none placeholder:font-medium placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-wb-green transition"
+            />
+          </div>
+
+          {/* Folder picker */}
+          <button
+            type="button"
+            onClick={() => setActiveFolderPicker("current")}
+            className="min-w-[130px] cursor-pointer rounded-full bg-wb-pink-light px-4 py-2 text-left transition hover:opacity-80"
+          >
+            <div className="text-[11px] font-semibold leading-tight text-gray-500">Папка</div>
+            <div className="max-w-32 truncate text-sm font-extrabold leading-tight text-gray-900">
+              {getFolderDisplayName(currentFolderId, "Корень")}
+            </div>
+          </button>
+
+          {/* Type select */}
+          <div className="relative">
             <select
               value={documentFilter}
               onChange={(e) => setDocumentFilter(e.target.value)}
-              className="rounded-xl border border-purple-100 bg-white px-4 py-2.5 text-sm text-gray-700 outline-none transition focus:border-purple-400 focus:ring-2 focus:ring-purple-200"
+              className="appearance-none cursor-pointer rounded-full bg-wb-pink-light py-3 text-[14.5px] font-bold text-gray-800 outline-none focus:ring-2 focus:ring-inset focus:ring-wb-green transition"
+              style={{ paddingLeft: 18, paddingRight: 38 }}
             >
               <option value="all">Все типы</option>
               {documentTypeOptions.map((opt) => (
                 <option key={opt.value} value={opt.value}>{opt.label}</option>
               ))}
             </select>
-
-            <label className="flex items-center gap-2 rounded-xl border border-purple-100 bg-white px-3 py-2.5 text-sm text-gray-700 transition hover:bg-purple-50">
-              <input
-                type="checkbox"
-                checked={showArchived}
-                onChange={(e) => setShowArchived(e.target.checked)}
-                className="h-4 w-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500"
-              />
-              Архив
-            </label>
-
-            <button
-              type="button"
-              onClick={() => setIsAdvancedSearchOpen(!isAdvancedSearchOpen)}
-              className={`rounded-xl border px-4 py-2.5 text-sm transition ${
-                isAdvancedSearchOpen || hasActiveSearchFilters
-                  ? "border-purple-600 bg-purple-50 text-purple-700"
-                  : "border-purple-100 bg-white text-gray-600 hover:bg-purple-50"
-              }`}
-            >
-              Фильтры{hasActiveSearchFilters ? " •" : ""}
-            </button>
+            <ChevronDown className="pointer-events-none absolute right-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-wb-green" />
           </div>
 
-          {isAdvancedSearchOpen && (
-            <div className="mt-3 grid grid-cols-1 gap-4 rounded-xl border border-purple-100 bg-purple-50/50 p-4 md:grid-cols-2 lg:grid-cols-4">
+          {/* Archive checkbox */}
+          <label
+            className={`inline-flex cursor-pointer items-center gap-2.5 rounded-full px-4 py-3 text-[14.5px] font-bold ring-1 ring-inset transition ${
+              showArchived
+                ? "bg-wb-green-light text-wb-green ring-wb-green"
+                : "bg-white text-gray-800 ring-gray-200 hover:ring-gray-300"
+            }`}
+          >
+            <input
+              type="checkbox"
+              checked={showArchived}
+              onChange={(e) => setShowArchived(e.target.checked)}
+              className="sr-only"
+            />
+            <span
+              className={`inline-flex h-5 w-5 items-center justify-center rounded-md transition ${
+                showArchived ? "bg-wb-green text-white" : "bg-white ring-1 ring-inset ring-gray-300"
+              }`}
+              aria-hidden="true"
+            >
+              {showArchived && (
+                <svg viewBox="0 0 16 16" width="11" height="11">
+                  <path d="M3 8.5l3 3 7-7" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              )}
+            </span>
+            <span>Архив</span>
+          </label>
+
+          {/* Filters button */}
+          <button
+            type="button"
+            onClick={() => setIsAdvancedSearchOpen(!isAdvancedSearchOpen)}
+            style={{ paddingLeft: 18, paddingRight: 18 }}
+            className={`inline-flex cursor-pointer items-center gap-2 rounded-full py-3 text-[14.5px] font-bold transition ${
+              isAdvancedSearchOpen || hasActiveSearchFilters
+                ? "bg-wb-pink-dark text-white"
+                : "bg-white text-gray-800 ring-1 ring-inset ring-gray-200 hover:ring-gray-300"
+            }`}
+          >
+            <SlidersHorizontal className="h-4 w-4" />
+            <span>Фильтры{hasActiveSearchFilters ? " •" : ""}</span>
+          </button>
+        </div>
+
+        {/* Advanced filters */}
+        {isAdvancedSearchOpen && (
+          <div className="mt-4 border-t-2 border-dashed border-gray-100 pt-5">
+            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
               <div>
-                <label className="mb-1 block text-xs font-medium text-gray-600">Статус</label>
+                <label className="mb-2 block text-[12.5px] font-bold tracking-wide text-gray-500">Статус</label>
                 <select
                   value={searchStatus}
                   onChange={(e) => setSearchStatus(e.target.value as typeof searchStatus)}
-                  className="w-full rounded-lg border border-purple-100 bg-white px-3 py-2 text-sm outline-none focus:border-purple-400 focus:ring-2 focus:ring-purple-200"
+                  className="w-full rounded-[14px] bg-white px-4 py-3 text-[14.5px] font-semibold text-gray-800 outline-none ring-1 ring-inset ring-gray-200 focus:ring-2 focus:ring-wb-green transition"
                 >
                   <option value="all">Любой</option>
                   <option value="DRAFT">Черновик</option>
@@ -813,181 +862,205 @@ const DocumentsModule = () => {
                 </select>
               </div>
               <div>
-                <label className="mb-1 block text-xs font-medium text-gray-600">Автор (EID)</label>
-                <input type="text" value={searchAuthorId} onChange={(e) => setSearchAuthorId(e.target.value)} placeholder="EID" className="w-full rounded-lg border border-purple-100 bg-white px-3 py-2 text-sm outline-none focus:border-purple-400 focus:ring-2 focus:ring-purple-200" />
+                <label className="mb-2 block text-[12.5px] font-bold tracking-wide text-gray-500">Автор (EID)</label>
+                <input
+                  type="text"
+                  value={searchAuthorId}
+                  onChange={(e) => setSearchAuthorId(e.target.value)}
+                  placeholder="EID"
+                  className="w-full rounded-[14px] bg-white px-4 py-3 text-[14.5px] font-semibold text-gray-800 outline-none ring-1 ring-inset ring-gray-200 placeholder:font-medium placeholder:text-gray-400 focus:ring-2 focus:ring-wb-green transition"
+                />
               </div>
               <div>
-                <label className="mb-1 block text-xs font-medium text-gray-600">Куратор (EID)</label>
-                <input type="text" value={searchCuratorId} onChange={(e) => setSearchCuratorId(e.target.value)} placeholder="EID" className="w-full rounded-lg border border-purple-100 bg-white px-3 py-2 text-sm outline-none focus:border-purple-400 focus:ring-2 focus:ring-purple-200" />
+                <label className="mb-2 block text-[12.5px] font-bold tracking-wide text-gray-500">Куратор (EID)</label>
+                <input
+                  type="text"
+                  value={searchCuratorId}
+                  onChange={(e) => setSearchCuratorId(e.target.value)}
+                  placeholder="EID"
+                  className="w-full rounded-[14px] bg-white px-4 py-3 text-[14.5px] font-semibold text-gray-800 outline-none ring-1 ring-inset ring-gray-200 placeholder:font-medium placeholder:text-gray-400 focus:ring-2 focus:ring-wb-green transition"
+                />
               </div>
               <div>
-                <label className="mb-1 block text-xs font-medium text-gray-600">Период загрузки</label>
-                <div className="flex items-center gap-1.5">
-                  <input type="date" value={searchDateFrom} onChange={(e) => setSearchDateFrom(e.target.value)} className="w-full rounded-lg border border-purple-100 bg-white px-2 py-2 text-sm outline-none focus:border-purple-400 focus:ring-2 focus:ring-purple-200" />
-                  <span className="text-gray-400">—</span>
-                  <input type="date" value={searchDateTo} onChange={(e) => setSearchDateTo(e.target.value)} className="w-full rounded-lg border border-purple-100 bg-white px-2 py-2 text-sm outline-none focus:border-purple-400 focus:ring-2 focus:ring-purple-200" />
+                <label className="mb-2 block text-[12.5px] font-bold tracking-wide text-gray-500">Период загрузки</label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="date"
+                    value={searchDateFrom}
+                    onChange={(e) => setSearchDateFrom(e.target.value)}
+                    className="w-full rounded-[14px] bg-white px-3 py-3 text-[14.5px] font-semibold text-gray-800 outline-none ring-1 ring-inset ring-gray-200 focus:ring-2 focus:ring-wb-green transition"
+                  />
+                  <span className="font-extrabold text-gray-400">—</span>
+                  <input
+                    type="date"
+                    value={searchDateTo}
+                    onChange={(e) => setSearchDateTo(e.target.value)}
+                    className="w-full rounded-[14px] bg-white px-3 py-3 text-[14.5px] font-semibold text-gray-800 outline-none ring-1 ring-inset ring-gray-200 focus:ring-2 focus:ring-wb-green transition"
+                  />
                 </div>
               </div>
             </div>
-          )}
-        </div>
+          </div>
+        )}
+      </div>
 
-        {/* ── Body ── */}
-        <div className="p-6 md:p-8">
-          {canManageDocuments && (
-            <FolderManager
-              folders={folders}
-              folderManagerId={folderManagerId}
-              renameFolderName={renameFolderName}
-              newFolderName={newFolderName}
-              newFolderParentId={newFolderParentId}
-              folderActionLoading={folderActionLoading}
-              getFolderDisplayName={getFolderDisplayName}
-              onNewFolderNameChange={setNewFolderName}
-              onNewFolderParentPickerOpen={() => setActiveFolderPicker("new-parent")}
-              onCreateFolder={onCreateFolder}
-              onFolderManagerPickerOpen={() => setActiveFolderPicker("manage")}
-              onRenameFolderNameChange={setRenameFolderName}
-              onRenameFolder={onRenameFolder}
-              onDeleteFolder={onDeleteFolder}
-            />
-          )}
+      {/* ── Folder manager ── */}
+      {canManageDocuments && (
+        <FolderManager
+          folders={folders}
+          folderManagerId={folderManagerId}
+          renameFolderName={renameFolderName}
+          newFolderName={newFolderName}
+          newFolderParentId={newFolderParentId}
+          folderActionLoading={folderActionLoading}
+          getFolderDisplayName={getFolderDisplayName}
+          onNewFolderNameChange={setNewFolderName}
+          onNewFolderParentPickerOpen={() => setActiveFolderPicker("new-parent")}
+          onCreateFolder={onCreateFolder}
+          onFolderManagerPickerOpen={() => setActiveFolderPicker("manage")}
+          onRenameFolderNameChange={setRenameFolderName}
+          onRenameFolder={onRenameFolder}
+          onDeleteFolder={onDeleteFolder}
+        />
+      )}
 
-          {/* Breadcrumb */}
-          <div className="mb-5 rounded-2xl border border-purple-100 bg-white p-3">
-            <div className="flex flex-wrap items-center gap-1.5">
+      {/* ── Breadcrumbs ── */}
+      <div className="rounded-[28px] bg-white px-4 py-3.5">
+        <nav className="flex flex-wrap items-center gap-1.5" aria-label="Хлебные крошки">
+          <button
+            type="button"
+            onClick={() => setCurrentFolderId(null)}
+            className="inline-flex items-center gap-1.5 rounded-full bg-gray-900 px-3.5 py-2 text-sm font-bold text-white transition hover:bg-gray-800"
+          >
+            <Home className="h-3.5 w-3.5" />
+            Корень
+          </button>
+          {folderPath.map((folder, i) => (
+            <div key={folder.id} className="flex items-center gap-1.5">
+              <span className="font-extrabold text-gray-400">/</span>
               <button
                 type="button"
-                onClick={() => setCurrentFolderId(null)}
-                className={`inline-flex items-center gap-1 rounded-lg px-3 py-1.5 text-sm transition ${
-                  currentFolderId === null
-                    ? "bg-purple-600 text-white"
-                    : "border border-purple-100 text-gray-700 hover:bg-purple-50"
+                onClick={() => setCurrentFolderId(folder.id)}
+                title={folder.path}
+                className={`rounded-full px-3.5 py-2 text-sm font-bold transition ${
+                  i === folderPath.length - 1
+                    ? "bg-wb-pink-light text-wb-green"
+                    : "bg-transparent text-gray-700 hover:bg-wb-pink-light hover:text-wb-green"
                 }`}
               >
-                <Home className="h-3.5 w-3.5" />
-                Корень
+                {folder.name}
               </button>
-              {getFolderPath(currentFolderId).map((folder) => (
-                <div key={folder.id} className="flex items-center gap-1.5">
-                  <ChevronRight className="h-3.5 w-3.5 text-gray-400" />
-                  <button
-                    type="button"
-                    onClick={() => setCurrentFolderId(folder.id)}
-                    className="inline-flex items-center gap-1 rounded-lg border border-purple-100 px-3 py-1.5 text-sm text-gray-700 transition hover:bg-purple-50"
-                    title={folder.path}
-                  >
-                    <Folder className="h-3.5 w-3.5" />
-                    {folder.name}
-                  </button>
-                </div>
-              ))}
             </div>
-          </div>
+          ))}
+        </nav>
+      </div>
 
-          {/* Status bar */}
-          {(isSearching || documentsLoading) && (
-            <p className={`mb-3 px-1 text-sm ${isSearching ? "animate-pulse font-medium text-purple-600" : "text-gray-400"}`}>
-              {isSearching ? "Поиск документов..." : "Загрузка..."}
-            </p>
-          )}
+      {/* ── Status bar ── */}
+      {(isSearching || documentsLoading) && (
+        <p className={`px-1 text-sm ${isSearching ? "animate-pulse font-bold text-wb-green" : "text-gray-400"}`}>
+          {isSearching ? "Поиск документов..." : "Загрузка..."}
+        </p>
+      )}
 
-          {/* Content list */}
-          <div className="space-y-3">
-            {!isSearching && childFolders.map((folder) => {
-              const { docs, subs } = getFolderContents(folder.id);
-              return (
-                <button
-                  key={folder.id}
-                  type="button"
-                  onClick={() => setCurrentFolderId(folder.id)}
-                  className="group w-full rounded-2xl border border-blue-200 bg-linear-to-r from-blue-50/70 to-indigo-50/40 p-4 text-left transition hover:-translate-y-0.5 hover:shadow-md"
-                >
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="flex min-w-0 flex-1 items-center gap-3">
-                      <span className="rounded-lg bg-white p-2 text-blue-600 shadow-sm">
-                        <FolderOpen className="h-5 w-5" />
-                      </span>
-                      <div className="min-w-0 flex-1">
-                        <h3 className="truncate font-semibold text-gray-900">{folder.name}</h3>
-                        <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-gray-500">
-                          {docs > 0 && (
-                            <span className="inline-flex items-center gap-1 rounded-full bg-white px-2 py-0.5">
-                              <FileText className="h-3 w-3" />
-                              {docs} {pluralize(docs, "документ", "документа", "документов")}
-                            </span>
-                          )}
-                          {subs > 0 && (
-                            <span className="inline-flex items-center gap-1 rounded-full bg-white px-2 py-0.5">
-                              <Folder className="h-3 w-3" />
-                              {subs} {pluralize(subs, "папка", "папки", "папок")}
-                            </span>
-                          )}
-                          {docs === 0 && subs === 0 && <span className="italic text-gray-400">Папка пуста</span>}
-                        </div>
-                      </div>
-                    </div>
-                    <ChevronRight className="h-5 w-5 shrink-0 text-blue-400 transition group-hover:translate-x-0.5" />
-                  </div>
-                </button>
-              );
-            })}
-
-            {filteredDocuments.map((doc) => {
-              const isUnread = !readDocumentIds.has(doc.id);
-              return (
-                <button
-                  key={doc.id}
-                  type="button"
-                  onClick={() => onSelectDocument(doc)}
-                  className={`group w-full rounded-2xl border bg-white p-4 text-left transition hover:-translate-y-0.5 hover:shadow-md text-gray-600`}
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0 flex-1">
-                      <div className="mb-1.5 flex flex-wrap items-center gap-2">
-                        {isUnread && (
-                          <span className="inline-block h-2 w-2 shrink-0 rounded-full bg-purple-500" title="Не прочитан" />
-                        )}
-                        <h3 className="truncate text-base font-semibold text-gray-900">{doc.title}</h3>
-                        <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${statusBadgeClasses[doc.status]}`}>
-                          {statusLabels[doc.status]}
-                        </span>
-                      </div>
-                      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-500">
-                        <span className={`rounded-full px-2 py-0.5 font-medium bg-gray-50 text-gray-600`}>
-                          {doc.type}
-                        </span>
-                        <span className="inline-flex items-center gap-1">
-                          <Folder className="h-3 w-3" />
-                          {folders.find((f) => f.id === doc.folder_id)?.name ?? "Без папки"}
-                        </span>
-                        <span className="inline-flex items-center gap-1">
-                          <CalendarClock className="h-3 w-3" />
-                          {formatDateTime(doc.created_at)}
-                        </span>
-                        <span>{getPersonDisplayName(doc.author_id)}</span>
-                        <span className="rounded-full bg-gray-100 px-2 py-0.5 font-medium text-gray-600">
-                          v{doc.current_version}
-                        </span>
-                      </div>
-                    </div>
-                    <ChevronRight className="h-5 w-5 shrink-0 text-gray-300 transition group-hover:translate-x-0.5 group-hover:text-purple-400" />
-                  </div>
-                </button>
-              );
-            })}
-
-            {!filteredDocuments.length && !childFolders.length && !isSearching && !documentsLoading && (
-              <div className="rounded-2xl border border-dashed border-purple-200 bg-white p-10 text-center">
-                <FileText className="mx-auto mb-3 h-8 w-8 text-gray-300" />
-                <p className="text-sm font-medium text-gray-500">Документов и папок не найдено</p>
-                <p className="mt-1 text-xs text-gray-400">
-                  {searchQuery ? "Попробуйте другой запрос" : "В этой папке пока ничего нет"}
-                </p>
+      {/* ── Content: folders + documents ── */}
+      <div className="flex flex-col gap-3">
+        {!isSearching && childFolders.map((folder) => {
+          const { docs, subs } = getFolderContents(folder.id);
+          return (
+            <button
+              key={folder.id}
+              type="button"
+              onClick={() => setCurrentFolderId(folder.id)}
+              className="group flex w-full items-center gap-4 rounded-[28px] bg-white p-5 text-left transition hover:-translate-y-px sm:p-6"
+            >
+              <div className="flex h-12 w-12 flex-none items-center justify-center rounded-2xl bg-wb-pink-light text-wb-pink-dark">
+                <FolderOpen className="h-[22px] w-[22px]" />
               </div>
-            )}
+              <div className="min-w-0 flex-1">
+                <div className="text-[17px] font-extrabold text-gray-900">{folder.name}</div>
+                <div className="mt-1.5 flex flex-wrap gap-2">
+                  {docs > 0 && (
+                    <span className="inline-flex items-center gap-1.5 rounded-full bg-wb-green-light px-2.5 py-1 text-[12.5px] font-bold text-wb-green">
+                      <FileText className="h-3 w-3" />
+                      {docs} {pluralize(docs, "документ", "документа", "документов")}
+                    </span>
+                  )}
+                  {subs > 0 && (
+                    <span className="inline-flex items-center gap-1.5 rounded-full bg-wb-pink-light px-2.5 py-1 text-[12.5px] font-bold text-wb-pink-dark">
+                      <Folder className="h-3 w-3" />
+                      {subs} {pluralize(subs, "папка", "папки", "папок")}
+                    </span>
+                  )}
+                  {docs === 0 && subs === 0 && (
+                    <span className="text-[12.5px] italic text-gray-400">Папка пуста</span>
+                  )}
+                </div>
+              </div>
+              <span className="flex h-10 w-10 flex-none items-center justify-center rounded-xl bg-wb-pink-light text-wb-green transition group-hover:bg-wb-pink-dark group-hover:text-white">
+                <ChevronRight className="h-4 w-4" />
+              </span>
+            </button>
+          );
+        })}
+
+        {filteredDocuments.map((doc) => {
+          const isUnread = !readDocumentIds.has(doc.id);
+          return (
+            <button
+              key={doc.id}
+              type="button"
+              onClick={() => onSelectDocument(doc)}
+              className="group flex w-full items-start gap-4 rounded-[28px] bg-white p-5 text-left transition hover:-translate-y-px sm:p-6"
+            >
+              <div className={`flex h-12 w-12 flex-none items-center justify-center rounded-2xl ${isUnread ? "bg-wb-pink-light text-wb-pink-dark" : "bg-wb-green-light text-wb-green"}`}>
+                <FileText className="h-[18px] w-[18px]" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="mb-1.5 flex flex-wrap items-center gap-2">
+                  {isUnread && (
+                    <span className="inline-block h-2 w-2 shrink-0 rounded-full bg-wb-pink" title="Не прочитан" />
+                  )}
+                  <h3 className="truncate text-[17px] font-extrabold text-gray-900">{doc.title}</h3>
+                  <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${statusBadgeClasses[doc.status]}`}>
+                    {statusLabels[doc.status]}
+                  </span>
+                </div>
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs text-gray-500">
+                  <span className="inline-flex items-center rounded-full bg-wb-pink-light px-2.5 py-1 text-[12px] font-bold text-gray-700">
+                    {doc.type}
+                  </span>
+                  <span className="inline-flex items-center gap-1">
+                    <Folder className="h-3 w-3" />
+                    {folders.find((f) => f.id === doc.folder_id)?.name ?? "Без папки"}
+                  </span>
+                  <span className="inline-flex items-center gap-1">
+                    <CalendarClock className="h-3 w-3" />
+                    {formatDateTime(doc.created_at)}
+                  </span>
+                  <span>{getPersonDisplayName(doc.author_id)}</span>
+                  <span className="rounded-full bg-wb-green-light px-2 py-0.5 text-[12px] font-bold text-wb-green">
+                    v{doc.current_version}
+                  </span>
+                </div>
+              </div>
+              <span className="flex h-10 w-10 flex-none items-center justify-center rounded-xl bg-wb-pink-light text-wb-green transition group-hover:bg-wb-pink-dark group-hover:text-white">
+                <ChevronRight className="h-4 w-4" />
+              </span>
+            </button>
+          );
+        })}
+
+        {!filteredDocuments.length && !childFolders.length && !isSearching && !documentsLoading && (
+          <div className="rounded-[28px] border-2 border-dashed border-wb-pink-light bg-white p-10 text-center">
+            <div className="mx-auto mb-4 inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-wb-pink-light text-wb-pink-dark">
+              <FileText className="h-7 w-7" />
+            </div>
+            <p className="text-[15px] font-extrabold text-gray-800">Документов и папок не найдено</p>
+            <p className="mt-1 text-[12.5px] font-semibold text-gray-400">
+              {searchQuery ? "Попробуйте другой запрос" : "В этой папке пока ничего нет"}
+            </p>
           </div>
-        </div>
+        )}
       </div>
 
       {/* ── Modals ── */}

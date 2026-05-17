@@ -79,8 +79,8 @@ const CommentItem = ({
   onMentionSelect,
   renderReplies,
 }: CommentItemProps) => (
-  <div className={`${depth > 0 ? "ml-12 mt-4" : "mt-4"}`}>
-    <div className="flex gap-3">
+  <div className={depth > 0 ? "ml-12 mt-4" : "mt-4"}>
+    <div className="flex gap-3.5">
       <button
         type="button"
         onClick={() => onOpenProfile(String(comment.author.eid))}
@@ -88,33 +88,37 @@ const CommentItem = ({
       >
         <Avatar fullName={comment.author.full_name} size={10} />
       </button>
-      <div className="flex-1">
-        <div className="bg-gray-50 rounded-lg p-3">
-          <div className="flex items-center justify-between mb-1">
+
+      <div className="min-w-0 flex-1">
+        {/* bubble */}
+        <div className="rounded-2xl bg-wb-pink-light/50 p-4">
+          <div className="mb-1 flex items-center justify-between gap-3">
             <button
               type="button"
               onClick={() => onOpenProfile(String(comment.author.eid))}
-              className="font-medium text-sm text-gray-900 hover:text-purple-600 hover:underline"
+              className="font-extrabold text-gray-900 transition hover:text-wb-green hover:underline"
             >
               {comment.author.full_name}
             </button>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1">
               {canEdit && !isEditing && (
                 <button
+                  type="button"
                   onClick={() => onStartEdit(comment)}
-                  className="text-gray-400 hover:text-purple-600 transition-colors"
+                  className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 transition hover:bg-white hover:text-wb-green"
                   aria-label="Редактировать комментарий"
                 >
-                  <Pencil className="w-4 h-4" />
+                  <Pencil className="h-3.5 w-3.5" />
                 </button>
               )}
               {canDelete && !isEditing && (
                 <button
+                  type="button"
                   onClick={() => onDeleteComment(comment.id)}
-                  className="text-gray-400 hover:text-red-600 transition-colors"
+                  className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 transition hover:bg-white hover:text-red-600"
                   aria-label="Удалить комментарий"
                 >
-                  <Trash2 className="w-4 h-4" />
+                  <Trash2 className="h-3.5 w-3.5" />
                 </button>
               )}
             </div>
@@ -132,7 +136,7 @@ const CommentItem = ({
                   onKeyDown={onEditKeyDown}
                   onBlur={() => window.setTimeout(onBlur, 120)}
                   rows={3}
-                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  className="w-full resize-y rounded-[14px] bg-white px-4 py-3 text-[14.5px] font-medium text-gray-800 outline-none ring-1 ring-inset ring-gray-200 focus:ring-2 focus:ring-wb-green transition"
                 />
                 {showMentionsForContext("edit") && (
                   <MentionSuggestions
@@ -145,56 +149,64 @@ const CommentItem = ({
               </div>
               <div className="flex items-center gap-2">
                 <button
+                  type="button"
                   onClick={() => onUpdateComment(comment.id)}
                   disabled={!editContent.trim()}
-                  className="px-3 py-1.5 text-sm bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center gap-1"
+                  className="inline-flex items-center gap-1.5 rounded-full bg-wb-green px-4 py-2 text-[13px] font-bold text-white transition hover:-translate-y-px disabled:cursor-not-allowed disabled:opacity-45"
                 >
-                  <Check className="w-4 h-4" />
+                  <Check className="h-3.5 w-3.5" />
                   Сохранить
                 </button>
                 <button
+                  type="button"
                   onClick={onCancelEdit}
-                  className="px-3 py-1.5 text-sm bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 flex items-center gap-1"
+                  className="inline-flex items-center gap-1.5 rounded-full bg-gray-100 px-4 py-2 text-[13px] font-bold text-gray-700 transition hover:bg-gray-200"
                 >
-                  <X className="w-4 h-4" />
+                  <X className="h-3.5 w-3.5" />
                   Отмена
                 </button>
               </div>
             </div>
           ) : (
             <>
-              <p className="text-sm text-gray-700">{comment.content}</p>
-              {comment.is_edited && <p className="text-xs text-gray-400 mt-1">изменено</p>}
+              <p className="text-[14.5px] text-gray-700">{comment.content}</p>
+              {comment.is_edited && (
+                <p className="mt-1 text-[12px] font-semibold text-gray-400">изменено</p>
+              )}
             </>
           )}
         </div>
 
-        <div className="flex items-center gap-4 mt-1 text-xs text-gray-500">
+        {/* actions row */}
+        <div className="mt-2 flex items-center gap-4 pl-1 text-[12.5px] font-semibold text-gray-400">
           <span>{formatDate(comment.created_at)}</span>
           <button
+            type="button"
             onClick={() => onToggleLike(comment.id, isLiked)}
-            className={`flex items-center gap-1 transition-colors ${
-              isLiked ? "text-purple-600" : "hover:text-purple-600"
+            className={`inline-flex items-center gap-1 transition ${
+              isLiked ? "text-wb-pink-dark" : "hover:text-wb-pink-dark"
             }`}
           >
-            <ThumbsUp className="w-3 h-3" />
+            <ThumbsUp className="h-3 w-3" />
             <span>{comment.likes_count}</span>
           </button>
           {comment.replies_count > 0 && (
-            <span className="flex items-center gap-1">
-              <MessageCircle className="w-3 h-3" />
+            <span className="inline-flex items-center gap-1">
+              <MessageCircle className="h-3 w-3" />
               {comment.replies_count}
             </span>
           )}
           <button
+            type="button"
             onClick={() => onStartReply(comment.id)}
-            className="flex items-center gap-1 hover:text-purple-600 transition-colors"
+            className="inline-flex items-center gap-1 transition hover:text-wb-green"
           >
-            <Reply className="w-3 h-3" />
+            <Reply className="h-3 w-3" />
             Ответить
           </button>
         </div>
 
+        {/* reply box */}
         {isReplying && (
           <div className="mt-3 space-y-2">
             <div className="relative">
@@ -208,7 +220,7 @@ const CommentItem = ({
                 onBlur={() => window.setTimeout(onBlur, 120)}
                 placeholder={`Ответить ${comment.author.full_name}...`}
                 rows={3}
-                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                className="w-full resize-y rounded-[14px] bg-white px-4 py-3 text-[14.5px] font-medium text-gray-800 outline-none ring-1 ring-inset ring-gray-200 placeholder:text-gray-400 focus:ring-2 focus:ring-wb-green transition"
               />
               {showMentionsForContext("reply") && (
                 <MentionSuggestions
@@ -221,16 +233,18 @@ const CommentItem = ({
             </div>
             <div className="flex items-center gap-2">
               <button
+                type="button"
                 onClick={() => onReply(comment.id)}
                 disabled={!replyContent.trim()}
-                className="px-3 py-1.5 text-sm bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center gap-1"
+                className="inline-flex items-center gap-1.5 rounded-full bg-wb-green px-4 py-2 text-[13px] font-bold text-white transition hover:-translate-y-px disabled:cursor-not-allowed disabled:opacity-45"
               >
-                <Send className="w-3 h-3" />
+                <Send className="h-3 w-3" />
                 Отправить
               </button>
               <button
+                type="button"
                 onClick={onCancelReply}
-                className="px-3 py-1.5 text-sm bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300"
+                className="inline-flex items-center rounded-full bg-gray-100 px-4 py-2 text-[13px] font-bold text-gray-700 transition hover:bg-gray-200"
               >
                 Отмена
               </button>

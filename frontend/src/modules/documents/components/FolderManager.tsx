@@ -37,69 +37,70 @@ const FolderManager = ({
   const [activeTab, setActiveTab] = useState<"create" | "manage">("create");
 
   return (
-    <div className="mb-6 overflow-hidden rounded-2xl border border-purple-100 bg-white">
-      <div className="flex border-b border-purple-100">
-        <button
-          type="button"
-          onClick={() => setActiveTab("create")}
-          className={`flex flex-1 items-center justify-center gap-2 px-5 py-3 text-sm font-medium transition ${
-            activeTab === "create"
-              ? "border-b-2 border-purple-600 bg-purple-50 text-purple-700"
-              : "text-gray-500 hover:bg-gray-50 hover:text-gray-700"
-          }`}
-        >
-          <FolderPlus className="h-4 w-4" />
-          Создать папку
-        </button>
-        <button
-          type="button"
-          onClick={() => setActiveTab("manage")}
-          className={`flex flex-1 items-center justify-center gap-2 px-5 py-3 text-sm font-medium transition ${
-            activeTab === "manage"
-              ? "border-b-2 border-purple-600 bg-purple-50 text-purple-700"
-              : "text-gray-500 hover:bg-gray-50 hover:text-gray-700"
-          }`}
-        >
-          <Settings2 className="h-4 w-4" />
-          Управление
-        </button>
+    <div className="overflow-hidden rounded-[28px] bg-white">
+      <div className="grid grid-cols-2 border-b-2 border-gray-100">
+        {(["create", "manage"] as const).map((tab) => {
+          const Icon = tab === "create" ? FolderPlus : Settings2;
+          const label = tab === "create" ? "Создать папку" : "Управление";
+          const isActive = activeTab === tab;
+          return (
+            <button
+              key={tab}
+              type="button"
+              onClick={() => setActiveTab(tab)}
+              className={`relative flex items-center justify-center gap-2.5 py-5 text-[16px] font-extrabold transition ${
+                isActive
+                  ? "bg-wb-pink-light text-wb-green"
+                  : "bg-transparent text-gray-400 hover:text-gray-700"
+              }`}
+            >
+              <Icon className="h-4 w-4" />
+              <span>{label}</span>
+              {isActive && (
+                <span className="absolute inset-x-0 -bottom-px h-[3px] bg-wb-pink-dark" />
+              )}
+            </button>
+          );
+        })}
       </div>
 
-      <div className="p-5">
+      <div className="p-6 sm:p-7">
         {activeTab === "create" && (
-          <div className="space-y-3">
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_auto]">
-              <div>
-                <label className="mb-1 block text-xs font-medium text-gray-600">Название папки</label>
-                <input
-                  type="text"
-                  value={newFolderName}
-                  onChange={(e) => onNewFolderNameChange(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && onCreateFolder()}
-                  placeholder="Например: Регламенты 2024"
-                  className="w-full rounded-xl border border-purple-100 px-3 py-2.5 text-sm outline-none transition focus:border-purple-400 focus:ring-2 focus:ring-purple-200"
-                />
-              </div>
-              <div>
-                <label className="mb-1 block text-xs font-medium text-gray-600">Родительская папка</label>
-                <button
-                  type="button"
-                  onClick={onNewFolderParentPickerOpen}
-                  className="w-full min-w-40 rounded-xl border border-purple-100 bg-white px-3 py-2.5 text-left transition hover:bg-purple-50"
-                >
-                  <span className="block text-xs text-gray-400">Родитель</span>
-                  <span className="block truncate text-sm font-medium text-gray-900">
-                    {getFolderDisplayName(newFolderParentId, "Корень")}
-                  </span>
-                </button>
-              </div>
+          <div className="grid grid-cols-1 gap-5 md:grid-cols-[1fr_320px]">
+            <div>
+              <label className="mb-2 block text-[12.5px] font-bold tracking-wide text-gray-500">
+                Название папки
+              </label>
+              <input
+                type="text"
+                value={newFolderName}
+                onChange={(e) => onNewFolderNameChange(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && onCreateFolder()}
+                placeholder="Например: Регламенты 2024"
+                className="w-full rounded-[14px] bg-white px-4 py-3 text-[14.5px] font-semibold text-gray-800 outline-none ring-1 ring-inset ring-gray-200 placeholder:font-medium placeholder:text-gray-400 focus:ring-2 focus:ring-wb-green transition"
+              />
             </div>
-            <div className="flex justify-end">
+            <div>
+              <label className="mb-2 block text-[12.5px] font-bold tracking-wide text-gray-500">
+                Родительская папка
+              </label>
+              <button
+                type="button"
+                onClick={onNewFolderParentPickerOpen}
+                className="w-full rounded-full bg-wb-pink-light px-4 py-2 text-left transition hover:opacity-80"
+              >
+                <div className="text-[11px] font-semibold leading-tight text-gray-500">Родитель</div>
+                <div className="truncate text-sm font-extrabold leading-tight text-gray-900">
+                  {getFolderDisplayName(newFolderParentId, "Корень")}
+                </div>
+              </button>
+            </div>
+            <div className="flex justify-end md:col-span-2">
               <button
                 type="button"
                 onClick={onCreateFolder}
                 disabled={folderActionLoading || !newFolderName.trim()}
-                className="rounded-xl bg-purple-600 px-5 py-2.5 text-sm font-medium text-white transition hover:bg-purple-700 disabled:cursor-not-allowed disabled:opacity-60"
+                className="inline-flex items-center gap-2 rounded-full bg-wb-green px-5 py-3.5 text-[15px] font-bold text-white transition hover:-translate-y-px disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:translate-y-0"
               >
                 {folderActionLoading ? "Создание..." : "Создать"}
               </button>
@@ -108,40 +109,42 @@ const FolderManager = ({
         )}
 
         {activeTab === "manage" && (
-          <div className="space-y-3">
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-[auto_1fr]">
-              <div>
-                <label className="mb-1 block text-xs font-medium text-gray-600">Папка</label>
-                <button
-                  type="button"
-                  onClick={onFolderManagerPickerOpen}
-                  className="w-full min-w-44 rounded-xl border border-purple-100 bg-white px-3 py-2.5 text-left transition hover:bg-purple-50"
-                >
-                  <span className="block text-xs text-gray-400">Выбранная папка</span>
-                  <span className="block truncate text-sm font-medium text-gray-900">
-                    {getFolderDisplayName(folderManagerId, "Не выбрано")}
-                  </span>
-                </button>
-              </div>
-              <div>
-                <label className="mb-1 block text-xs font-medium text-gray-600">Новое название</label>
-                <input
-                  type="text"
-                  value={renameFolderName}
-                  onChange={(e) => onRenameFolderNameChange(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && onRenameFolder()}
-                  placeholder="Введите новое название"
-                  disabled={folderManagerId === null}
-                  className="w-full rounded-xl border border-purple-100 px-3 py-2.5 text-sm outline-none transition focus:border-purple-400 focus:ring-2 focus:ring-purple-200 disabled:bg-gray-50 disabled:text-gray-400"
-                />
-              </div>
+          <div className="grid grid-cols-1 gap-5 md:grid-cols-[320px_1fr]">
+            <div>
+              <label className="mb-2 block text-[12.5px] font-bold tracking-wide text-gray-500">
+                Папка
+              </label>
+              <button
+                type="button"
+                onClick={onFolderManagerPickerOpen}
+                className="w-full rounded-full bg-wb-pink-light px-4 py-2 text-left transition hover:opacity-80"
+              >
+                <div className="text-[11px] font-semibold leading-tight text-gray-500">Выбранная папка</div>
+                <div className="truncate text-sm font-extrabold leading-tight text-gray-900">
+                  {getFolderDisplayName(folderManagerId, "Не выбрано")}
+                </div>
+              </button>
             </div>
-            <div className="flex flex-wrap justify-end gap-2">
+            <div>
+              <label className="mb-2 block text-[12.5px] font-bold tracking-wide text-gray-500">
+                Новое название
+              </label>
+              <input
+                type="text"
+                value={renameFolderName}
+                onChange={(e) => onRenameFolderNameChange(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && onRenameFolder()}
+                placeholder="Введите новое название"
+                disabled={folderManagerId === null}
+                className="w-full rounded-[14px] bg-white px-4 py-3 text-[14.5px] font-semibold text-gray-800 outline-none ring-1 ring-inset ring-gray-200 placeholder:font-medium placeholder:text-gray-400 focus:ring-2 focus:ring-wb-green transition disabled:bg-gray-50 disabled:text-gray-400"
+              />
+            </div>
+            <div className="flex flex-wrap justify-end gap-2.5 md:col-span-2">
               <button
                 type="button"
                 onClick={onRenameFolder}
                 disabled={folderActionLoading || folderManagerId === null || !renameFolderName.trim()}
-                className="rounded-xl border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
+                className="inline-flex items-center rounded-full bg-wb-pink-light px-5 py-3.5 text-[15px] font-bold text-wb-green transition hover:-translate-y-px disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:translate-y-0"
               >
                 {folderActionLoading ? "Сохранение..." : "Переименовать"}
               </button>
@@ -149,7 +152,7 @@ const FolderManager = ({
                 type="button"
                 onClick={onDeleteFolder}
                 disabled={folderActionLoading || folderManagerId === null}
-                className="rounded-xl bg-red-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
+                className="inline-flex items-center rounded-full bg-red-600 px-5 py-3.5 text-[15px] font-bold text-white transition hover:-translate-y-px disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:translate-y-0"
               >
                 Удалить
               </button>

@@ -14,19 +14,21 @@ const AcknowledgeBlock = ({
   onAcknowledge,
 }: AcknowledgeBlockProps) => (
   <div
-    className={`rounded-lg border p-4 ${
-      isAcknowledged ? "bg-green-50 border-green-200" : "bg-orange-50 border-orange-200"
+    className={`rounded-2xl border-2 p-5 ${
+      isAcknowledged
+        ? "border-wb-green/20 bg-wb-green-light"
+        : "border-wb-pink-dark/20 bg-wb-pink-light"
     }`}
   >
-    <div className="flex items-start justify-between gap-4 flex-wrap">
+    <div className="flex flex-wrap items-start justify-between gap-4">
       <div className="flex items-start gap-3">
         {isAcknowledged ? (
-          <CheckCircle2 className="w-5 h-5 text-green-600 shrink-0 mt-0.5" />
+          <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-wb-green" />
         ) : (
-          <Lock className="w-5 h-5 text-orange-600 shrink-0 mt-0.5" />
+          <Lock className="mt-0.5 h-5 w-5 shrink-0 text-wb-pink-dark" />
         )}
         <div>
-          <p className={`font-semibold text-sm ${isAcknowledged ? "text-green-800" : "text-orange-800"}`}>
+          <p className={`text-[14.5px] font-extrabold ${isAcknowledged ? "text-wb-green" : "text-wb-pink-dark"}`}>
             {isAcknowledged
               ? "Вы подтвердили прочтение этой новости"
               : mustAcknowledge
@@ -34,7 +36,7 @@ const AcknowledgeBlock = ({
               : "Обязательная новость"}
           </p>
           {!isAcknowledged && mustAcknowledge && (
-            <p className="text-xs text-orange-700 mt-1">
+            <p className="mt-1 text-[13px] font-semibold text-wb-pink-dark/70">
               Эта новость требует вашего подтверждения прочтения
             </p>
           )}
@@ -42,11 +44,12 @@ const AcknowledgeBlock = ({
       </div>
       {mustAcknowledge && !isAcknowledged && (
         <button
+          type="button"
           onClick={onAcknowledge}
           disabled={acknowledging}
-          className="flex items-center gap-2 px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors text-sm font-medium shrink-0"
+          className="inline-flex shrink-0 items-center gap-2 rounded-full bg-wb-green px-5 py-3 text-[14.5px] font-bold text-white transition hover:-translate-y-px disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:translate-y-0"
         >
-          <Check className="w-4 h-4" />
+          <Check className="h-4 w-4" />
           {acknowledging ? "Подтверждение..." : "Подтвердить прочтение"}
         </button>
       )}

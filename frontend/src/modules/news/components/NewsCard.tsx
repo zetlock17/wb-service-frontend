@@ -13,96 +13,112 @@ const NewsCard = ({ news, onOpen, onToggleLike, onOpenAuthor }: NewsCardProps) =
   const status = getStatusLabel(news.status);
 
   return (
-    <button
+    <article
       onClick={() => onOpen(news.id, news)}
-      className={`w-full text-left border rounded-lg p-6 hover:shadow-md transition-shadow ${
-        news.is_pinned ? 'border-purple-300 bg-purple-50' : 'border-gray-200'
+      className={`group cursor-pointer rounded-[28px] p-6 transition hover:-translate-y-px sm:p-7 ${
+        news.is_pinned ? 'bg-wb-green-light ring-2 ring-inset ring-wb-green/30' : 'bg-white'
       }`}
     >
+      {/* pinned indicator */}
       {news.is_pinned && (
-        <div className="flex items-center gap-2 text-purple-600 text-sm font-medium mb-3">
-          <Pin className="w-4 h-4" />
+        <div className="mb-3 flex items-center gap-1.5 text-[13px] font-bold text-wb-green">
+          <Pin className="h-3.5 w-3.5" />
           Закреплено
         </div>
       )}
-      <div className="flex items-start justify-between mb-3">
-        <div className="flex-1">
-          <div className="flex items-center gap-2 mb-2 flex-wrap">
-            <h3 className="text-xl font-semibold text-gray-900">{news.title}</h3>
-            {news.file_ids && news.file_ids.length > 0 && (
-              <span className="inline-flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs font-medium">
-                <Paperclip className="w-3 h-3" />
-                {news.file_ids.length}
-              </span>
-            )}
-            <span className={`px-2 py-1 rounded text-xs font-medium ${status.className}`}>
-              {status.label}
-            </span>
-            <span
-              className={`inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium ${
-                news.comments_enabled ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'
-              }`}
-              title={news.comments_enabled ? 'Комментарии включены' : 'Комментарии выключены'}
-            >
-              <MessageCircle className="w-3 h-3" />
-              {news.comments_enabled ? 'Открыты' : 'Закрыты'}
-            </span>
-          </div>
-          <p className="text-gray-600 mb-3">{news.short_description}</p>
-          {news.tags && news.tags.length > 0 && (
-            <div className="flex flex-wrap gap-1 mb-3">
-              {news.tags.map((tag) => (
-                <span
-                  key={tag}
-                  className="inline-flex items-center gap-1 px-2 py-0.5 bg-purple-50 text-purple-600 border border-purple-200 rounded-full text-xs"
-                >
-                  <Tag className="w-2.5 h-2.5" />
-                  {tag}
-                </span>
-              ))}
-            </div>
-          )}
-          <div className="flex flex-wrap items-center gap-3 text-sm text-gray-500">
-            {news.categories && news.categories.length > 0 && news.categories.map((cat) => (
-              <span key={cat.id} className="px-2 py-1 bg-gray-100 rounded text-xs">{cat.name}</span>
-            ))}
-            <span>{formatDate(news.published_at)}</span>
-            <button
-              type="button"
-              onClick={(event) => {
-                event.stopPropagation();
-                onOpenAuthor(news.author_name);
-              }}
-              className="hover:text-purple-600 hover:underline"
-            >
-              {news.author_name}
-            </button>
-          </div>
-        </div>
+
+      {/* title + badges */}
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+        <h3 className="wrap-break-word text-[22px] font-extrabold leading-tight tracking-tight text-gray-900">
+          {news.title}
+        </h3>
+
+        {news.file_ids && news.file_ids.length > 0 && (
+          <span className="inline-flex items-center gap-1 rounded-full bg-wb-pink-light px-2.5 py-1 text-[12px] font-extrabold text-wb-pink-dark">
+            <Paperclip className="h-3 w-3" />
+            {news.file_ids.length}
+          </span>
+        )}
+
+        <span className={`rounded-full px-3 py-1 text-[12.5px] font-extrabold ${status.className}`}>
+          {status.label}
+        </span>
+
+        <span
+          className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[12.5px] font-extrabold ${
+            news.comments_enabled
+              ? 'bg-wb-green-light text-wb-green'
+              : 'bg-gray-100 text-gray-500'
+          }`}
+          title={news.comments_enabled ? 'Комментарии включены' : 'Комментарии выключены'}
+        >
+          <MessageCircle className="h-3 w-3" />
+          {news.comments_enabled ? 'Открыты' : 'Закрыты'}
+        </span>
       </div>
-      <div className="flex items-center gap-6 pt-4 border-t border-gray-200">
-        <span className="flex items-center gap-2 text-gray-600">
-          <Eye className="w-4 h-4" />
-          <span className="text-sm">{news.views_count}</span>
+
+      {/* excerpt */}
+      {news.short_description && (
+        <p className="mt-3 text-[15px] leading-relaxed text-gray-600">{news.short_description}</p>
+      )}
+
+      {/* tags */}
+      {news.tags && news.tags.length > 0 && (
+        <div className="mt-4 flex flex-wrap gap-2">
+          {news.tags.map((tag) => (
+            <span
+              key={tag}
+              className="inline-flex items-center gap-1.5 rounded-full bg-wb-pink-light px-3 py-1 text-[12.5px] font-extrabold text-wb-pink-dark ring-1 ring-inset ring-wb-pink-dark/20"
+            >
+              <Tag className="h-3 w-3" />
+              {tag}
+            </span>
+          ))}
+        </div>
+      )}
+
+      {/* meta */}
+      <div className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-2">
+        {news.categories && news.categories.length > 0 && news.categories.map((cat) => (
+          <span key={cat.id} className="rounded-full bg-wb-pink-light px-3 py-1 text-[12.5px] font-extrabold text-wb-green">
+            {cat.name}
+          </span>
+        ))}
+        <span className="text-[13px] font-semibold text-gray-400">{formatDate(news.published_at)}</span>
+        <button
+          type="button"
+          onClick={(e) => { e.stopPropagation(); onOpenAuthor(news.author_name); }}
+          className="text-[13px] font-bold text-gray-700 transition hover:text-wb-green hover:underline"
+        >
+          {news.author_name}
+        </button>
+      </div>
+
+      {/* footer stats */}
+      <div className="mt-5 flex flex-wrap items-center gap-5 border-t border-gray-100 pt-4">
+        <span className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-gray-400">
+          <Eye className="h-4 w-4" />
+          {news.views_count}
         </span>
         <button
-          onClick={(event) => {
-            event.stopPropagation();
-            onToggleLike(news.id, Boolean(news.is_liked));
-          }}
-          className={`flex items-center gap-2 transition-colors ${
-            news.is_liked ? 'text-purple-600' : 'text-gray-600 hover:text-purple-600'
+          type="button"
+          onClick={(e) => { e.stopPropagation(); onToggleLike(news.id, Boolean(news.is_liked)); }}
+          className={`inline-flex items-center gap-1.5 text-[13px] font-semibold transition ${
+            news.is_liked ? 'text-wb-pink-dark' : 'text-gray-400 hover:text-wb-pink-dark'
           }`}
         >
-          <ThumbsUp className="w-4 h-4" />
-          <span className="text-sm">{news.likes_count}</span>
+          <ThumbsUp className="h-4 w-4" />
+          {news.likes_count}
         </button>
-        <span className="flex items-center gap-2 text-gray-600">
-          <MessageCircle className="w-4 h-4" />
-          <span className="text-sm">{news.comments_count}</span>
+        <span className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-gray-400">
+          <MessageCircle className="h-4 w-4" />
+          {news.comments_count}
+        </span>
+        <span className="ml-auto text-[12.5px] font-bold text-wb-pink-dark opacity-0 transition group-hover:opacity-100">
+          Открыть →
         </span>
       </div>
-    </button>
+    </article>
   );
 };
 

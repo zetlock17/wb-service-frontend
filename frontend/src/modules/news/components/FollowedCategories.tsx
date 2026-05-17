@@ -15,23 +15,25 @@ const FollowedCategories = ({
   if (followedCategories.length === 0) return null;
 
   return (
-    <div className="mb-4 flex flex-wrap items-center gap-2">
-      <span className="text-sm text-gray-500 shrink-0 flex items-center gap-1">
-        <Bell className="w-3.5 h-3.5" />
+    <div className="flex flex-wrap items-center gap-2.5">
+      <span className="inline-flex shrink-0 items-center gap-1.5 text-[13px] font-bold text-gray-500">
+        <Bell className="h-3.5 w-3.5" />
         Подписки:
       </span>
       {followedCategories.map((cat) => (
-        <span
+        <button
           key={cat.id}
+          type="button"
           onClick={() => onSelect(cat.id === selectedCategory ? undefined : cat.id)}
-          className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm cursor-pointer transition-colors ${
+          style={{ paddingLeft: 14, paddingRight: 14 }}
+          className={`rounded-full py-2 text-[13.5px] font-bold transition hover:-translate-y-px ${
             selectedCategory === cat.id
-              ? 'bg-purple-600 text-white'
-              : 'bg-purple-100 text-purple-700 hover:bg-purple-200'
+              ? 'bg-gray-900 text-white'
+              : 'bg-white text-gray-700 hover:bg-wb-pink-light hover:text-wb-green'
           }`}
         >
           {cat.name}
-        </span>
+        </button>
       ))}
     </div>
   );

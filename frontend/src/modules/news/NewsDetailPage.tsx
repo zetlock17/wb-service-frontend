@@ -1,4 +1,14 @@
-import { ArrowLeft, Eye, Lock, MessageCircle, MessageCircleOff, Pencil, Share2, Tag, ThumbsUp } from "lucide-react";
+import {
+  ArrowLeft,
+  Eye,
+  Lock,
+  MessageCircle,
+  MessageCircleOff,
+  Pencil,
+  Share2,
+  Tag,
+  ThumbsUp,
+} from "lucide-react";
 import { useNavigate, useParams } from "react-router-dom";
 import usePortalStore from "../../store/usePortalStore";
 import { useAlert } from "../../hooks/useAlert";
@@ -61,16 +71,17 @@ const NewsDetailPage = () => {
 
   if (!parsedId || Number.isNaN(parsedId)) {
     return (
-      <div className="space-y-4">
+      <div className="space-y-5">
         <button
+          type="button"
           onClick={() => navigate("/news")}
-          className="inline-flex items-center gap-2 text-sm text-gray-600 hover:text-purple-600"
+          className="inline-flex items-center gap-2 rounded-full bg-white px-4 py-2.5 text-[13.5px] font-bold text-gray-700 transition hover:bg-wb-pink-light hover:text-wb-green"
         >
-          <ArrowLeft className="w-4 h-4" />
-          Назад к новостям
+          <ArrowLeft className="h-4 w-4" />
+          К списку
         </button>
-        <div className="bg-white rounded-lg border border-gray-200 p-6">
-          <p className="text-gray-700">Некорректный идентификатор новости.</p>
+        <div className="rounded-[28px] bg-white p-6">
+          <p className="text-[14.5px] font-semibold text-gray-600">Некорректный идентификатор новости.</p>
         </div>
       </div>
     );
@@ -79,128 +90,170 @@ const NewsDetailPage = () => {
   const { newsDetail, loadingNews, downloadingFileId, acknowledging } = detail;
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="space-y-5">
+      {/* nav row */}
+      <div className="flex items-center justify-between gap-3">
         <button
+          type="button"
           onClick={() => navigate("/news")}
-          className="inline-flex items-center gap-2 text-sm text-gray-600 hover:text-purple-600"
+          className="inline-flex items-center gap-2 rounded-full bg-white px-4 py-2.5 text-[13.5px] font-bold text-gray-700 transition hover:bg-wb-pink-light hover:text-wb-green"
         >
-          <ArrowLeft className="w-4 h-4" />
-          Назад к новостям
+          <ArrowLeft className="h-4 w-4" />
+          К списку
         </button>
         {isNewsEditor && newsDetail && (
           <button
+            type="button"
             onClick={() => editForm.openEditModal(newsDetail)}
-            className="inline-flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors text-sm font-medium"
+            className="inline-flex items-center gap-2 rounded-full bg-wb-green px-5 py-2.5 text-[13.5px] font-bold text-white transition hover:-translate-y-px"
           >
-            <Pencil className="w-4 h-4" />
+            <Pencil className="h-4 w-4" />
             Редактировать
           </button>
         )}
       </div>
 
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+      {/* article card */}
+      <article className="rounded-[28px] bg-white p-6 sm:p-9">
         {loadingNews || !newsDetail ? (
-          <div className="space-y-4 animate-pulse">
-            <div className="h-6 bg-gray-200 rounded w-1/3"></div>
-            <div className="h-4 bg-gray-200 rounded w-1/4"></div>
-            <div className="h-40 bg-gray-200 rounded"></div>
+          <div className="animate-pulse space-y-4">
+            <div className="h-10 w-2/3 rounded-2xl bg-wb-pink-light" />
+            <div className="h-5 w-1/2 rounded-xl bg-wb-pink-light" />
+            <div className="h-40 rounded-2xl bg-wb-pink-light" />
           </div>
         ) : (
-          <div className="space-y-6">
-            <div>
-              <h2 className="text-2xl font-bold text-gray-900">{newsDetail.title}</h2>
-              <p className="text-gray-600 mt-2">{newsDetail.short_description}</p>
-            </div>
+          <>
+            <h1 className="text-[32px] font-black leading-[1.05] tracking-tight text-gray-900 sm:text-[40px]">
+              {newsDetail.title}
+            </h1>
+            {newsDetail.short_description && (
+              <p className="mt-2 text-[16px] font-medium text-gray-500">
+                {newsDetail.short_description}
+              </p>
+            )}
 
-            <div className="flex flex-wrap items-center gap-3 text-sm text-gray-600">
+            {/* meta row */}
+            <div className="mt-5 flex flex-wrap items-center gap-2.5">
               <StatusBadge status={newsDetail.status} withIcon />
+
               {newsDetail.categories?.map((cat) => (
-                <span key={cat.id} className="px-3 py-1 bg-gray-100 rounded-full text-xs">{cat.name}</span>
+                <span
+                  key={cat.id}
+                  className="rounded-full bg-wb-pink-light px-3 py-1 text-[12.5px] font-extrabold text-wb-green"
+                >
+                  {cat.name}
+                </span>
               ))}
-              <span>{newsDetail.published_at && new Date(newsDetail.published_at).toLocaleDateString("ru-RU", { day: "numeric", month: "long", year: "numeric" })}</span>
-              <span>{newsDetail.author_name}</span>
+
+              {newsDetail.published_at && (
+                <span className="text-[14px] font-bold text-gray-700">
+                  {new Date(newsDetail.published_at).toLocaleDateString("ru-RU", {
+                    day: "numeric",
+                    month: "long",
+                    year: "numeric",
+                  })}
+                </span>
+              )}
+
+              <span className="text-[14px] font-semibold text-gray-400">·</span>
+              <span className="text-[14px] font-bold text-gray-700">{newsDetail.author_name}</span>
+
               <span
-                className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium ${
-                  newsDetail.comments_enabled ? "bg-green-100 text-green-700" : "bg-red-50 text-red-500"
+                className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[12.5px] font-extrabold ${
+                  newsDetail.comments_enabled
+                    ? "bg-wb-green-light text-wb-green"
+                    : "bg-gray-100 text-gray-500"
                 }`}
               >
                 {newsDetail.comments_enabled ? (
-                  <><MessageCircle className="w-3 h-3" /> Комментарии открыты</>
+                  <><MessageCircle className="h-3 w-3" /> Комментарии открыты</>
                 ) : (
-                  <><MessageCircleOff className="w-3 h-3" /> Комментарии закрыты</>
+                  <><MessageCircleOff className="h-3 w-3" /> Комментарии закрыты</>
                 )}
               </span>
+
               {newsDetail.mandatory_ack && (
-                <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium bg-orange-100 text-orange-700">
-                  <Lock className="w-3 h-3" />
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-wb-pink-light px-3 py-1 text-[12.5px] font-extrabold text-wb-pink-dark">
+                  <Lock className="h-3 w-3" />
                   Обязательное прочтение
                 </span>
               )}
             </div>
 
+            {/* tags */}
             {newsDetail.tags && newsDetail.tags.length > 0 && (
-              <div className="flex flex-wrap gap-2">
+              <div className="mt-5 flex flex-wrap gap-2">
                 {newsDetail.tags.map((tag) => (
                   <span
                     key={tag}
-                    className="inline-flex items-center gap-1 px-3 py-1 bg-purple-50 text-purple-600 border border-purple-200 rounded-full text-xs"
+                    className="inline-flex items-center gap-1.5 rounded-full bg-wb-pink-light px-3 py-1 text-[12.5px] font-extrabold text-wb-pink-dark ring-1 ring-inset ring-wb-pink-dark/20"
                   >
-                    <Tag className="w-3 h-3" />
+                    <Tag className="h-3 w-3" />
                     {tag}
                   </span>
                 ))}
               </div>
             )}
 
-            <NewsMarkdownBody content={newsDetail.content} />
+            {/* body */}
+            <div className="mt-6 text-[16px] leading-relaxed text-gray-700">
+              <NewsMarkdownBody content={newsDetail.content} />
+            </div>
 
+            {/* attachments */}
             <NewsAttachments
               fileIds={newsDetail.file_ids ?? []}
               downloadingFileId={downloadingFileId}
               onDownload={detail.handleDownloadFile}
             />
 
-            <div className="flex items-center gap-6 border-t border-gray-200 pt-4">
-              <div className="flex items-center gap-2 text-gray-600">
-                <Eye className="w-5 h-5" />
-                <span>{newsDetail.views_count}</span>
-              </div>
+            {/* stats footer */}
+            <div className="mt-7 flex flex-wrap items-center gap-5 border-t border-gray-100 pt-4">
+              <span className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-gray-400">
+                <Eye className="h-[18px] w-[18px]" />
+                {newsDetail.views_count}
+              </span>
               <button
+                type="button"
                 onClick={() => detail.handleToggleNewsLike(Boolean(newsDetail.is_liked))}
-                className={`flex items-center gap-2 transition-colors ${
-                  newsDetail.is_liked ? "text-purple-600" : "text-gray-600 hover:text-purple-600"
+                className={`inline-flex items-center gap-1.5 text-[13px] font-semibold transition ${
+                  newsDetail.is_liked ? "text-wb-pink-dark" : "text-gray-400 hover:text-wb-pink-dark"
                 }`}
               >
-                <ThumbsUp className="w-5 h-5" />
-                <span>{newsDetail.likes_count}</span>
+                <ThumbsUp className="h-[18px] w-[18px]" />
+                {newsDetail.likes_count}
               </button>
-              <div className="flex items-center gap-2 text-gray-600">
-                <MessageCircle className="w-5 h-5" />
-                <span>{comments.commentsCount} комментариев</span>
-              </div>
+              <span className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-gray-400">
+                <MessageCircle className="h-[18px] w-[18px]" />
+                {comments.commentsCount} комментариев
+              </span>
               <button
+                type="button"
                 onClick={detail.handleShareNews}
-                className="flex items-center gap-2 text-gray-600 hover:text-purple-600 transition-colors ml-auto"
+                className="ml-auto inline-flex items-center gap-2 rounded-full bg-wb-pink-light px-4 py-2 text-[13.5px] font-bold text-wb-green transition hover:opacity-80"
                 title="Поделиться новостью"
               >
-                <Share2 className="w-5 h-5" />
-                <span>Поделиться</span>
+                <Share2 className="h-4 w-4" />
+                Поделиться
               </button>
             </div>
 
+            {/* acknowledge */}
             {newsDetail.mandatory_ack && (
-              <AcknowledgeBlock
-                isAcknowledged={Boolean(newsDetail.is_acknowledged)}
-                mustAcknowledge={Boolean(newsDetail.must_acknowledge)}
-                acknowledging={acknowledging}
-                onAcknowledge={detail.handleAcknowledge}
-              />
+              <div className="mt-5">
+                <AcknowledgeBlock
+                  isAcknowledged={Boolean(newsDetail.is_acknowledged)}
+                  mustAcknowledge={Boolean(newsDetail.must_acknowledge)}
+                  acknowledging={acknowledging}
+                  onAcknowledge={detail.handleAcknowledge}
+                />
+              </div>
             )}
-          </div>
+          </>
         )}
-      </div>
+      </article>
 
+      {/* comments */}
       {newsDetail?.comments_enabled && (
         <CommentsSection
           commentsCount={comments.commentsCount}

@@ -1,4 +1,4 @@
-import { MessageCircle, Send } from "lucide-react";
+import { ChevronDown, MessageCircle, Send } from "lucide-react";
 import { useRef } from "react";
 import type { Comment } from "../../../api/сommentsApi";
 import type { CommentSortBy } from "../../../api/сommentsApi";
@@ -116,21 +116,29 @@ const CommentsSection = ({
   const showNewMentions = showMentions("new");
 
   return (
-    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="font-semibold text-gray-900">Комментарии ({commentsCount})</h3>
-        <select
-          value={comments.commentSortBy}
-          onChange={(e) => comments.setCommentSortBy(e.target.value as CommentSortBy)}
-          className="px-3 py-1 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-        >
-          <option value="new">Сначала новые</option>
-          <option value="popular">Популярные</option>
-        </select>
-      </div>
+    <section className="rounded-[28px] bg-white p-6 sm:p-9">
+      {/* header */}
+      <header className="mb-5 flex items-center justify-between gap-3">
+        <h2 className="text-[22px] font-extrabold text-gray-900">
+          Комментарии{" "}
+          <span className="text-gray-400">({commentsCount})</span>
+        </h2>
+        <div className="relative">
+          <select
+            value={comments.commentSortBy}
+            onChange={(e) => comments.setCommentSortBy(e.target.value as CommentSortBy)}
+            className="appearance-none cursor-pointer rounded-full bg-wb-pink-light py-2 pr-9 pl-4 text-[13.5px] font-bold text-wb-green outline-none focus:ring-2 focus:ring-inset focus:ring-wb-green transition"
+          >
+            <option value="new">Сначала новые</option>
+            <option value="popular">Популярные</option>
+          </select>
+          <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-wb-green" />
+        </div>
+      </header>
 
-      <div className="mb-6 pb-4 border-b border-gray-200">
-        <div className="flex gap-3">
+      {/* new comment input */}
+      <div className="mb-6 border-b-2 border-dashed border-gray-100 pb-6">
+        <div className="flex flex-col gap-3 sm:flex-row">
           <div className="relative flex-1">
             <input
               ref={newCommentRef}
@@ -150,7 +158,7 @@ const CommentsSection = ({
                 }
               }}
               onBlur={() => window.setTimeout(closeMentionSuggestions, 120)}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+              className="w-full rounded-2xl bg-white px-4 py-3 text-[14.5px] font-medium text-gray-800 outline-none ring-1 ring-inset ring-gray-200 placeholder:text-gray-400 focus:ring-2 focus:ring-wb-green transition"
             />
             {showNewMentions && (
               <MentionSuggestions
@@ -162,32 +170,36 @@ const CommentsSection = ({
             )}
           </div>
           <button
+            type="button"
             onClick={comments.handleCreateComment}
             disabled={!comments.newComment.trim()}
-            className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center gap-2 transition-colors"
+            className="inline-flex items-center gap-2 rounded-full bg-wb-green px-5 py-3 text-[14.5px] font-bold text-white transition hover:-translate-y-px disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:translate-y-0"
           >
-            <Send className="w-4 h-4" />
+            <Send className="h-4 w-4" />
             Отправить
           </button>
         </div>
       </div>
 
+      {/* comment list */}
       {comments.loadingComments ? (
-        <div className="space-y-4 animate-pulse">
-          <div className="h-20 bg-gray-100 rounded"></div>
-          <div className="h-20 bg-gray-100 rounded"></div>
+        <div className="animate-pulse space-y-4">
+          <div className="h-20 rounded-2xl bg-wb-pink-light" />
+          <div className="h-20 rounded-2xl bg-wb-pink-light" />
         </div>
       ) : comments.comments.length === 0 ? (
-        <div className="text-center py-8 text-gray-500">
-          <MessageCircle className="w-12 h-12 mx-auto mb-2 text-gray-300" />
-          <p>Комментариев пока нет</p>
+        <div className="py-8 text-center">
+          <div className="mx-auto mb-3 inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-wb-pink-light text-wb-pink-dark">
+            <MessageCircle className="h-6 w-6" />
+          </div>
+          <p className="text-[14.5px] font-semibold text-gray-400">Комментариев пока нет</p>
         </div>
       ) : (
-        <div className="space-y-2 max-h-112 overflow-y-auto">
+        <div className="max-h-112 space-y-2 overflow-y-auto">
           {comments.comments.map((comment) => renderComment(comment))}
         </div>
       )}
-    </div>
+    </section>
   );
 };
 

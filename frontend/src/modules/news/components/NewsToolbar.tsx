@@ -1,4 +1,4 @@
-import { Filter, Plus } from "lucide-react";
+import { Filter, Plus, Settings } from "lucide-react";
 
 interface NewsToolbarProps {
   isNewsEditor: boolean;
@@ -23,65 +23,88 @@ const NewsToolbar = ({
   onCreateNews,
   onManageCategories,
 }: NewsToolbarProps) => (
-  <div className="flex items-center justify-between mb-6">
-    <div className="flex items-center gap-4">
-      <h2 className="text-2xl font-bold text-gray-900">Внутренние коммуникации</h2>
-      {isNewsEditor && (
-        <div className="flex rounded-lg border border-gray-200 overflow-hidden">
-          <button
-            onClick={() => onChangeTab('news')}
-            className={`px-4 py-1.5 text-sm font-medium transition-colors ${
-              activeTab === 'news' ? 'bg-purple-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'
-            }`}
-          >
-            Новости
-          </button>
-          <button
-            onClick={() => onChangeTab('drafts')}
-            className={`px-4 py-1.5 text-sm font-medium transition-colors ${
-              activeTab === 'drafts' ? 'bg-gray-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'
-            }`}
-          >
-            Черновики
-            {draftsCount > 0 && activeTab !== 'drafts' && (
-              <span className="ml-1.5 px-1.5 py-0.5 bg-gray-200 text-gray-700 rounded-full text-xs">
-                {draftsCount}
-              </span>
-            )}
-          </button>
-        </div>
-      )}
-    </div>
-    <div className="flex items-center gap-3">
-      <button
-        onClick={onToggleFilters}
-        className={`px-4 py-2 rounded-lg flex items-center gap-2 transition-colors ${
-          showFilters ? 'bg-purple-100 text-purple-700' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-        }`}
-      >
-        <Filter className="w-4 h-4" />
-        Фильтры
-      </button>
-      {isNewsEditor && (
+  <header className="rounded-[28px] bg-wb-green px-7 pt-8 pb-10 sm:px-10">
+    <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+      <div className="min-w-0">
+        {isNewsEditor && (
+          <div className="mb-4 flex gap-2">
+            <button
+              type="button"
+              onClick={() => onChangeTab('news')}
+              style={{ paddingLeft: 16, paddingRight: 16 }}
+              className={`inline-flex items-center rounded-full py-2 text-[13.5px] font-bold transition ${
+                activeTab === 'news'
+                  ? 'bg-white text-wb-green'
+                  : 'bg-white/20 text-white hover:bg-white/30'
+              }`}
+            >
+              Новости
+            </button>
+            <button
+              type="button"
+              onClick={() => onChangeTab('drafts')}
+              style={{ paddingLeft: 16, paddingRight: 16 }}
+              className={`inline-flex items-center gap-2 rounded-full py-2 text-[13.5px] font-bold transition ${
+                activeTab === 'drafts'
+                  ? 'bg-white text-wb-green'
+                  : 'bg-white/20 text-white hover:bg-white/30'
+              }`}
+            >
+              Черновики
+              {draftsCount > 0 && activeTab !== 'drafts' && (
+                <span className="rounded-full bg-wb-pink-dark px-2 py-0.5 text-[11px] font-extrabold text-white">
+                  {draftsCount}
+                </span>
+              )}
+            </button>
+          </div>
+        )}
+        <h1 className="text-[32px] font-black leading-tight tracking-tight text-white sm:text-[42px]">
+          Внутренние коммуникации
+        </h1>
+      </div>
+
+      <div className="flex flex-wrap items-start gap-2.5 shrink-0">
         <button
-          onClick={onCreateNews}
-          className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 flex items-center gap-2 transition-colors"
+          type="button"
+          onClick={onToggleFilters}
+          style={{ paddingLeft: 18, paddingRight: 18 }}
+          className={`inline-flex items-center gap-2 rounded-full py-3.5 text-[15px] font-bold whitespace-nowrap transition hover:-translate-y-px ${
+            showFilters
+              ? 'bg-wb-pink-dark text-white'
+              : 'bg-white text-gray-800 hover:opacity-90'
+          }`}
         >
-          <Plus className="w-4 h-4" />
-          Создать новость
+          <Filter className="h-4 w-4" />
+          Фильтры
         </button>
-      )}
-      {isAdmin && (
-        <button
-          onClick={onManageCategories}
-          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2 transition-colors"
-        >
-          <Plus className="w-4 h-4" />
-          Управление категориями
-        </button>
-      )}
+
+        {isNewsEditor && (
+          <button
+            type="button"
+            onClick={onCreateNews}
+            style={{ paddingLeft: 18, paddingRight: 18 }}
+            className="inline-flex items-center gap-2 rounded-full bg-wb-green-dark py-3.5 text-[15px] font-bold whitespace-nowrap text-white transition hover:-translate-y-px"
+          >
+            <Plus className="h-4 w-4" />
+            Создать новость
+          </button>
+        )}
+
+        {isAdmin && (
+          <button
+            type="button"
+            onClick={onManageCategories}
+            style={{ paddingLeft: 18, paddingRight: 18 }}
+            className="inline-flex items-center gap-2 rounded-full bg-gray-900 py-3.5 text-[15px] font-bold whitespace-nowrap text-white transition hover:-translate-y-px"
+          >
+            <Settings className="h-4 w-4" />
+            Управление категориями
+          </button>
+        )}
+      </div>
     </div>
-  </div>
+  </header>
 );
 
 export default NewsToolbar;

@@ -65,86 +65,91 @@ const NewsModule = () => {
 
   if (data.loading) {
     return (
-      <div className="space-y-6 animate-pulse">
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-          <div className="h-8 bg-gray-200 rounded w-1/3 mb-6"></div>
-          <div className="space-y-4">
-            <div className="h-40 bg-gray-200 rounded"></div>
-            <div className="h-40 bg-gray-200 rounded"></div>
-          </div>
+      <div className="animate-pulse space-y-5">
+        <div className="rounded-[28px] bg-wb-green p-8 sm:p-10">
+          <div className="mb-4 h-8 w-48 rounded-full bg-white/20" />
+          <div className="h-12 w-80 max-w-full rounded-2xl bg-white/20" />
+        </div>
+        <div className="space-y-3">
+          <div className="h-40 rounded-[28px] bg-white" />
+          <div className="h-40 rounded-[28px] bg-white" />
         </div>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-        <NewsToolbar
-          isNewsEditor={isNewsEditor}
-          isAdmin={isAdmin}
-          activeTab={data.activeTab}
-          onChangeTab={data.setActiveTab}
-          draftsCount={data.draftsList.length}
-          showFilters={showFilters}
-          onToggleFilters={() => setShowFilters((s) => !s)}
-          onCreateNews={() => form.setShowCreateModal(true)}
-          onManageCategories={() => setShowCategoryModal(true)}
-        />
+    <div className="space-y-5">
+      <NewsToolbar
+        isNewsEditor={isNewsEditor}
+        isAdmin={isAdmin}
+        activeTab={data.activeTab}
+        onChangeTab={data.setActiveTab}
+        draftsCount={data.draftsList.length}
+        showFilters={showFilters}
+        onToggleFilters={() => setShowFilters((s) => !s)}
+        onCreateNews={() => form.setShowCreateModal(true)}
+        onManageCategories={() => setShowCategoryModal(true)}
+      />
 
-        <FollowedCategories
-          followedCategories={data.followedCategories}
+      <FollowedCategories
+        followedCategories={data.followedCategories}
+        selectedCategory={data.selectedCategory}
+        onSelect={data.setSelectedCategory}
+      />
+
+      {showFilters && (
+        <NewsFiltersPanel
+          categories={data.categories}
           selectedCategory={data.selectedCategory}
-          onSelect={data.setSelectedCategory}
+          onSelectCategory={data.setSelectedCategory}
+          sortBy={data.sortBy}
+          onChangeSortBy={data.setSortBy}
+          appliedSearch={data.appliedSearch}
+          onApplySearch={data.setAppliedSearch}
+          appliedTag={data.appliedTag}
+          onApplyTag={data.setAppliedTag}
+          statusFilter={data.statusFilter}
+          onChangeStatus={data.setStatusFilter}
         />
+      )}
 
-        {showFilters && (
-          <NewsFiltersPanel
-            categories={data.categories}
-            selectedCategory={data.selectedCategory}
-            onSelectCategory={data.setSelectedCategory}
-            sortBy={data.sortBy}
-            onChangeSortBy={data.setSortBy}
-            appliedSearch={data.appliedSearch}
-            onApplySearch={data.setAppliedSearch}
-            appliedTag={data.appliedTag}
-            onApplyTag={data.setAppliedTag}
-            statusFilter={data.statusFilter}
-            onChangeStatus={data.setStatusFilter}
-          />
-        )}
-
-        {data.activeTab === 'drafts' && isNewsEditor && (
-          <div className="space-y-4">
-            {data.loadingDrafts ? (
-              <div className="space-y-4 animate-pulse">
-                <div className="h-40 bg-gray-200 rounded"></div>
-                <div className="h-40 bg-gray-200 rounded"></div>
+      {data.activeTab === 'drafts' && isNewsEditor && (
+        <div className="flex flex-col gap-3.5">
+          {data.loadingDrafts ? (
+            <div className="animate-pulse space-y-3">
+              <div className="h-40 rounded-[28px] bg-white" />
+              <div className="h-40 rounded-[28px] bg-white" />
+            </div>
+          ) : data.draftsList.length === 0 ? (
+            <div className="rounded-[28px] border-2 border-dashed border-wb-pink-light bg-white p-10 text-center">
+              <div className="mx-auto mb-4 inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-wb-pink-light text-wb-pink-dark">
+                <MessageCircle className="h-7 w-7" />
               </div>
-            ) : data.draftsList.length === 0 ? (
-              <div className="text-center py-12 text-gray-500">
-                <MessageCircle className="w-16 h-16 mx-auto mb-4 text-gray-300" />
-                <p className="text-lg">Черновиков нет</p>
-              </div>
-            ) : (
-              data.draftsList.map((draft) => (
-                <DraftCard
-                  key={draft.id}
-                  draft={draft}
-                  onOpen={openNewsDetail}
-                  onOpenAuthor={openAuthorProfile}
-                />
-              ))
-            )}
-          </div>
-        )}
+              <p className="text-[15px] font-extrabold text-gray-800">Черновиков нет</p>
+            </div>
+          ) : (
+            data.draftsList.map((draft) => (
+              <DraftCard
+                key={draft.id}
+                draft={draft}
+                onOpen={openNewsDetail}
+                onOpenAuthor={openAuthorProfile}
+              />
+            ))
+          )}
+        </div>
+      )}
 
-        {data.activeTab === 'news' && (
-          <div className="space-y-4">
+      {data.activeTab === 'news' && (
+        <>
+          <div className="flex flex-col gap-3.5">
             {data.newsList.length === 0 ? (
-              <div className="text-center py-12 text-gray-500">
-                <MessageCircle className="w-16 h-16 mx-auto mb-4 text-gray-300" />
-                <p className="text-lg">Новостей пока нет</p>
+              <div className="rounded-[28px] border-2 border-dashed border-wb-pink-light bg-white p-10 text-center">
+                <div className="mx-auto mb-4 inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-wb-pink-light text-wb-pink-dark">
+                  <MessageCircle className="h-7 w-7" />
+                </div>
+                <p className="text-[15px] font-extrabold text-gray-800">Новостей пока нет</p>
               </div>
             ) : (
               data.newsList.map((news) => (
@@ -157,17 +162,17 @@ const NewsModule = () => {
                 />
               ))
             )}
-
-            {data.newsList.length > 0 && (
-              <Pagination
-                currentPage={data.currentPage}
-                onChangePage={(updater) => data.setCurrentPage(updater)}
-                hasNext={data.newsList.length >= PAGE_SIZE}
-              />
-            )}
           </div>
-        )}
-      </div>
+
+          {data.newsList.length >= PAGE_SIZE && (
+            <Pagination
+              currentPage={data.currentPage}
+              onChangePage={(updater) => data.setCurrentPage(updater)}
+              hasNext={data.newsList.length >= PAGE_SIZE}
+            />
+          )}
+        </>
+      )}
 
       <CreateNewsModal categories={data.categories} controller={form} />
 

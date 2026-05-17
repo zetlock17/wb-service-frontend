@@ -53,7 +53,7 @@ const StructureCard = ({ user, onNavigate, onOpenProfileByName }: StructureCardP
 
         <button
           onClick={() => onNavigate("structure")}
-          className="mt-2 text-sm text-wb-green hover:text-wb-green-dark flex items-center gap-1 transition-colors"
+          className="mt-2 text-sm bg-wb-green hover:bg-wb-green-dark text-white flex items-center gap-1 transition-colors px-3 py-2 rounded-xl"
         >
           Вся структура / Коллеги по отделу <ChevronRight strokeWidth={2} className="w-4 h-4" />
         </button>

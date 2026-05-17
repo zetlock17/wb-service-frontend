@@ -101,7 +101,7 @@ const DetailPageWrapper = ({
   }
 
   return (
-    <div className="min-h-screen bg-purple-50">
+    <div className="min-h-screen bg-wb-pink">
       <AppHeader
         activeModule={moduleFallback}
         modules={moduleConfig}
@@ -138,7 +138,7 @@ const DetailPageWrapper = ({
       >
         <div className="relative">
           <NotificationsPanel isOpen={isNotificationsOpen} onClose={() => setIsNotificationsOpen(false)} />
-          <ProfileMenu isOpen={isProfileMenuOpen} onNavigateHome={() => handleModuleChange("home")} />
+          <ProfileMenu isOpen={isProfileMenuOpen} onNavigateHome={() => handleModuleChange("home")} onClose={() => setIsProfileMenuOpen(false)} />
         </div>
       </div>
 
