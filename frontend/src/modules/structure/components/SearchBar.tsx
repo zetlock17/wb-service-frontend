@@ -74,8 +74,8 @@ const SearchBar = ({
   const showDropdown = isOpen && suggestions.length > 0;
 
   return (
-    <div className="relative flex-1">
-      <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+    <div className="relative min-w-[220px] flex-1 basis-80">
+      <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
       <input
         ref={inputRef}
         type="text"
@@ -84,7 +84,7 @@ const SearchBar = ({
         onChange={(e) => onQueryChange(e.target.value)}
         onKeyDown={handleKeyDown}
         onFocus={() => setIsOpen(true)}
-        className="w-full rounded-xl border border-purple-100 bg-white py-2.5 pl-10 pr-3 text-sm text-gray-900 outline-none transition placeholder:text-gray-400 focus:border-purple-400 focus:ring-2 focus:ring-purple-200"
+        className="w-full rounded-full bg-wb-pink-light py-3 pr-4 pl-11 text-[14.5px] font-semibold text-gray-800 outline-none placeholder:font-medium placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-wb-green transition"
       />
 
       {showDropdown &&
@@ -98,7 +98,7 @@ const SearchBar = ({
               width: dropdownRect.width,
               zIndex: 9999,
             }}
-            className="max-h-80 overflow-y-auto rounded-xl border border-purple-200 bg-white p-2 shadow-xl"
+            className="max-h-80 overflow-y-auto rounded-2xl bg-white p-2 shadow-2xl ring-1 ring-inset ring-gray-100"
           >
             {suggestions.map((suggestion) => (
               <div
@@ -107,14 +107,14 @@ const SearchBar = ({
                   e.preventDefault();
                   handleSuggestionClick(suggestion);
                 }}
-                className="cursor-pointer rounded-lg px-3 py-2 transition-colors hover:bg-purple-50"
+                className="cursor-pointer rounded-xl px-3 py-2.5 transition-colors hover:bg-wb-pink-light"
               >
                 <div className="flex flex-col gap-1 lg:flex-row lg:items-center lg:gap-2 lg:whitespace-nowrap">
-                  <span className="truncate font-medium text-purple-700">{suggestion.full_name}</span>
-                  <span className="hidden text-gray-400 lg:inline">•</span>
-                  <span className="truncate text-sm text-gray-600">{suggestion.position}</span>
-                  <span className="hidden text-gray-400 lg:inline">•</span>
-                  <span className="truncate text-sm text-gray-500">{suggestion.department}</span>
+                  <span className="truncate font-extrabold text-wb-green">{suggestion.full_name}</span>
+                  <span className="hidden text-gray-300 lg:inline">•</span>
+                  <span className="truncate text-[13px] font-semibold text-gray-600">{suggestion.position}</span>
+                  <span className="hidden text-gray-300 lg:inline">•</span>
+                  <span className="truncate text-[13px] font-medium text-gray-500">{suggestion.department}</span>
                 </div>
               </div>
             ))}

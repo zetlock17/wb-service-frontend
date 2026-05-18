@@ -1,10 +1,20 @@
-import { Edit, Trash2, Plus, Users, SlidersVertical, UserMinus, UserPlus, X, Check } from "lucide-react";
+import {
+  ChevronRight,
+  Pencil,
+  Trash2,
+  Plus,
+  UserPlus,
+  UserMinus,
+  Crown,
+  Move,
+  Check,
+  X,
+  Users,
+} from "lucide-react";
 import { useState } from "react";
 import type { OrgUnitHierarchy, ProfileSearchEmployee } from "../../../api/orgStructureApi";
 import Avatar from "../../../components/common/Avatar";
 import type { ExpandedNodes } from "../types";
-import Triangle from "./Triangle";
-import VerticalDashed from "./VerticalDashed";
 import EmployeeCard from "./EmployeeCard";
 
 interface DepartmentNodeProps {
@@ -27,6 +37,32 @@ interface DepartmentNodeProps {
   onOpenProfile?: (eid: string) => void;
 }
 
+interface RowActionProps {
+  icon: React.ComponentType<{ className?: string }>;
+  label: string;
+  onClick: () => void;
+  tone?: "neutral" | "accent" | "danger";
+}
+
+const RowAction = ({ icon: Icon, label, onClick, tone = "neutral" }: RowActionProps) => {
+  const tones: Record<string, string> = {
+    neutral: "text-gray-400 hover:bg-wb-pink-light hover:text-wb-green",
+    accent: "text-wb-green hover:bg-wb-pink-light",
+    danger: "text-gray-400 hover:bg-red-50 hover:text-red-600",
+  };
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={label}
+      title={label}
+      className={`inline-flex h-9 w-9 items-center justify-center rounded-xl transition ${tones[tone]}`}
+    >
+      <Icon className="h-4 w-4" />
+    </button>
+  );
+};
+
 const DepartmentNode = ({
   unit,
   level = 0,
@@ -40,7 +76,7 @@ const DepartmentNode = ({
   onSetManager,
   onRemoveManager,
   onAddEmployee,
-  onRemoveEmployee,
+  onRemoveEmployee: _onRemoveEmployee,
   onRemoveEmployeeById,
   onMove,
   onCreateChild,
@@ -48,150 +84,124 @@ const DepartmentNode = ({
 }: DepartmentNodeProps) => {
   const [confirmingEid, setConfirmingEid] = useState<string | null>(null);
   const unitKey = `unit-${unit.id}`;
-  const isExpanded = expandedNodes[unitKey] ?? true;
-  const titleClass = level === 0 ? "text-2xl" : level === 1 ? "text-xl" : "text-lg";
-  const lineColorClass = level > 0 ? "text-purple-300" : "text-purple-500";
+  const isExpanded = expandedNodes[unitKey] ?? level < 2;
 
-  const handleToggle = () => {
-    setExpandedNodes({ ...expandedNodes, [unitKey]: !isExpanded });
-  };
+  const managerEid = unit.manager?.eid;
+  const unitMembers = (employeesByUnit[unit.id] || []).filter((e) => e.eid !== managerEid);
+  const hasChildren = (unit.children?.length || 0) > 0;
+  const hasMembers = unitMembers.length > 0;
+  const hasContent = hasChildren || hasMembers || Boolean(unit.manager);
+
+  const handleToggle = () => setExpandedNodes({ ...expandedNodes, [unitKey]: !isExpanded });
 
   return (
-    <div className="rounded-2xl border border-purple-100 bg-white/90 shadow-sm">
-      <div className="flex gap-1">
-        {unit.children && unit.children.length > 0 ? (
-          <div
-            className={`flex w-12 shrink-0 flex-col items-center px-2 ${
-              isExpanded ? (level > 0 ? "pt-3 pb-2" : "pt-4 pb-3") : level > 0 ? "py-2" : "py-3"
+    <div className={`relative ${level > 0 ? "pl-5 sm:pl-8" : ""}`}>
+      {level > 0 && (
+        <span aria-hidden="true" className="absolute top-0 bottom-3 left-1.5 w-px bg-wb-pink-light sm:left-2.5" />
+      )}
+
+      <div className="group relative rounded-[22px] bg-white ring-1 ring-inset ring-gray-100 transition hover:ring-wb-pink-dark/30">
+        {/* header row */}
+        <div className="flex flex-wrap items-center gap-2 px-4 py-3.5">
+          <button
+            type="button"
+            onClick={handleToggle}
+            aria-label={isExpanded ? "Свернуть" : "Развернуть"}
+            disabled={!hasContent}
+            className={`inline-flex h-8 w-8 flex-none items-center justify-center rounded-lg transition ${
+              hasContent
+                ? "bg-wb-pink-light text-wb-pink-dark hover:bg-wb-pink-light/70"
+                : "text-gray-300"
             }`}
           >
-            <button
-              onClick={handleToggle}
-              className="rounded-lg border border-purple-200 bg-white p-1 transition hover:bg-purple-50"
-            >
-              <Triangle
-                isExpanded={isExpanded}
-                className="h-5 w-5 cursor-pointer text-purple-600 transition-all hover:text-purple-500"
-              />
-            </button>
-            {isExpanded && (
-              <div className="flex h-full w-full justify-center pt-1">
-                <VerticalDashed className={`h-full ${lineColorClass}`} />
-              </div>
+            {hasContent && (
+              <ChevronRight className={`h-4 w-4 transition-transform ${isExpanded ? "rotate-90" : ""}`} />
             )}
-          </div>
-        ) : (
-          <div className="flex w-12 shrink-0 items-start justify-center px-2 pt-4 font-black text-purple-300">
-            —
-          </div>
-        )}
+          </button>
 
-        <div className="flex-1 py-3 pr-4 pl-1">
-          <div className="flex items-start justify-between gap-2">
-            <div className="flex-1 min-w-0">
-              <h3 className={`${titleClass} font-semibold text-gray-900`}>{unit.name}</h3>
-              {unit.manager && (
-                <EmployeeCard manager={unit.manager} level={0} onOpenProfile={onOpenProfile} />
+          <h3
+            className={`min-w-0 truncate font-extrabold ${
+              level === 0 ? "text-[20px] text-gray-900" : "text-[16px] text-gray-800"
+            }`}
+          >
+            {unit.name}
+          </h3>
+
+          {(hasMembers || unit.manager) && (
+            <span className="hidden items-center gap-1 rounded-full bg-wb-green-light px-2.5 py-1 text-[11.5px] font-extrabold text-wb-green sm:inline-flex">
+              <Users className="h-3 w-3" />
+              {unitMembers.length + (unit.manager ? 1 : 0)} чел.
+            </span>
+          )}
+
+          {canManage && (
+            <div className="ml-auto flex items-center gap-0.5">
+              {!unit.manager ? (
+                <RowAction icon={Crown} label="Назначить руководителя" onClick={() => onSetManager?.(unit)} tone="accent" />
+              ) : (
+                <RowAction icon={UserMinus} label="Удалить руководителя" onClick={() => onRemoveManager?.(unit)} tone="danger" />
               )}
+              <RowAction icon={UserPlus} label="Добавить сотрудника" onClick={() => onAddEmployee?.(unit)} />
+              <RowAction icon={Plus} label="Создать подразделение" onClick={() => onCreateChild?.(unit.id)} tone="accent" />
+              <RowAction icon={Pencil} label="Редактировать" onClick={() => onEdit?.(unit)} />
+              <RowAction icon={Move} label="Переместить" onClick={() => onMove?.(unit)} />
+              <RowAction icon={Trash2} label="Удалить" onClick={() => onDelete?.(unit)} tone="danger" />
             </div>
+          )}
+        </div>
 
-            {canManage && (
-              <div className="flex gap-1 shrink-0">
-                {!unit.manager && (
-                  <button
-                    onClick={() => onSetManager?.(unit)}
-                    className="rounded-lg p-2 text-gray-600 transition-colors hover:bg-purple-100"
-                    title="Назначить руководителя"
-                  >
-                    <Users className="w-4 h-4" />
-                  </button>
-                )}
-                {unit.manager && (
-                  <button
-                    onClick={() => onRemoveManager?.(unit)}
-                    className="rounded-lg p-2 text-gray-600 transition-colors hover:bg-red-100"
-                    title="Удалить руководителя"
-                  >
-                    <UserMinus className="w-4 h-4" />
-                  </button>
-                )}
-                <button
-                  onClick={() => onAddEmployee?.(unit)}
-                  className="rounded-lg p-2 text-gray-600 transition-colors hover:bg-purple-100"
-                  title="Добавить сотрудника"
-                >
-                  <UserPlus className="w-4 h-4" />
-                </button>
-                <button
-                  onClick={() => onCreateChild?.(unit.id)}
-                  className="rounded-lg p-2 text-gray-600 transition-colors hover:bg-purple-100"
-                  title="Создать подразделение"
-                >
-                  <Plus className="w-4 h-4" />
-                </button>
-                <button
-                  onClick={() => onEdit?.(unit)}
-                  className="rounded-lg p-2 text-gray-600 transition-colors hover:bg-purple-100"
-                  title="Редактировать"
-                >
-                  <Edit className="w-4 h-4" />
-                </button>
-                <button
-                  onClick={() => onMove?.(unit)}
-                  className="rounded-lg p-2 text-gray-600 transition-colors hover:bg-purple-100"
-                  title="Переместить"
-                >
-                  <SlidersVertical className="w-4 h-4" />
-                </button>
-                <button
-                  onClick={() => onDelete?.(unit)}
-                  className="rounded-lg p-2 text-gray-600 transition-colors hover:bg-red-100"
-                  title="Удалить"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
-              </div>
+        {/* body */}
+        {isExpanded && (
+          <div className="px-4 pb-4">
+            {/* manager */}
+            {unit.manager && (
+              <EmployeeCard manager={unit.manager} level={level} onOpenProfile={onOpenProfile} />
             )}
-          </div>
 
-          {isExpanded && (() => {
-            const managerEid = unit.manager?.eid;
-            const unitEmployees = (employeesByUnit[unit.id] || []).filter(
-              (e) => e.eid !== managerEid
-            );
-            return (
-              <>
-                {unitEmployees.length > 0 && (
-                  <div className="mt-3 grid gap-2 sm:grid-cols-2">
-                    {unitEmployees.map((emp) => (
-                      <div
-                        key={emp.eid}
-                        className="flex items-center gap-2 rounded-xl border border-gray-200 bg-white p-2.5"
-                      >
-                        <Avatar fullName={emp.full_name} size={6} />
+            {/* members grid */}
+            {hasMembers && (
+              <div className="mt-3">
+                <div className="mb-2 flex items-center gap-2 text-[12px] font-extrabold uppercase tracking-wide text-gray-400">
+                  <Users className="h-3.5 w-3.5" />
+                  Сотрудники
+                  <span className="rounded-full bg-wb-pink-light px-2 py-0.5 text-[11px] font-extrabold text-wb-pink-dark">
+                    {unitMembers.length}
+                  </span>
+                </div>
+                <ul className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                  {unitMembers.map((emp) => (
+                    <li key={emp.eid}>
+                      <div className="group/emp relative flex items-center gap-3 rounded-2xl bg-wb-pink-light/50 px-3.5 py-2.5 transition hover:bg-wb-pink-light">
+                        <button
+                          type="button"
+                          onClick={() => onOpenProfile?.(emp.eid)}
+                          className="shrink-0"
+                          aria-label={`Профиль ${emp.full_name}`}
+                        >
+                          <Avatar fullName={emp.full_name} size={10} />
+                        </button>
                         <div className="min-w-0 flex-1">
                           <button
                             type="button"
                             onClick={() => onOpenProfile?.(emp.eid)}
-                            className="block truncate text-sm font-medium text-purple-600 hover:underline"
+                            className="block w-full truncate text-left text-[14px] font-extrabold text-wb-pink-dark transition hover:underline"
                           >
                             {emp.full_name}
                           </button>
                           {emp.position && (
-                            <p className="truncate text-xs text-gray-600">{emp.position}</p>
+                            <p className="truncate text-[12.5px] font-semibold text-gray-600">{emp.position}</p>
                           )}
                         </div>
                         {canManage && (
                           confirmingEid === emp.eid ? (
                             <div className="flex shrink-0 items-center gap-1">
-                              <span className="text-xs text-gray-500">Удалить?</span>
                               <button
                                 type="button"
                                 onClick={() => {
                                   onRemoveEmployeeById?.(unit.id, emp.eid);
                                   setConfirmingEid(null);
                                 }}
-                                className="rounded-lg p-1 text-red-600 transition-colors hover:bg-red-100"
+                                className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-red-600 text-white transition hover:opacity-90"
                                 title="Подтвердить"
                               >
                                 <Check className="h-3.5 w-3.5" />
@@ -199,7 +209,7 @@ const DepartmentNode = ({
                               <button
                                 type="button"
                                 onClick={() => setConfirmingEid(null)}
-                                className="rounded-lg p-1 text-gray-500 transition-colors hover:bg-gray-100"
+                                className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-white text-gray-500 ring-1 ring-inset ring-gray-200 transition hover:bg-gray-50"
                                 title="Отмена"
                               >
                                 <X className="h-3.5 w-3.5" />
@@ -209,7 +219,7 @@ const DepartmentNode = ({
                             <button
                               type="button"
                               onClick={() => setConfirmingEid(emp.eid)}
-                              className="shrink-0 rounded-lg p-1 text-gray-400 transition-colors hover:bg-red-100 hover:text-red-600"
+                              className="shrink-0 inline-flex h-8 w-8 items-center justify-center rounded-lg text-gray-300 opacity-0 transition group-hover/emp:opacity-100 hover:bg-white hover:text-red-600"
                               title="Удалить сотрудника"
                             >
                               <Trash2 className="h-3.5 w-3.5" />
@@ -217,39 +227,48 @@ const DepartmentNode = ({
                           )
                         )}
                       </div>
-                    ))}
-                  </div>
-                )}
-                {unit.children && unit.children.length > 0 && (
-                  <div className="mt-3 space-y-2">
-                    {unit.children.map((child) => (
-                      <DepartmentNode
-                        key={child.id}
-                        unit={child}
-                        level={level + 1}
-                        expandedNodes={expandedNodes}
-                        setExpandedNodes={setExpandedNodes}
-                        canManage={canManage}
-                        allUnits={allUnits}
-                        employeesByUnit={employeesByUnit}
-                        onEdit={onEdit}
-                        onDelete={onDelete}
-                        onSetManager={onSetManager}
-                        onRemoveManager={onRemoveManager}
-                        onAddEmployee={onAddEmployee}
-                        onRemoveEmployee={onRemoveEmployee}
-                        onRemoveEmployeeById={onRemoveEmployeeById}
-                        onMove={onMove}
-                        onCreateChild={onCreateChild}
-                        onOpenProfile={onOpenProfile}
-                      />
-                    ))}
-                  </div>
-                )}
-              </>
-            );
-          })()}
-        </div>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {/* empty state */}
+            {!unit.manager && !hasMembers && !hasChildren && (
+              <p className="mt-3 rounded-2xl bg-wb-pink-light/40 px-4 py-3 text-[13px] font-semibold text-gray-500">
+                В этом подразделении пока нет сотрудников.
+              </p>
+            )}
+
+            {/* children */}
+            {hasChildren && (
+              <div className="mt-4 flex flex-col gap-2.5">
+                {unit.children!.map((child) => (
+                  <DepartmentNode
+                    key={child.id}
+                    unit={child}
+                    level={level + 1}
+                    expandedNodes={expandedNodes}
+                    setExpandedNodes={setExpandedNodes}
+                    canManage={canManage}
+                    allUnits={allUnits}
+                    employeesByUnit={employeesByUnit}
+                    onEdit={onEdit}
+                    onDelete={onDelete}
+                    onSetManager={onSetManager}
+                    onRemoveManager={onRemoveManager}
+                    onAddEmployee={onAddEmployee}
+                    onRemoveEmployee={_onRemoveEmployee}
+                    onRemoveEmployeeById={onRemoveEmployeeById}
+                    onMove={onMove}
+                    onCreateChild={onCreateChild}
+                    onOpenProfile={onOpenProfile}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

@@ -7,37 +7,33 @@ interface StructureStatsProps {
   maxDepth: number;
 }
 
-const StructureStats = ({ units, withManagers, withoutManagers, maxDepth }: StructureStatsProps) => (
-  <div className="mb-5 grid grid-cols-2 gap-3 md:grid-cols-4">
-    <div className="rounded-2xl border border-purple-100 bg-white p-4 shadow-sm">
-      <div className="mb-2 inline-flex rounded-lg bg-purple-50 p-2 text-purple-700">
-        <Building2 className="h-4 w-4" />
-      </div>
-      <p className="text-2xl font-bold text-gray-900">{units}</p>
-      <p className="text-sm font-medium text-gray-700">Подразделений</p>
+const STATS = [
+  { key: "units", icon: Building2, label: "Подразделений", tone: "bg-wb-pink-dark text-white" },
+  { key: "withManagers", icon: Crown, label: "С руководителем", tone: "bg-wb-green-light text-wb-green" },
+  { key: "withoutManagers", icon: Users, label: "Без руководителя", tone: "bg-wb-pink-light text-wb-pink-dark" },
+  { key: "maxDepth", icon: Network, label: "Уровней иерархии", tone: "bg-gray-900 text-white" },
+] as const;
+
+const StructureStats = ({ units, withManagers, withoutManagers, maxDepth }: StructureStatsProps) => {
+  const values: Record<string, number> = { units, withManagers, withoutManagers, maxDepth };
+  return (
+    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      {STATS.map((s) => {
+        const Icon = s.icon;
+        return (
+          <article key={s.key} className="rounded-[28px] bg-white p-6">
+            <div className={`mb-4 inline-flex h-11 w-11 items-center justify-center rounded-2xl ${s.tone}`}>
+              <Icon className="h-5 w-5" />
+            </div>
+            <div className="text-[40px] font-black leading-none tracking-tight text-gray-900">
+              {values[s.key]}
+            </div>
+            <div className="mt-2 text-[15px] font-extrabold text-gray-700">{s.label}</div>
+          </article>
+        );
+      })}
     </div>
-    <div className="rounded-2xl border border-purple-100 bg-white p-4 shadow-sm">
-      <div className="mb-2 inline-flex rounded-lg bg-purple-50 p-2 text-purple-700">
-        <Crown className="h-4 w-4" />
-      </div>
-      <p className="text-2xl font-bold text-gray-900">{withManagers}</p>
-      <p className="text-sm font-medium text-gray-700">С руководителем</p>
-    </div>
-    <div className="rounded-2xl border border-purple-100 bg-white p-4 shadow-sm">
-      <div className="mb-2 inline-flex rounded-lg bg-purple-50 p-2 text-purple-700">
-        <Users className="h-4 w-4" />
-      </div>
-      <p className="text-2xl font-bold text-gray-900">{withoutManagers}</p>
-      <p className="text-sm font-medium text-gray-700">Без руководителя</p>
-    </div>
-    <div className="rounded-2xl border border-purple-100 bg-white p-4 shadow-sm">
-      <div className="mb-2 inline-flex rounded-lg bg-purple-50 p-2 text-purple-700">
-        <Network className="h-4 w-4" />
-      </div>
-      <p className="text-2xl font-bold text-gray-900">{maxDepth}</p>
-      <p className="text-sm font-medium text-gray-700">Уровней иерархии</p>
-    </div>
-  </div>
-);
+  );
+};
 
 export default StructureStats;
