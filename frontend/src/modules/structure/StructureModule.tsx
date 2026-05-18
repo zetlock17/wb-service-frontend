@@ -30,7 +30,7 @@ const StructureModule = () => {
   const [expandedNodes, setExpandedNodes] = useState<ExpandedNodes>({});
   const [filtersOpen, setFiltersOpen] = useState(false);
 
-  const { organizationHierarchy, unitEmployees, loading, fetchOrgStructure, roles, removeEmployeeFromOrgUnitAsync } = usePortalStore();
+  const { organizationHierarchy, unitEmployees, loading, fetchOrgStructure, fetchUnitEmployees, roles, removeEmployeeFromOrgUnitAsync } = usePortalStore();
   const canManage = roles.includes("admin") || roles.includes("hr");
 
   const [createModalOpen, setCreateModalOpen] = useState(false);
@@ -45,8 +45,12 @@ const StructureModule = () => {
   const [selectedParentId, setSelectedParentId] = useState<number | null>(null);
 
   useEffect(() => {
-    if (organizationHierarchy.length === 0) fetchOrgStructure();
-  }, [organizationHierarchy.length, fetchOrgStructure]);
+    if (organizationHierarchy.length === 0) {
+      fetchOrgStructure();
+    } else if (Object.keys(unitEmployees).length === 0) {
+      fetchUnitEmployees();
+    }
+  }, [organizationHierarchy.length, unitEmployees, fetchOrgStructure, fetchUnitEmployees]);
 
   const stats = useStructureStats(organizationHierarchy);
   const { suggestions, clear: clearSuggestions } = useSearchSuggestions(searchQuery);
