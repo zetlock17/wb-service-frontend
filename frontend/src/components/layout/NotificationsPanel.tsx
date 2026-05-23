@@ -36,13 +36,13 @@ const filters: Array<{ id: FilterId; label: string }> = [
 ];
 
 const typeMeta: Record<NotificationType, { icon: typeof Bell; bg: string; color: string }> = {
-  document: { icon: FileText, bg: "bg-blue-100", color: "text-blue-600" },
-  comment: { icon: MessageSquare, bg: "bg-green-100", color: "text-green-600" },
-  news: { icon: Newspaper, bg: "bg-purple-100", color: "text-purple-600" },
+  document: { icon: FileText, bg: "bg-wb-green-light", color: "text-wb-green" },
+  comment: { icon: MessageSquare, bg: "bg-wb-green-light", color: "text-wb-green-dark" },
+  news: { icon: Newspaper, bg: "bg-wb-pink-light", color: "text-wb-pink-dark" },
   event: { icon: CalendarIcon, bg: "bg-orange-100", color: "text-orange-600" },
-  survey: { icon: ClipboardList, bg: "bg-pink-100", color: "text-pink-600" },
-  training: { icon: GraduationCap, bg: "bg-indigo-100", color: "text-indigo-600" },
-  birthday: { icon: Cake, bg: "bg-rose-100", color: "text-rose-600" },
+  survey: { icon: ClipboardList, bg: "bg-wb-pink-light", color: "text-wb-pink-dark" },
+  training: { icon: GraduationCap, bg: "bg-wb-green-light", color: "text-wb-green" },
+  birthday: { icon: Cake, bg: "bg-wb-pink-light", color: "text-wb-pink-dark" },
   system: { icon: AlertTriangle, bg: "bg-amber-100", color: "text-amber-600" },
 };
 
@@ -182,15 +182,15 @@ const NotificationsPanel = ({ isOpen, onClose }: NotificationsPanelProps) => {
     <>
       <div
         ref={panelRef}
-        className="absolute right-0 mt-2 w-[420px] bg-white rounded-xl shadow-2xl border border-gray-200 max-h-[600px] flex flex-col z-50 overflow-hidden animate-[fadeIn_0.15s_ease-out]"
+        className="absolute right-0 mt-2 w-[420px] bg-white rounded-2xl shadow-2xl border border-gray-100 max-h-[600px] flex flex-col z-50 overflow-hidden animate-[fadeIn_0.15s_ease-out]"
       >
-        <div className="p-4 border-b border-gray-200 bg-gradient-to-r from-purple-50 to-white">
+        <div className="p-4 border-b border-gray-100 bg-wb-green">
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
-              <Bell className="w-5 h-5 text-purple-700" />
-              <h3 className="font-semibold text-gray-900">Уведомления</h3>
+              <Bell className="w-5 h-5 text-white" />
+              <h3 className="font-semibold text-white">Уведомления</h3>
               {notificationsUnreadCount > 0 && (
-                <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-purple-600 text-white">
+                <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-wb-pink text-white">
                   {notificationsUnreadCount}
                 </span>
               )}
@@ -200,21 +200,21 @@ const NotificationsPanel = ({ isOpen, onClose }: NotificationsPanelProps) => {
                 onClick={() => markAllNotificationsAsReadAsync()}
                 disabled={notificationsUnreadCount === 0}
                 title="Прочитать все"
-                className="p-1.5 text-gray-500 hover:text-purple-700 hover:bg-purple-50 rounded-md transition-colors disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-gray-500"
+                className="p-1.5 text-white/70 hover:text-white hover:bg-white/10 rounded-md transition-colors disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-white/70"
               >
                 <CheckCheck className="w-4 h-4" />
               </button>
               <button
                 onClick={() => setIsPrefsOpen(true)}
                 title="Настройки уведомлений"
-                className="p-1.5 text-gray-500 hover:text-purple-700 hover:bg-purple-50 rounded-md transition-colors"
+                className="p-1.5 text-white/70 hover:text-white hover:bg-white/10 rounded-md transition-colors"
               >
                 <Settings className="w-4 h-4" />
               </button>
               <button
                 onClick={onClose}
                 title="Закрыть"
-                className="p-1.5 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-md transition-colors"
+                className="p-1.5 text-white/70 hover:text-white hover:bg-white/10 rounded-md transition-colors"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -231,15 +231,15 @@ const NotificationsPanel = ({ isOpen, onClose }: NotificationsPanelProps) => {
                   onClick={() => setFilter(item.id)}
                   className={`px-2.5 py-1 text-xs rounded-full transition-colors flex items-center gap-1 ${
                     isActive
-                      ? "bg-purple-600 text-white"
-                      : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                      ? "bg-white text-wb-green font-semibold"
+                      : "bg-white/15 text-white hover:bg-white/25"
                   }`}
                 >
                   <span>{item.label}</span>
                   {count != null && count > 0 && (
                     <span
                       className={`px-1 rounded-full text-[10px] font-medium ${
-                        isActive ? "bg-white/25 text-white" : "bg-white text-gray-500"
+                        isActive ? "bg-wb-green/10 text-wb-green" : "bg-white/20 text-white"
                       }`}
                     >
                       {count}
@@ -254,7 +254,7 @@ const NotificationsPanel = ({ isOpen, onClose }: NotificationsPanelProps) => {
         <div className="overflow-y-auto flex-1 divide-y divide-gray-100">
           {notificationsLoading && notifications.length === 0 ? (
             <div className="p-8 text-center text-gray-500">
-              <Loader2 className="w-8 h-8 mx-auto mb-2 animate-spin text-purple-500" />
+              <Loader2 className="w-8 h-8 mx-auto mb-2 animate-spin text-wb-green" />
               <p className="text-sm">Загрузка...</p>
             </div>
           ) : filteredNotifications.length ? (
@@ -269,7 +269,7 @@ const NotificationsPanel = ({ isOpen, onClose }: NotificationsPanelProps) => {
                   onClick={() => clickable && handleNotificationClick(notification)}
                   className={`group relative p-3 flex gap-3 transition-colors ${
                     clickable ? "cursor-pointer hover:bg-gray-50" : ""
-                  } ${notification.unread ? "bg-purple-50/60" : ""}`}
+                  } ${notification.unread ? "bg-wb-green-light/60" : ""}`}
                 >
                   <div className={`flex-shrink-0 w-9 h-9 rounded-lg flex items-center justify-center ${meta.bg}`}>
                     <Icon className={`w-4 h-4 ${meta.color}`} />
@@ -287,7 +287,7 @@ const NotificationsPanel = ({ isOpen, onClose }: NotificationsPanelProps) => {
                             </span>
                           )}
                           {notification.unread && (
-                            <span className="w-2 h-2 rounded-full bg-purple-600 flex-shrink-0" />
+                            <span className="w-2 h-2 rounded-full bg-wb-green shrink-0" />
                           )}
                         </div>
                         <p className="text-sm text-gray-600 mt-0.5 line-clamp-2">{notification.text}</p>
@@ -303,7 +303,7 @@ const NotificationsPanel = ({ isOpen, onClose }: NotificationsPanelProps) => {
                           void markNotificationAsReadAsync(notification.id);
                         }}
                         title="Отметить прочитанным"
-                        className="p-1 text-gray-400 hover:text-purple-700 hover:bg-white rounded"
+                        className="p-1 text-gray-400 hover:text-wb-green hover:bg-white rounded"
                       >
                         <CheckCheck className="w-3.5 h-3.5" />
                       </button>
@@ -339,7 +339,7 @@ const NotificationsPanel = ({ isOpen, onClose }: NotificationsPanelProps) => {
             </span>
             <button
               onClick={() => fetchNotifications()}
-              className="text-purple-700 hover:text-purple-800 font-medium"
+              className="text-wb-green hover:text-wb-green-dark font-medium"
             >
               Обновить
             </button>

@@ -20,7 +20,7 @@ interface ToggleRowProps {
 const ToggleRow = ({ icon, title, description, checked, onChange }: ToggleRowProps) => (
   <div className="flex items-center justify-between gap-4 py-3 px-3 rounded-lg hover:bg-gray-50">
     <div className="flex items-start gap-3 flex-1 min-w-0">
-      {icon && <div className="text-purple-600 mt-0.5">{icon}</div>}
+      {icon && <div className="text-wb-green mt-0.5">{icon}</div>}
       <div className="flex-1 min-w-0">
         <p className="text-sm font-medium text-gray-900">{title}</p>
         {description && <p className="text-xs text-gray-500 mt-0.5">{description}</p>}
@@ -32,7 +32,7 @@ const ToggleRow = ({ icon, title, description, checked, onChange }: ToggleRowPro
       aria-checked={checked}
       onClick={() => onChange(!checked)}
       className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full transition-colors duration-200 ${
-        checked ? "bg-purple-600" : "bg-gray-300"
+        checked ? "bg-wb-green" : "bg-gray-300"
       }`}
     >
       <span

@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { login } from "../api/authApi";
 import usePortalStore from "../store/usePortalStore";
 import { getRolesFromToken, setTokens } from "../utils/authTokens";
+import MainLogo from "../assets/main-logo.png";
 
 function LoginPage() {
   const navigate = useNavigate();
@@ -37,72 +38,72 @@ function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 px-4 py-10 sm:px-6">
-      <div className="mx-auto flex w-full max-w-md flex-col gap-6 sm:max-w-lg">
-        <div className="inline-flex items-center gap-3 rounded-2xl border border-slate-200/70 bg-white/80 px-4 py-2 text-slate-700">
-          <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-purple-500 text-sm font-semibold uppercase tracking-[0.2em] text-white">
-            WB
-          </span>
-          <div className="text-sm leading-tight">
-            <div className="font-semibold text-slate-900">WB Service</div>
-            <div className="text-xs text-slate-500">Корпоративный портал</div>
+    <div className="min-h-screen bg-wb-green flex items-center justify-center px-4">
+      <div className="w-full max-w-sm">
+        <div className="flex flex-col items-center mb-8 gap-4">
+          <img src={MainLogo} className="h-20 w-20 rounded-3xl shadow-lg" alt="WB Банк" />
+          <div className="text-center">
+            <div className="text-white text-xl font-bold tracking-wide">WB Банк</div>
+            <div className="text-white/60 text-sm mt-0.5">Корпоративный портал</div>
           </div>
         </div>
 
-        <section className="rounded-3xl border border-slate-200/70 bg-white p-6 shadow-[0_24px_48px_rgba(15,23,42,0.1)] sm:p-8">
-          <form className="flex h-full flex-col gap-6" onSubmit={handleSubmit}>
-          <div className="space-y-2">
-            <h2 className="text-xl font-semibold text-slate-900">Авторизация</h2>
-            <p className="text-sm text-slate-500">Введите логин и пароль, чтобы продолжить.</p>
-          </div>
-
-          <div className="space-y-4">
-            <label className="block text-sm font-medium text-slate-700" htmlFor="login">
-              Логин
-              <input
-                id="login"
-                name="login"
-                type="text"
-                placeholder="petrov.av"
-                className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:bg-white"
-                value={loginValue}
-                onChange={(event) => setLoginValue(event.target.value)}
-                autoComplete="username"
-                required
-              />
-            </label>
-
-            <label className="block text-sm font-medium text-slate-700" htmlFor="password">
-              Пароль
-              <input
-                id="password"
-                name="password"
-                type="password"
-                placeholder="Введите пароль"
-                className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:bg-white"
-                value={passwordValue}
-                onChange={(event) => setPasswordValue(event.target.value)}
-                autoComplete="current-password"
-                required
-              />
-            </label>
-          </div>
-
-          {errorMessage ? (
-            <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
-              {errorMessage}
+        <section className="bg-white rounded-4xl p-8 shadow-2xl">
+          <form className="flex flex-col gap-5" onSubmit={handleSubmit}>
+            <div>
+              <h2 className="text-lg font-semibold text-gray-900">Вход в систему</h2>
+              <p className="text-sm text-gray-400 mt-0.5">Введите ваши учётные данные</p>
             </div>
-          ) : null}
 
-          <div className="mt-auto space-y-4">
+            <div className="space-y-3">
+              <div>
+                <label className="block text-xs font-medium text-gray-500 mb-1.5" htmlFor="login">
+                  Логин
+                </label>
+                <input
+                  id="login"
+                  name="login"
+                  type="text"
+                  placeholder="petrov.av"
+                  className="w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-900 outline-none transition focus:border-wb-green focus:bg-white focus:ring-2 focus:ring-wb-green/10"
+                  value={loginValue}
+                  onChange={(e) => setLoginValue(e.target.value)}
+                  autoComplete="username"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-gray-500 mb-1.5" htmlFor="password">
+                  Пароль
+                </label>
+                <input
+                  id="password"
+                  name="password"
+                  type="password"
+                  placeholder="••••••••"
+                  className="w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-900 outline-none transition focus:border-wb-green focus:bg-white focus:ring-2 focus:ring-wb-green/10"
+                  value={passwordValue}
+                  onChange={(e) => setPasswordValue(e.target.value)}
+                  autoComplete="current-password"
+                  required
+                />
+              </div>
+            </div>
+
+            {errorMessage && (
+              <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+                {errorMessage}
+              </div>
+            )}
+
             <button
               type="submit"
-              className="w-full rounded-2xl bg-purple-500 px-4 py-3 text-sm font-semibold text-white shadow-[0_12px_24px_rgba(15,23,42,0.25)] transition hover:-translate-y-0.5 hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-70"
+              className="w-full rounded-2xl bg-wb-green px-4 py-3 text-sm font-semibold text-white transition hover:opacity-90 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
               disabled={isSubmitting}
             >
               {isSubmitting ? "Входим..." : "Войти"}
             </button>
-          </div>
           </form>
         </section>
       </div>
