@@ -262,6 +262,12 @@ function App() {
       const refreshToken = getRefreshToken();
       setIsAuthenticated(Boolean(accessToken || refreshToken));
       if (accessToken !== lastToken) {
+        // Access token cookie может временно отсутствовать после истечения, пока
+        // axios-интерцептор не выполнит refresh. Не сбрасываем роли в этот момент —
+        // иначе UI деградирует до прав обычного сотрудника до первого 401.
+        if (!accessToken && refreshToken) {
+          return;
+        }
         lastToken = accessToken;
         setRoles(getRolesFromToken(accessToken));
       }

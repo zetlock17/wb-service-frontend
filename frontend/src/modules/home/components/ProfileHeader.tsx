@@ -1,5 +1,7 @@
-import { Camera, Share2 } from "lucide-react";
+import { useState } from "react";
+import { Camera, Check, Share2 } from "lucide-react";
 import Avatar from "../../../components/common/Avatar";
+import { shareProfile } from "../../../api/profileApi";
 import type { ProfileVacation, UserProfile } from "../../../types/portal";
 import { getCasualName } from "../../../utils/nameUtils";
 import { getVacationStatus } from "../utils/dateUtils";
@@ -10,6 +12,7 @@ interface ProfileHeaderProps {
   canEditAvatar: boolean;
   currentVacation: ProfileVacation | null;
   onAvatarClick: () => void;
+  isOwnProfile: boolean;
 }
 
 const ProfileHeader = ({
@@ -18,7 +21,53 @@ const ProfileHeader = ({
   canEditAvatar,
   currentVacation,
   onAvatarClick,
-}: ProfileHeaderProps) => (
+  isOwnProfile,
+}: ProfileHeaderProps) => {
+  const [isSharing, setIsSharing] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  const handleShare = async () => {
+    if (isSharing) return;
+    setIsSharing(true);
+
+    const linkPromise = shareProfile(user.eid).then((r) => String(r.data ?? ""));
+
+    try {
+      if (
+        typeof ClipboardItem !== "undefined" &&
+        navigator.clipboard &&
+        typeof navigator.clipboard.write === "function"
+      ) {
+        const item = new ClipboardItem({
+          "text/plain": linkPromise.then((text) => new Blob([text], { type: "text/plain" })),
+        });
+        await navigator.clipboard.write([item]);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      } else {
+        const link = await linkPromise;
+        if (navigator.clipboard?.writeText) {
+          await navigator.clipboard.writeText(link);
+          setCopied(true);
+          setTimeout(() => setCopied(false), 2000);
+        } else {
+          window.prompt("Скопируйте ссылку:", link);
+        }
+      }
+    } catch (e) {
+      console.error("share failed", e);
+      try {
+        const link = await linkPromise;
+        window.prompt("Скопируйте ссылку:", link);
+      } catch (err) {
+        console.error("fallback prompt failed", err);
+      }
+    } finally {
+      setIsSharing(false);
+    }
+  };
+
+  return (
   <div className="bg-white rounded-4xl shadow-sm border border-gray-100 p-6">
     <div className="flex items-start justify-between">
       <div className="flex items-center gap-5">
@@ -47,9 +96,21 @@ const ProfileHeader = ({
                 {getVacationStatus(currentVacation) === "active" ? "В отпуске" : "Отпуск запланирован"}
               </span>
             )}
-            <button className="p-1.5 hover:bg-gray-100 rounded-3xl transition-colors" aria-label="Поделиться профилем">
-              <Share2 className="w-4 h-4 text-gray-400" />
+            {isOwnProfile && (
+            <button
+              onClick={handleShare}
+              disabled={isSharing}
+              className="p-1.5 hover:bg-gray-100 rounded-3xl transition-colors disabled:opacity-50"
+              aria-label="Поделиться профилем"
+              title={copied ? "Ссылка скопирована" : "Поделиться профилем"}
+            >
+              {copied ? (
+                <Check className="w-4 h-4 text-wb-green" />
+              ) : (
+                <Share2 className="w-4 h-4 text-gray-400" />
+              )}
             </button>
+            )}
           </div>
           <p className="text-gray-600">{user.position}</p>
           <p className="text-sm text-gray-400 font-mono mt-0.5">{user.eid}</p>
@@ -57,6 +118,7 @@ const ProfileHeader = ({
       </div>
     </div>
   </div>
-);
+  );
+};
 
 export default ProfileHeader;

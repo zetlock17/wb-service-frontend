@@ -41,9 +41,9 @@ const ProjectsCard = ({ user, canEditPersonalFields, startEditing }: ProjectsCar
           </div>
           {project.link && (
             <a
-              href={project.link}
+              href={/^https?:\/\//i.test(project.link) ? project.link : `https://${project.link}`}
               target="_blank"
-              rel="noreferrer"
+              rel="noopener noreferrer"
               className="flex items-center justify-center w-8 h-8 bg-wb-green-light text-wb-green-dark rounded-lg hover:bg-wb-green hover:text-white transition-colors shrink-0"
               aria-label="Открыть проект"
             >

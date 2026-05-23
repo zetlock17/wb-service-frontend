@@ -205,6 +205,7 @@ const HomeModule = ({ onNavigate, profileEid }: HomeModuleProps) => {
         canEditAvatar={canEditAvatar}
         currentVacation={currentVacation}
         onAvatarClick={() => setShowAvatarModal(true)}
+        isOwnProfile={!isForeignProfile}
       />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

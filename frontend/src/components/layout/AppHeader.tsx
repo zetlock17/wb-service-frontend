@@ -30,17 +30,17 @@ const AppHeader = ({
 
   if (!currentUser) {
     return (
-      <header className="bg-white border-b border-gray-200 sticky top-0 z-40">
+      <header className="bg-wb-green sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             <div className="animate-pulse flex space-x-4 w-full">
-              <div className="rounded-lg bg-gray-200 h-8 w-32"></div>
+              <div className="rounded-lg bg-white/20 h-8 w-32"></div>
               <div className="flex-1 space-x-2 flex">
-                <div className="h-8 w-24 rounded bg-gray-200"></div>
-                <div className="h-8 w-24 rounded bg-gray-200"></div>
-                <div className="h-8 w-24 rounded bg-gray-200"></div>
+                <div className="h-8 w-24 rounded bg-white/20"></div>
+                <div className="h-8 w-24 rounded bg-white/20"></div>
+                <div className="h-8 w-24 rounded bg-white/20"></div>
               </div>
-              <div className="rounded-full bg-gray-200 h-8 w-8"></div>
+              <div className="rounded-full bg-white/20 h-8 w-8"></div>
             </div>
           </div>
         </div>
@@ -49,16 +49,19 @@ const AppHeader = ({
   }
 
   return (
-    <header className="bg-white border-b border-gray-200 sticky top-0 z-40">
+    <header className="bg-wb-green sticky top-0 z-40">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-24">
-          <div className="flex items-center gap-4">
+        <div className="flex items-center justify-between h-20">
+          <div className="flex items-center gap-6">
             <button
               onClick={() => onModuleChange("home")}
-              className="flex items-center text-3xl font-bold text-black"
+              className="flex items-center gap-3 shrink-0"
             >
-              <img src={MainLogo} className="h-16 w-16" />
+              <img src={MainLogo} className="h-12 w-12 rounded-xl" />
             </button>
+
+            <div className="hidden lg:block w-px h-8 bg-white/20" />
+
             <nav className="hidden lg:flex items-center gap-1">
               {modules
                 .filter((module) => module.id !== "home")
@@ -68,8 +71,8 @@ const AppHeader = ({
                     onClick={() => onModuleChange(module.id)}
                     className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                       activeModule === module.id
-                        ? "bg-purple-100 text-purple-700"
-                        : "text-black hover:bg-gray-100"
+                        ? "bg-white/20 text-white"
+                        : "text-white/70 hover:text-white hover:bg-white/10"
                     }`}
                   >
                     {module.name}
@@ -77,47 +80,51 @@ const AppHeader = ({
                 ))}
             </nav>
           </div>
-          <div className="flex items-center gap-3">
+
+          <div className="flex items-center gap-1">
             <button
               onClick={onToggleSearch}
-              className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg"
+              className="p-2 text-white/70 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
               aria-label="Глобальный поиск"
             >
               <Search className="w-5 h-5" />
             </button>
+
             <div className="relative">
               <button
                 onClick={onToggleNotifications}
-                className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg relative"
+                className="p-2 text-white/70 hover:text-white hover:bg-white/10 rounded-lg relative transition-colors"
                 aria-label="Уведомления"
               >
                 <Bell className="w-5 h-5" />
                 {unreadCount > 0 && (
                   <>
-                    <span className="absolute top-0.5 right-0.5 w-4 h-4 bg-red-500 text-white text-[10px] font-semibold rounded-full flex items-center justify-center px-1 min-w-4">
+                    <span className="absolute top-0.5 right-0.5 w-4 h-4 bg-wb-pink text-white text-[10px] font-semibold rounded-full flex items-center justify-center px-1 min-w-4">
                       {unreadCount > 99 ? "99+" : unreadCount}
                     </span>
-                    <span className="absolute top-0.5 right-0.5 w-4 h-4 bg-red-500 rounded-full animate-ping opacity-60" />
+                    <span className="absolute top-0.5 right-0.5 w-4 h-4 bg-wb-pink rounded-full animate-ping opacity-60" />
                   </>
                 )}
               </button>
             </div>
+
             <div className="relative hidden sm:block">
               <button
                 onClick={onToggleProfileMenu}
-                className="flex items-center p-2 hover:bg-gray-100 rounded-lg"
+                className="flex items-center gap-1 p-2 hover:bg-white/10 rounded-lg transition-colors"
               >
-                <Avatar 
+                <Avatar
                   avatarUrl={avatarUrl ?? undefined}
                   fullName={currentUser.full_name}
-                  size={10}
+                  size={8}
                 />
-                <ChevronDown strokeWidth={1} className="w-8 h-8 text-gray-600" />
+                <ChevronDown strokeWidth={1.5} className="w-5 h-5 text-white/70" />
               </button>
             </div>
+
             <button
               onClick={onToggleSidebar}
-              className="lg:hidden p-2 text-gray-600 hover:bg-gray-100 rounded-lg"
+              className="lg:hidden p-2 text-white/70 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
               aria-label="Меню"
             >
               <Menu className="w-5 h-5" />
@@ -130,4 +137,3 @@ const AppHeader = ({
 };
 
 export default AppHeader;
-
