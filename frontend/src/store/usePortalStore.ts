@@ -578,7 +578,8 @@ const usePortalStore = create<PortalState>((set) => ({
 
       const response = await getOrgHierarchy();
       set({ organizationHierarchy: response.data || [] });
-      void usePortalStore.getState().fetchUnitEmployees();
+      // Не дёргаем fetchUnitEmployees(): Elasticsearch индексируется не сразу
+      // и обновление от ES перетёрло бы оптимистичный апдейт.
     } catch (error) {
       console.error("Failed to add employee to org unit:", error);
       throw error;
@@ -600,7 +601,8 @@ const usePortalStore = create<PortalState>((set) => ({
 
       const response = await getOrgHierarchy();
       set({ organizationHierarchy: response.data || [] });
-      void usePortalStore.getState().fetchUnitEmployees();
+      // Не дёргаем fetchUnitEmployees(): Elasticsearch индексируется не сразу
+      // и обновление от ES перетёрло бы оптимистичный апдейт.
     } catch (error) {
       console.error("Failed to remove employee from org unit:", error);
       throw error;

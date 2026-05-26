@@ -118,8 +118,9 @@ const StructureModule = () => {
 
   const handleRemoveEmployeeById = useCallback(async (unitId: number, eid: string) => {
     await removeEmployeeFromOrgUnitAsync(unitId, eid);
-    handleRefresh();
-  }, [removeEmployeeFromOrgUnitAsync, handleRefresh]);
+    // Стор делает оптимистичный апдейт + подтягивает иерархию — лишний
+    // fetchOrgStructure() показал бы skeleton и сбросил скролл наверх.
+  }, [removeEmployeeFromOrgUnitAsync]);
 
   const handleOpenProfile = useCallback(
     (eid: string) => navigate(`/profile/${eid}`),
@@ -327,13 +328,11 @@ const StructureModule = () => {
             isOpen={addEmployeeModalOpen}
             onClose={() => setAddEmployeeModalOpen(false)}
             unit={selectedUnit}
-            onSuccess={handleRefresh}
           />
           <RemoveEmployeeModal
             isOpen={removeEmployeeModalOpen}
             onClose={() => setRemoveEmployeeModalOpen(false)}
             unit={selectedUnit}
-            onSuccess={handleRefresh}
           />
         </>
       )}
