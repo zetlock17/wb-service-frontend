@@ -9,7 +9,6 @@ import { suggestEmployees } from "../../api/profileApi";
 import { useNewsData } from "./hooks/useNewsData";
 import { useNewsForm } from "./hooks/useNewsForm";
 import NewsToolbar from "./components/NewsToolbar";
-import FollowedCategories from "./components/FollowedCategories";
 import NewsFiltersPanel from "./components/NewsFiltersPanel";
 import NewsCard from "./components/NewsCard";
 import DraftCard from "./components/DraftCard";
@@ -90,12 +89,9 @@ const NewsModule = () => {
         onToggleFilters={() => setShowFilters((s) => !s)}
         onCreateNews={() => form.setShowCreateModal(true)}
         onManageCategories={() => setShowCategoryModal(true)}
-      />
-
-      <FollowedCategories
         followedCategories={data.followedCategories}
         selectedCategory={data.selectedCategory}
-        onSelect={data.setSelectedCategory}
+        onSelectCategory={data.setSelectedCategory}
       />
 
       {showFilters && (

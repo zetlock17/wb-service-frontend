@@ -1,4 +1,5 @@
-import { Filter, Plus, Settings } from "lucide-react";
+import { Bell, Filter, Plus, Settings } from "lucide-react";
+import type { Category } from "../../../api/newsApi";
 
 interface NewsToolbarProps {
   isNewsEditor: boolean;
@@ -10,6 +11,9 @@ interface NewsToolbarProps {
   onToggleFilters: () => void;
   onCreateNews: () => void;
   onManageCategories: () => void;
+  followedCategories: Category[];
+  selectedCategory?: number;
+  onSelectCategory: (categoryId: number | undefined) => void;
 }
 
 const NewsToolbar = ({
@@ -22,8 +26,11 @@ const NewsToolbar = ({
   onToggleFilters,
   onCreateNews,
   onManageCategories,
+  followedCategories,
+  selectedCategory,
+  onSelectCategory,
 }: NewsToolbarProps) => (
-  <header className="rounded-[28px] bg-wb-green px-7 pt-8 pb-10 sm:px-10">
+  <header className="rounded-[28px] bg-wb-green px-7 pt-8 pb-8 sm:px-10">
     <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
       <div className="min-w-0">
         {isNewsEditor && (
@@ -104,6 +111,30 @@ const NewsToolbar = ({
         )}
       </div>
     </div>
+
+    {followedCategories.length > 0 && (
+      <div className="mt-5 flex flex-wrap items-center gap-2.5">
+        <span className="inline-flex shrink-0 items-center gap-1.5 text-[13px] font-bold text-white/70">
+          <Bell className="h-3.5 w-3.5" />
+          Подписки:
+        </span>
+        {followedCategories.map((cat) => (
+          <button
+            key={cat.id}
+            type="button"
+            onClick={() => onSelectCategory(cat.id === selectedCategory ? undefined : cat.id)}
+            style={{ paddingLeft: 14, paddingRight: 14 }}
+            className={`rounded-full py-2 text-[13.5px] font-bold transition hover:-translate-y-px ${
+              selectedCategory === cat.id
+                ? 'bg-white text-wb-green'
+                : 'bg-white/20 text-white hover:bg-white/30'
+            }`}
+          >
+            {cat.name}
+          </button>
+        ))}
+      </div>
+    )}
   </header>
 );
 
