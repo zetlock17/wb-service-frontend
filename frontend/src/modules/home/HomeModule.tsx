@@ -220,6 +220,7 @@ const HomeModule = ({ onNavigate, profileEid }: HomeModuleProps) => {
           user={user}
           canEditPersonalFields={canEditPersonalFields}
           isHr={isHr}
+          isForeignProfile={isForeignProfile}
           startEditing={startEditing}
         />
         <StructureCard

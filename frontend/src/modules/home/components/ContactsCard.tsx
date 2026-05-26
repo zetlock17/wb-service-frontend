@@ -7,18 +7,27 @@ interface ContactsCardProps {
   user: UserProfile;
   canEditPersonalFields: boolean;
   isHr: boolean;
+  isForeignProfile: boolean;
   startEditing: (section: string, field?: string, currentValue?: unknown) => void;
 }
 
-const ContactsCard = ({ user, canEditPersonalFields, isHr, startEditing }: ContactsCardProps) => (
+const buildTelegramLink = (handle: string | null | undefined): string | undefined => {
+  if (!handle) return undefined;
+  const username = handle.replace(/^@/, "");
+  return `https://t.me/${username}`;
+};
+
+const ContactsCard = ({ user, canEditPersonalFields, isHr, isForeignProfile, startEditing }: ContactsCardProps) => (
   <InfoCard title="Контакты" icon={<Mail className="w-4 h-4 text-wb-green" />}>
     <div className="space-y-3">
-      <ProfileRow
-        label="Личный телефон"
-        value={user.personal_phone}
-        editable={canEditPersonalFields}
-        onEdit={() => startEditing("profile", "personal_phone", { personal_phone: user.personal_phone })}
-      />
+      {!isForeignProfile && (
+        <ProfileRow
+          label="Личный телефон"
+          value={user.personal_phone}
+          editable={canEditPersonalFields}
+          onEdit={() => startEditing("profile", "personal_phone", { personal_phone: user.personal_phone })}
+        />
+      )}
       <ProfileRow
         label="Рабочий телефон"
         value={user.work_phone}
@@ -37,6 +46,7 @@ const ContactsCard = ({ user, canEditPersonalFields, isHr, startEditing }: Conta
       <ProfileRow
         label="Telegram"
         value={user.telegram || "Не указан"}
+        link={buildTelegramLink(user.telegram)}
         editable={canEditPersonalFields}
         onEdit={() => startEditing("profile", "telegram", { telegram: user.telegram || "" })}
       />

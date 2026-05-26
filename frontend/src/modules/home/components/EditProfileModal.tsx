@@ -1,5 +1,6 @@
 import Modal from "../../../components/common/Modal";
 import type { EditingField } from "../types";
+import { getEditModalTitle } from "../types";
 import ProfileFieldEditor, {
   type EmployeeOption,
   type OrgUnitOption,
@@ -138,7 +139,7 @@ const EditProfileModal = ({
   return (
     <Modal
       isOpen={Boolean(editingField)}
-      title={`Редактировать ${editingField?.field || editingField?.section || ""}`}
+      title={getEditModalTitle(editingField)}
       onClose={onCancel}
       widthClass="max-w-md"
     >
