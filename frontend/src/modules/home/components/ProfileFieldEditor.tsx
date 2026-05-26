@@ -75,13 +75,13 @@ const ProfileFieldEditor = ({
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">Подразделение</label>
           <select
-            value={values.org_unit_id ?? ""}
+            value={values.organization_unit ?? ""}
             onChange={(e) => {
               const nextValue = e.target.value ? Number(e.target.value) : null;
               const selectedUnit = orgUnitOptions.find((unit) => unit.value === nextValue);
               setValues({
                 ...values,
-                org_unit_id: nextValue,
+                organization_unit: nextValue,
                 org_unit: selectedUnit?.label || "",
               });
             }}

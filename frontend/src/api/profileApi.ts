@@ -91,11 +91,16 @@ export const updateProfileByEid = async (
     eid: number | string,
     profileData: CanEdit
 ): Promise<ApiResponse<UserProfile>> => {
-    return await patchRequest<UserProfile>(`/api/v1/profile/${eid}`, profileData);
+    console.log(`Updating profile for EID ${eid} with data:`, profileData);
+    const response = await patchRequest<UserProfile>(`/api/v1/profile/${eid}`, profileData);
+    console.log(`Update response for EID ${eid}:`, response);
+    return response;
 };
 
-export const shareProfile = async (_eid?: number | string): Promise<ApiResponse<string>> => {
-    void _eid;
+export const shareProfile = async (eid?: number | string): Promise<ApiResponse<string>> => {
+    if (eid !== undefined && eid !== null && eid !== '') {
+        return await getRequest<string>(`/api/v1/profile/share/${eid}`);
+    }
     return await getRequest<string>(`/api/v1/profile/share`);
 };
 

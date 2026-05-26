@@ -21,7 +21,6 @@ const ProfileHeader = ({
   canEditAvatar,
   currentVacation,
   onAvatarClick,
-  isOwnProfile,
 }: ProfileHeaderProps) => {
   const [isSharing, setIsSharing] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -96,7 +95,6 @@ const ProfileHeader = ({
                 {getVacationStatus(currentVacation) === "active" ? "В отпуске" : "Отпуск запланирован"}
               </span>
             )}
-            {isOwnProfile && (
             <button
               onClick={handleShare}
               disabled={isSharing}
@@ -110,7 +108,6 @@ const ProfileHeader = ({
                 <Share2 className="w-4 h-4 text-gray-400" />
               )}
             </button>
-            )}
           </div>
           <p className="text-gray-600">{user.position}</p>
           <p className="text-sm text-gray-400 font-mono mt-0.5">{user.eid}</p>

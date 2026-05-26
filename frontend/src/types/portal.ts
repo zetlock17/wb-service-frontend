@@ -44,7 +44,7 @@ export interface UserProfile {
   full_name: string;
   avatar_id: number | null;
   position: string;
-  org_unit: string;  // Изменено с department согласно API spec
+  org_unit: string; 
   birth_date: string;
   hire_date: string;
   personal_phone: string;
@@ -67,7 +67,7 @@ export interface CanEdit {
   projects?: ProfileProjectUpdate[] | null;
   full_name?: string | null;
   position?: string | null;
-  org_unit_id?: number | null;
+  organization_unit?: number | null;
   work_phone?: string | null;
   work_email?: string | null;
   manager_eid?: string | null;

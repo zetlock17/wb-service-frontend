@@ -88,7 +88,7 @@ interface PortalState {
   updateCurrentUser: (
     eid: number,
     updatedUser: Partial<UserProfile> & {
-      org_unit_id?: number | null;
+      organization_unit?: number | null;
       manager_eid?: string | null;
       hrbp_eid?: string | null;
     }
@@ -239,7 +239,7 @@ const usePortalStore = create<PortalState>((set) => ({
   updateCurrentUser: async (
     eid: number,
     updatedUser: Partial<UserProfile> & {
-      org_unit_id?: number | null;
+      organization_unit?: number | null;
       manager_eid?: string | null;
       hrbp_eid?: string | null;
     }
@@ -261,7 +261,7 @@ const usePortalStore = create<PortalState>((set) => ({
       if (updatedUser.avatar_id !== undefined) editableData.avatar_id = updatedUser.avatar_id;
       if (updatedUser.full_name !== undefined) editableData.full_name = updatedUser.full_name;
       if (updatedUser.position !== undefined) editableData.position = updatedUser.position;
-      if (updatedUser.org_unit_id !== undefined) editableData.org_unit_id = updatedUser.org_unit_id;
+      if (updatedUser.organization_unit !== undefined) editableData.organization_unit = updatedUser.organization_unit;
       if (updatedUser.work_phone !== undefined) editableData.work_phone = updatedUser.work_phone;
       if (updatedUser.work_email !== undefined) editableData.work_email = updatedUser.work_email;
       if (updatedUser.manager_eid !== undefined) editableData.manager_eid = updatedUser.manager_eid;

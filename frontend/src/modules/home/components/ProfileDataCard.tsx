@@ -41,7 +41,7 @@ const ProfileDataCard = ({
         onEdit={() =>
           startEditing("profile", "org_unit", {
             org_unit: user.org_unit,
-            org_unit_id: orgUnitIdByName.get(user.org_unit) ?? null,
+            organization_unit: orgUnitIdByName.get(user.org_unit) ?? null,
           })
         }
       />
