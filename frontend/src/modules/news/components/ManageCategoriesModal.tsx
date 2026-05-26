@@ -57,7 +57,7 @@ const ManageCategoriesModal = ({
         {/* header */}
         <header className="flex items-center justify-between gap-3 border-b-2 border-gray-100 px-7 pb-4 pt-6">
           <h2 className="text-[22px] font-black tracking-tight text-gray-900">
-            Управление категориями
+            {isAdmin ? 'Управление категориями' : 'Подписки на категории'}
           </h2>
           <button
             type="button"
@@ -71,34 +71,36 @@ const ManageCategoriesModal = ({
 
         {/* body */}
         <div className="flex flex-col gap-6 overflow-y-auto px-7 py-6">
-          {/* create */}
-          <div>
-            <label className="mb-2 block text-[12.5px] font-bold tracking-wide text-gray-500">
-              Создать новую категорию
-            </label>
-            <div className="flex gap-2.5">
-              <input
-                type="text"
-                value={newCategoryName}
-                onChange={(e) => { setNewCategoryName(e.target.value); setCategoryError(null); }}
-                onKeyDown={(e) => e.key === 'Enter' && handleCreate()}
-                placeholder="Название категории"
-                className="flex-1 rounded-[14px] bg-white px-4 py-3 text-[14.5px] font-semibold text-gray-800 outline-none ring-1 ring-inset ring-gray-200 placeholder:font-medium placeholder:text-gray-400 focus:ring-2 focus:ring-wb-green transition"
-              />
-              <button
-                type="button"
-                onClick={handleCreate}
-                disabled={creatingCategory || !newCategoryName.trim()}
-                className="inline-flex items-center gap-2 rounded-full bg-wb-green px-5 py-3 text-[14.5px] font-bold text-white transition hover:-translate-y-px disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:translate-y-0"
-              >
-                <Plus className="h-4 w-4" />
-                {creatingCategory ? 'Создание...' : 'Создать'}
-              </button>
+          {/* create — только для admins */}
+          {isAdmin && (
+            <div>
+              <label className="mb-2 block text-[12.5px] font-bold tracking-wide text-gray-500">
+                Создать новую категорию
+              </label>
+              <div className="flex gap-2.5">
+                <input
+                  type="text"
+                  value={newCategoryName}
+                  onChange={(e) => { setNewCategoryName(e.target.value); setCategoryError(null); }}
+                  onKeyDown={(e) => e.key === 'Enter' && handleCreate()}
+                  placeholder="Название категории"
+                  className="flex-1 rounded-[14px] bg-white px-4 py-3 text-[14.5px] font-semibold text-gray-800 outline-none ring-1 ring-inset ring-gray-200 placeholder:font-medium placeholder:text-gray-400 focus:ring-2 focus:ring-wb-green transition"
+                />
+                <button
+                  type="button"
+                  onClick={handleCreate}
+                  disabled={creatingCategory || !newCategoryName.trim()}
+                  className="inline-flex items-center gap-2 rounded-full bg-wb-green px-5 py-3 text-[14.5px] font-bold text-white transition hover:-translate-y-px disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:translate-y-0"
+                >
+                  <Plus className="h-4 w-4" />
+                  {creatingCategory ? 'Создание...' : 'Создать'}
+                </button>
+              </div>
+              {categoryError && (
+                <p className="mt-2 text-[13px] font-semibold text-red-600">{categoryError}</p>
+              )}
             </div>
-            {categoryError && (
-              <p className="mt-2 text-[13px] font-semibold text-red-600">{categoryError}</p>
-            )}
-          </div>
+          )}
 
           {/* list */}
           <div>

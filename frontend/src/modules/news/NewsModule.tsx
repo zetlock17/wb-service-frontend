@@ -92,6 +92,7 @@ const NewsModule = () => {
         followedCategories={data.followedCategories}
         selectedCategory={data.selectedCategory}
         onSelectCategory={data.setSelectedCategory}
+        onUnfollowCategory={data.handleUnfollowCategory}
       />
 
       {showFilters && (
