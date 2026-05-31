@@ -34,7 +34,14 @@ const ProfileRow = ({
       >
         {value}
         {editable ? (
-          <button onClick={onEdit} className="p-1 hover:bg-gray-100 rounded">
+          <button
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              onEdit?.();
+            }}
+            className="p-1 hover:bg-gray-100 rounded"
+          >
             <Edit2 className="w-3 h-3 text-gray-500" />
           </button>
         ) : (

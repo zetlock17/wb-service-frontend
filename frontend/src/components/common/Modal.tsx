@@ -1,3 +1,4 @@
+import { X } from "lucide-react";
 import { useEffect, type ReactNode } from "react";
 
 interface ModalProps {
@@ -36,22 +37,24 @@ const Modal = ({ isOpen, title, onClose, children, widthClass = "max-w-3xl" }: M
   };
 
   return (
-    <div 
-      className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+    <div
+      className="animate-wb-overlay-in fixed inset-0 z-50 flex items-center justify-center bg-gray-900/40 p-4 backdrop-blur-sm"
       onClick={handleBackdropClick}
     >
-      <div className={`bg-white rounded-lg w-full ${widthClass} max-h-[90vh] overflow-y-auto`}>
-        <div className="p-6 border-b border-gray-200 flex items-center justify-between">
-          <h2 className="text-2xl font-bold text-gray-900">{title}</h2>
+      <div
+        className={`animate-wb-panel-in flex max-h-[90vh] w-full flex-col overflow-hidden rounded-[28px] bg-white shadow-2xl shadow-gray-900/20 ${widthClass}`}
+      >
+        <div className="flex items-center justify-between gap-4 border-b border-gray-100 px-7 py-5">
+          <h2 className="text-xl font-extrabold tracking-tight text-gray-900">{title}</h2>
           <button
             onClick={onClose}
-            className="text-gray-500 hover:text-gray-700"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gray-100 text-gray-500 transition hover:bg-wb-pink-light hover:text-wb-pink-dark"
             aria-label="Закрыть модальное окно"
           >
-            ✕
+            <X className="h-4 w-4" />
           </button>
         </div>
-        <div className="p-6 space-y-4">{children}</div>
+        <div className="space-y-4 overflow-y-auto px-7 py-6">{children}</div>
       </div>
     </div>
   );

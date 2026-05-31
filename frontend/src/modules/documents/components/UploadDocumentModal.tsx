@@ -108,10 +108,10 @@ const UploadDocumentModal = ({
           onClick={() => !file && fileInputRef.current?.click()}
           className={`relative rounded-2xl border-2 border-dashed p-8 text-center transition ${
             isDragging
-              ? "border-purple-400 bg-purple-50"
+              ? "border-wb-green bg-wb-green-light"
               : file
-              ? "border-green-300 bg-green-50"
-              : "cursor-pointer border-gray-300 bg-gray-50 hover:border-purple-300 hover:bg-purple-50/40"
+              ? "border-wb-green/60 bg-wb-green-light"
+              : "cursor-pointer border-gray-300 bg-gray-50 hover:border-wb-green hover:bg-wb-green-light/50"
           }`}
         >
           <input
@@ -124,7 +124,7 @@ const UploadDocumentModal = ({
 
           {file ? (
             <div className="flex items-center justify-center gap-3">
-              <FileText className="h-8 w-8 shrink-0 text-green-500" />
+              <FileText className="h-8 w-8 shrink-0 text-wb-green" />
               <div className="min-w-0 text-left">
                 <p className="truncate font-medium text-gray-900">{file.name}</p>
                 <p className="text-xs text-gray-500">{(file.size / 1024 / 1024).toFixed(2)} МБ</p>
@@ -142,10 +142,10 @@ const UploadDocumentModal = ({
             </div>
           ) : (
             <>
-              <UploadCloud className={`mx-auto mb-3 h-10 w-10 ${isDragging ? "text-purple-400" : "text-gray-400"}`} />
+              <UploadCloud className={`mx-auto mb-3 h-10 w-10 ${isDragging ? "text-wb-green" : "text-gray-400"}`} />
               <p className="text-sm font-medium text-gray-700">
                 Перетащите файл или{" "}
-                <span className="text-purple-600 underline underline-offset-2">выберите вручную</span>
+                <span className="font-semibold text-wb-green underline underline-offset-2">выберите вручную</span>
               </p>
               <p className="mt-1 text-xs text-gray-400">DOCX, PDF, XLSX, JPG, PNG · максимум 50 МБ</p>
             </>
@@ -160,7 +160,7 @@ const UploadDocumentModal = ({
             </div>
             <div className="h-2 w-full overflow-hidden rounded-full bg-gray-200">
               <div
-                className="h-2 rounded-full bg-purple-600 transition-all duration-200"
+                className="h-2 rounded-full bg-wb-green transition-all duration-200"
                 style={{ width: `${uploadProgress}%` }}
               />
             </div>
@@ -177,7 +177,7 @@ const UploadDocumentModal = ({
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="Если пусто, будет использовано имя файла"
-              className="w-full rounded-xl border border-gray-300 px-3 py-2.5 text-sm outline-none transition focus:border-purple-400 focus:ring-2 focus:ring-purple-200"
+              className="w-full rounded-xl border border-gray-300 px-3 py-2.5 text-sm outline-none transition focus:border-wb-green focus:ring-2 focus:ring-wb-green/20"
             />
           </div>
 
@@ -188,7 +188,7 @@ const UploadDocumentModal = ({
             <select
               value={type}
               onChange={(e) => setType(e.target.value)}
-              className="w-full rounded-xl border border-gray-300 px-3 py-2.5 text-sm outline-none transition focus:border-purple-400 focus:ring-2 focus:ring-purple-200"
+              className="w-full rounded-xl border border-gray-300 px-3 py-2.5 text-sm outline-none transition focus:border-wb-green focus:ring-2 focus:ring-wb-green/20"
             >
               <option value="" disabled>
                 Выберите тип
@@ -224,7 +224,7 @@ const UploadDocumentModal = ({
               onChange={(e) => setDescription(e.target.value)}
               rows={3}
               placeholder="Кратко опишите содержание документа"
-              className="w-full resize-none rounded-xl border border-gray-300 px-3 py-2.5 text-sm outline-none transition focus:border-purple-400 focus:ring-2 focus:ring-purple-200"
+              className="w-full resize-none rounded-xl border border-gray-300 px-3 py-2.5 text-sm outline-none transition focus:border-wb-green focus:ring-2 focus:ring-wb-green/20"
             />
           </div>
         </div>
@@ -234,7 +234,7 @@ const UploadDocumentModal = ({
             type="button"
             onClick={handleClose}
             disabled={uploading}
-            className="rounded-xl border border-gray-300 px-5 py-2.5 text-sm text-gray-700 transition hover:bg-gray-50 disabled:opacity-60"
+            className="rounded-full border border-gray-200 px-5 py-2.5 text-sm font-bold text-gray-600 transition hover:bg-gray-50 disabled:opacity-60"
           >
             Отмена
           </button>
@@ -242,7 +242,7 @@ const UploadDocumentModal = ({
             type="button"
             onClick={handleSubmit}
             disabled={uploading || !file}
-            className="inline-flex items-center gap-2 rounded-xl bg-purple-600 px-5 py-2.5 text-sm font-medium text-white transition hover:bg-purple-700 disabled:cursor-not-allowed disabled:opacity-60"
+            className="inline-flex items-center gap-2 rounded-full bg-wb-green px-5 py-2.5 text-sm font-bold text-white transition hover:-translate-y-px disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0"
           >
             <UploadCloud className="h-4 w-4" />
             {uploading ? "Загрузка..." : "Загрузить"}

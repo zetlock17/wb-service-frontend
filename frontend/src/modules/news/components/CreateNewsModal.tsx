@@ -20,10 +20,10 @@ const submitButtonLabel = (status: NewsStatus) =>
   status === 'DRAFT' ? 'Сохранить черновик' : status === 'SCHEDULED' ? 'Запланировать' : 'Опубликовать';
 
 const statusButtonClass = (status: NewsStatus, isActive: boolean) => {
-  if (!isActive) return 'bg-white text-gray-600 border-gray-300 hover:border-gray-400';
-  if (status === 'DRAFT') return 'bg-gray-600 text-white border-gray-600';
-  if (status === 'SCHEDULED') return 'bg-blue-600 text-white border-blue-600';
-  return 'bg-green-600 text-white border-green-600';
+  if (!isActive) return 'bg-white text-gray-600 border-gray-200 hover:border-wb-green/40 hover:text-wb-green';
+  if (status === 'DRAFT') return 'bg-gray-700 text-white border-gray-700';
+  if (status === 'SCHEDULED') return 'bg-wb-pink-dark text-white border-wb-pink-dark';
+  return 'bg-wb-green text-white border-wb-green';
 };
 
 const CreateNewsModal = ({ categories, controller }: CreateNewsModalProps) => {
@@ -75,7 +75,7 @@ const CreateNewsModal = ({ categories, controller }: CreateNewsModalProps) => {
             type="text"
             value={formData.title}
             onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+            className="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm text-gray-800 outline-none transition focus:border-wb-green focus:ring-2 focus:ring-wb-green/20"
             placeholder="Введите заголовок новости"
           />
         </div>
@@ -86,7 +86,7 @@ const CreateNewsModal = ({ categories, controller }: CreateNewsModalProps) => {
             type="text"
             value={formData.short_description}
             onChange={(e) => setFormData({ ...formData, short_description: e.target.value })}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+            className="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm text-gray-800 outline-none transition focus:border-wb-green focus:ring-2 focus:ring-wb-green/20"
             placeholder="Краткое описание для списка новостей"
           />
         </div>
@@ -99,7 +99,7 @@ const CreateNewsModal = ({ categories, controller }: CreateNewsModalProps) => {
             value={formData.content}
             onChange={(e) => setFormData({ ...formData, content: e.target.value })}
             rows={8}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+            className="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm text-gray-800 outline-none transition focus:border-wb-green focus:ring-2 focus:ring-wb-green/20"
             placeholder="Введите содержание новости"
           />
         </div>
@@ -114,7 +114,7 @@ const CreateNewsModal = ({ categories, controller }: CreateNewsModalProps) => {
             <select
               value={formData.category_ids[0] ?? ''}
               onChange={(e) => setFormData({ ...formData, category_ids: [Number(e.target.value)] })}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+              className="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm text-gray-800 outline-none transition focus:border-wb-green focus:ring-2 focus:ring-wb-green/20"
             >
               {categories.map((cat) => (
                 <option key={cat.id} value={cat.id}>{cat.name}</option>
@@ -123,36 +123,29 @@ const CreateNewsModal = ({ categories, controller }: CreateNewsModalProps) => {
           )}
         </div>
 
-        <div className="flex items-center gap-4 flex-wrap">
-          <label className="flex items-center gap-2 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={formData.is_pinned}
-              onChange={(e) => setFormData({ ...formData, is_pinned: e.target.checked })}
-              className="w-4 h-4 text-purple-600 border-gray-300 rounded focus:ring-purple-500"
-            />
-            <span className="text-sm text-gray-700">Закрепить новость</span>
-          </label>
-
-          <label className="flex items-center gap-2 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={formData.mandatory_ack}
-              onChange={(e) => setFormData({ ...formData, mandatory_ack: e.target.checked })}
-              className="w-4 h-4 text-purple-600 border-gray-300 rounded focus:ring-purple-500"
-            />
-            <span className="text-sm text-gray-700">Обязательное ознакомление</span>
-          </label>
-
-          <label className="flex items-center gap-2 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={formData.comments_enabled}
-              onChange={(e) => setFormData({ ...formData, comments_enabled: e.target.checked })}
-              className="w-4 h-4 text-purple-600 border-gray-300 rounded focus:ring-purple-500"
-            />
-            <span className="text-sm text-gray-700">Комментарии включены</span>
-          </label>
+        <div className="flex flex-wrap items-center gap-2.5 rounded-2xl bg-gray-50 p-3">
+          {[
+            { key: 'is_pinned' as const, label: 'Закрепить новость' },
+            { key: 'mandatory_ack' as const, label: 'Обязательное ознакомление' },
+            { key: 'comments_enabled' as const, label: 'Комментарии включены' },
+          ].map(({ key, label }) => (
+            <label
+              key={key}
+              className={`flex cursor-pointer items-center gap-2 rounded-full border px-3.5 py-2 text-sm font-medium transition ${
+                formData[key]
+                  ? 'border-wb-green bg-wb-green-light text-wb-green'
+                  : 'border-gray-200 bg-white text-gray-600 hover:border-wb-green/40'
+              }`}
+            >
+              <input
+                type="checkbox"
+                checked={formData[key]}
+                onChange={(e) => setFormData({ ...formData, [key]: e.target.checked })}
+                className="h-4 w-4 rounded border-gray-300 text-wb-green accent-wb-green focus:ring-wb-green"
+              />
+              <span>{label}</span>
+            </label>
+          ))}
         </div>
 
         {formData.mandatory_ack && (
@@ -191,7 +184,7 @@ const CreateNewsModal = ({ categories, controller }: CreateNewsModalProps) => {
                 key={s}
                 type="button"
                 onClick={() => setFormData({ ...formData, status: s })}
-                className={`px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors ${statusButtonClass(s, formData.status === s)}`}
+                className={`rounded-full border px-4 py-2 text-sm font-bold transition ${statusButtonClass(s, formData.status === s)}`}
               >
                 {statusButtonLabel(s)}
               </button>
@@ -208,7 +201,7 @@ const CreateNewsModal = ({ categories, controller }: CreateNewsModalProps) => {
               type="datetime-local"
               value={formData.scheduled_publish_at}
               onChange={(e) => setFormData({ ...formData, scheduled_publish_at: e.target.value })}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm text-gray-800 outline-none transition focus:border-wb-green focus:ring-2 focus:ring-wb-green/20"
             />
           </div>
         )}
@@ -223,7 +216,7 @@ const CreateNewsModal = ({ categories, controller }: CreateNewsModalProps) => {
               value={formData.tag_names}
               onChange={(e) => setFormData({ ...formData, tag_names: e.target.value })}
               placeholder="важно, обновление, кадры"
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+              className="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm text-gray-800 outline-none transition focus:border-wb-green focus:ring-2 focus:ring-wb-green/20"
             />
           </div>
           <div>
@@ -234,7 +227,7 @@ const CreateNewsModal = ({ categories, controller }: CreateNewsModalProps) => {
               type="datetime-local"
               value={formData.expires_at}
               onChange={(e) => setFormData({ ...formData, expires_at: e.target.value })}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+              className="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm text-gray-800 outline-none transition focus:border-wb-green focus:ring-2 focus:ring-wb-green/20"
             />
           </div>
         </div>
@@ -252,14 +245,12 @@ const CreateNewsModal = ({ categories, controller }: CreateNewsModalProps) => {
             />
             <label
               htmlFor="file-input"
-              className="flex items-center justify-center w-full px-4 py-2 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-purple-500 hover:bg-purple-50 transition-colors disabled:cursor-not-allowed disabled:opacity-50"
+              className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl border-2 border-dashed border-gray-300 bg-gray-50 px-4 py-3 transition hover:border-wb-green hover:bg-wb-green-light disabled:cursor-not-allowed disabled:opacity-50"
             >
-              <div className="flex items-center gap-2">
-                <Upload className="w-4 h-4 text-gray-600" />
-                <span className="text-sm text-gray-600">
-                  {uploadingFiles ? 'Загрузка...' : 'Выберите файлы'}
-                </span>
-              </div>
+              <Upload className="h-4 w-4 text-wb-green" />
+              <span className="text-sm font-medium text-gray-600">
+                {uploadingFiles ? 'Загрузка...' : 'Выберите файлы'}
+              </span>
             </label>
           </div>
 
@@ -289,17 +280,17 @@ const CreateNewsModal = ({ categories, controller }: CreateNewsModalProps) => {
           )}
         </div>
 
-        <div className="flex items-center gap-3 pt-4 border-t border-gray-200">
+        <div className="flex items-center gap-3 border-t border-gray-100 pt-5">
           <button
             onClick={handleCreateNews}
             disabled={isCreateDisabled}
-            className="flex-1 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
+            className="flex-1 rounded-full bg-wb-green px-5 py-3 text-sm font-bold text-white transition hover:-translate-y-px disabled:cursor-not-allowed disabled:bg-gray-300 disabled:hover:translate-y-0"
           >
             {submitButtonLabel(formData.status)}
           </button>
           <button
             onClick={closeModal}
-            className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
+            className="rounded-full border border-gray-200 px-5 py-3 text-sm font-bold text-gray-600 transition hover:bg-gray-50"
           >
             Отмена
           </button>
