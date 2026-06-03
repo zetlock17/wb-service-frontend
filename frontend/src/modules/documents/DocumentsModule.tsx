@@ -99,6 +99,11 @@ const DocumentsModule = () => {
   const currentEid = String(currentUser?.eid ?? "");
   const { alertState, showAlert, closeAlert } = useAlert();
   const initialLoadRef = useRef(false);
+  // Tracks profile EIDs already requested, so fetchProfilesByEids stays stable
+  // (no profilesMap dependency) and doesn't trigger refetch loops.
+  const requestedProfileEidsRef = useRef<Set<string>>(new Set());
+  // Monotonic id so only the latest documents request can commit its result.
+  const docsRequestIdRef = useRef(0);
 
   // --- Navigation & filters ---
   const [activeTab, setActiveTab] = useState<ActiveTab>("all");
@@ -258,9 +263,11 @@ const DocumentsModule = () => {
     async (eids: Array<string | null | undefined>) => {
       const missing = Array.from(
         new Set(eids.filter((e): e is string => Boolean(e)).map(String))
-      ).filter((e) => !profilesMap[e]);
+      ).filter((e) => !requestedProfileEidsRef.current.has(e));
 
       if (!missing.length) return;
+      // Mark as in-flight up front so concurrent callers don't refetch the same EIDs.
+      missing.forEach((e) => requestedProfileEidsRef.current.add(e));
 
       const responses = await Promise.all(missing.map((eid) => getProfileByEid(eid)));
       const entries: Record<string, string> = {};
@@ -268,11 +275,14 @@ const DocumentsModule = () => {
         if (res.status >= 200 && res.status < 300 && res.data) {
           const eid = String(res.data.eid ?? missing[i]);
           if (eid) entries[eid] = res.data.full_name ?? eid;
+        } else {
+          // Allow a later retry if the profile couldn't be loaded.
+          requestedProfileEidsRef.current.delete(missing[i]);
         }
       });
       if (Object.keys(entries).length) setProfilesMap((prev) => ({ ...prev, ...entries }));
     },
-    [profilesMap]
+    []
   );
 
   const fetchFolders = useCallback(async () => {
@@ -294,11 +304,15 @@ const DocumentsModule = () => {
   const fetchDocumentsByFolder = useCallback(
     async (folderId: number | null) => {
       if (!initialLoadRef.current) return;
+      const requestId = ++docsRequestIdRef.current;
       setDocumentsLoading(true);
       const res = await getDocuments({ folder_id: folderId, show_archived: showArchived, page: 1, size: 100 });
+      // A newer request superseded this one — drop the (stale) result so it can't
+      // overwrite fresh documents or clear them on a late error.
+      if (requestId !== docsRequestIdRef.current) return;
       setDocumentsLoading(false);
       if (res.status >= 200 && res.status < 300) {
-        const docs = res.data ?? [];
+        const docs = Array.isArray(res.data) ? res.data : [];
         setDocuments(docs);
         void fetchProfilesByEids(docs.flatMap((d) => [d.author_id, d.curator_id]));
         return;
