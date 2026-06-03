@@ -121,6 +121,12 @@ const DocumentDetailModal = ({
     ? folders.find((f) => f.id === document.folder_id)?.name ?? "Без папки"
     : "";
 
+  const versionLabel = (v: DocumentVersion) =>
+    v.version_number ?? `${v.version_major}.${v.version_minor}`;
+
+  const currentVersion = versions.find((v) => v.is_current) ?? versions[0];
+  const currentVersionLabel = currentVersion ? versionLabel(currentVersion) : null;
+
   const isRead = document ? readDocumentIds.has(document.id) : false;
 
   const tabs: { id: ActiveTab; label: string; icon: React.ElementType; show: boolean }[] = [
@@ -138,7 +144,7 @@ const DocumentDetailModal = ({
     >
       {document && (
         <div className="space-y-0">
-          <div className="-mx-6 -mt-4 mb-4 flex border-b border-gray-200">
+          <div className="-mx-7 -mt-6 mb-4 flex border-b border-gray-200">
             {tabs
               .filter((t) => t.show)
               .map((tab) => {
@@ -149,9 +155,9 @@ const DocumentDetailModal = ({
                     key={tab.id}
                     type="button"
                     onClick={() => setActiveTab(tab.id)}
-                    className={`flex flex-1 items-center justify-center gap-1.5 px-4 py-3 text-sm font-medium transition ${
+                    className={`-mb-px flex flex-1 items-center justify-center gap-1.5 px-4 py-3 text-sm font-semibold transition ${
                       isActive
-                        ? "border-b-2 border-purple-600 text-purple-700"
+                        ? "border-b-2 border-wb-green text-wb-green"
                         : "text-gray-500 hover:text-gray-700"
                     }`}
                   >
@@ -168,12 +174,14 @@ const DocumentDetailModal = ({
                 <span className={`rounded-full px-3 py-1 text-xs font-semibold ${statusBadgeClasses[document.status]}`}>
                   {statusLabels[document.status]}
                 </span>
-                <span className="rounded-full bg-purple-50 px-3 py-1 text-xs font-medium text-purple-700">
+                <span className="rounded-full bg-wb-green-light px-3 py-1 text-xs font-semibold text-wb-green">
                   {document.type}
                 </span>
-                <span className="rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-700">
-                  v{document.current_version}
-                </span>
+                {currentVersionLabel && (
+                  <span className="rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-700">
+                    v{currentVersionLabel}
+                  </span>
+                )}
                 {isRead && (
                   <span className="inline-flex items-center gap-1 rounded-full bg-green-50 px-3 py-1 text-xs font-medium text-green-700">
                     <Check className="h-3 w-3" />
@@ -207,7 +215,7 @@ const DocumentDetailModal = ({
                   type="button"
                   onClick={() => onDownload(document.id)}
                   disabled={downloadingId === document.id}
-                  className="inline-flex flex-1 min-w-36 items-center justify-center gap-2 rounded-xl bg-purple-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-purple-700 disabled:opacity-60"
+                  className="inline-flex flex-1 min-w-36 items-center justify-center gap-2 rounded-xl bg-wb-green px-4 py-2.5 text-sm font-bold text-white transition hover:-translate-y-px disabled:opacity-60 disabled:hover:translate-y-0"
                 >
                   <Download className="h-4 w-4" />
                   {downloadingId === document.id ? "Скачивание..." : "Скачать"}
@@ -246,7 +254,7 @@ const DocumentDetailModal = ({
                   <button
                     type="button"
                     onClick={() => setActiveTab("edit")}
-                    className="inline-flex flex-1 min-w-28 items-center justify-center gap-1.5 rounded-xl border border-blue-300 bg-blue-50 px-4 py-2.5 text-sm font-medium text-blue-700 transition hover:bg-blue-100"
+                    className="inline-flex flex-1 min-w-28 items-center justify-center gap-1.5 rounded-xl border border-wb-green/30 bg-wb-green-light px-4 py-2.5 text-sm font-semibold text-wb-green transition hover:bg-wb-green/10"
                   >
                     <Edit className="h-4 w-4" />
                     Редактировать
@@ -289,7 +297,7 @@ const DocumentDetailModal = ({
           {activeTab === "versions" && (
             <div className="space-y-4">
               {canManage && (
-                <div className="rounded-xl border border-purple-100 bg-purple-50/50 p-4">
+                <div className="rounded-xl border border-wb-green/15 bg-wb-green-light/60 p-4">
                   <p className="mb-3 text-sm font-semibold text-gray-800">Загрузить новую версию</p>
                   <div className="space-y-3">
                     <div>
@@ -299,7 +307,7 @@ const DocumentDetailModal = ({
                         type="file"
                         onChange={handleVersionFileChange}
                         accept=".docx,.pdf,.xlsx,.jpg,.jpeg,.png"
-                        className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400"
+                        className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-wb-green/30"
                       />
                       {versionFile && (
                         <p className="mt-1 flex items-center gap-1 text-xs text-gray-500">
@@ -317,7 +325,7 @@ const DocumentDetailModal = ({
                         </div>
                         <div className="h-1.5 w-full overflow-hidden rounded-full bg-gray-200">
                           <div
-                            className="h-1.5 rounded-full bg-purple-600 transition-all"
+                            className="h-1.5 rounded-full bg-wb-green transition-all"
                             style={{ width: `${uploadVersionProgress}%` }}
                           />
                         </div>
@@ -331,7 +339,7 @@ const DocumentDetailModal = ({
                         value={versionComment}
                         onChange={(e) => setVersionComment(e.target.value)}
                         placeholder="Что изменилось?"
-                        className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400"
+                        className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-wb-green/30"
                       />
                     </div>
 
@@ -340,7 +348,7 @@ const DocumentDetailModal = ({
                         type="checkbox"
                         checked={versionMajor}
                         onChange={(e) => setVersionMajor(e.target.checked)}
-                        className="h-4 w-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500"
+                        className="h-4 w-4 rounded border-gray-300 text-wb-green accent-wb-green focus:ring-wb-green"
                       />
                       Мажорное обновление (увеличить старшую версию)
                     </label>
@@ -350,7 +358,7 @@ const DocumentDetailModal = ({
                         type="button"
                         onClick={handleUploadVersion}
                         disabled={uploading || !versionFile}
-                        className="inline-flex items-center gap-2 rounded-xl bg-purple-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-purple-700 disabled:cursor-not-allowed disabled:opacity-60"
+                        className="inline-flex items-center gap-2 rounded-xl bg-wb-green px-4 py-2 text-sm font-bold text-white transition hover:-translate-y-px disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0"
                       >
                         <UploadCloud className="h-4 w-4" />
                         {uploading ? "Загрузка..." : "Загрузить"}
@@ -369,7 +377,7 @@ const DocumentDetailModal = ({
               ) : versions.length ? (
                 <div className="space-y-2">
                   {versions.map((version) => {
-                    const label = version.version_number ?? `${version.version_major}.${version.version_minor}`;
+                    const label = versionLabel(version);
                     return (
                       <div
                         key={version.id}
@@ -421,7 +429,7 @@ const DocumentDetailModal = ({
                   type="text"
                   value={editingData.title}
                   onChange={(e) => setEditingData({ ...editingData, title: e.target.value })}
-                  className="w-full rounded-xl border border-gray-300 px-3 py-2.5 text-sm outline-none transition focus:border-purple-400 focus:ring-2 focus:ring-purple-200"
+                  className="w-full rounded-xl border border-gray-300 px-3 py-2.5 text-sm outline-none transition focus:border-wb-green focus:ring-2 focus:ring-wb-green/20"
                 />
               </FormField>
 
@@ -430,7 +438,7 @@ const DocumentDetailModal = ({
                   <select
                     value={editingData.type}
                     onChange={(e) => setEditingData({ ...editingData, type: e.target.value })}
-                    className="w-full rounded-xl border border-gray-300 px-3 py-2.5 text-sm outline-none transition focus:border-purple-400 focus:ring-2 focus:ring-purple-200"
+                    className="w-full rounded-xl border border-gray-300 px-3 py-2.5 text-sm outline-none transition focus:border-wb-green focus:ring-2 focus:ring-wb-green/20"
                   >
                     {documentTypeOptions.map((opt) => (
                       <option key={opt.value} value={opt.value}>
@@ -444,7 +452,7 @@ const DocumentDetailModal = ({
                   <select
                     value={editingData.status}
                     onChange={(e) => setEditingData({ ...editingData, status: e.target.value as Document["status"] })}
-                    className="w-full rounded-xl border border-gray-300 px-3 py-2.5 text-sm outline-none transition focus:border-purple-400 focus:ring-2 focus:ring-purple-200"
+                    className="w-full rounded-xl border border-gray-300 px-3 py-2.5 text-sm outline-none transition focus:border-wb-green focus:ring-2 focus:ring-wb-green/20"
                   >
                     <option value="DRAFT">Черновик</option>
                     <option value="ACTIVE">Действующий</option>
@@ -461,7 +469,7 @@ const DocumentDetailModal = ({
                     setEditingData({ ...editingData, curator_id: e.target.value || null })
                   }
                   placeholder="EID куратора"
-                  className="w-full rounded-xl border border-gray-300 px-3 py-2.5 text-sm outline-none transition focus:border-purple-400 focus:ring-2 focus:ring-purple-200"
+                  className="w-full rounded-xl border border-gray-300 px-3 py-2.5 text-sm outline-none transition focus:border-wb-green focus:ring-2 focus:ring-wb-green/20"
                 />
               </FormField>
 
@@ -470,7 +478,7 @@ const DocumentDetailModal = ({
                   value={editingData.description}
                   onChange={(e) => setEditingData({ ...editingData, description: e.target.value })}
                   rows={3}
-                  className="w-full resize-none rounded-xl border border-gray-300 px-3 py-2.5 text-sm outline-none transition focus:border-purple-400 focus:ring-2 focus:ring-purple-200"
+                  className="w-full resize-none rounded-xl border border-gray-300 px-3 py-2.5 text-sm outline-none transition focus:border-wb-green focus:ring-2 focus:ring-wb-green/20"
                 />
               </FormField>
 
@@ -479,7 +487,7 @@ const DocumentDetailModal = ({
                   type="button"
                   onClick={handleSaveEdit}
                   disabled={documentActionLoading}
-                  className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-purple-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-purple-700 disabled:opacity-60"
+                  className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-wb-green px-4 py-2.5 text-sm font-bold text-white transition hover:-translate-y-px disabled:opacity-60 disabled:hover:translate-y-0"
                 >
                   <Check className="h-4 w-4" />
                   {documentActionLoading ? "Сохранение..." : "Сохранить"}

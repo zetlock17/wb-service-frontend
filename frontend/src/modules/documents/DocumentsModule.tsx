@@ -1038,9 +1038,11 @@ const DocumentsModule = () => {
                     {formatDateTime(doc.created_at)}
                   </span>
                   <span>{getPersonDisplayName(doc.author_id)}</span>
-                  <span className="rounded-full bg-wb-green-light px-2 py-0.5 text-[12px] font-bold text-wb-green">
-                    v{doc.current_version}
-                  </span>
+                  {doc.current_version != null && (
+                    <span className="rounded-full bg-wb-green-light px-2 py-0.5 text-[12px] font-bold text-wb-green">
+                      v{doc.current_version}
+                    </span>
+                  )}
                 </div>
               </div>
               <span className="flex h-10 w-10 flex-none items-center justify-center rounded-xl bg-wb-pink-light text-wb-green transition group-hover:bg-wb-pink-dark group-hover:text-white">
